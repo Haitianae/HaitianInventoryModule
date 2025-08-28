@@ -1,0 +1,35 @@
+{
+  "short_name": "HTS IMS",
+  "name": "Haitian Inventory Management System",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "HaitianLogo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "HaitianLogo256.png",
+      "type": "image/png",
+      "sizes": "256x256"
+    },
+    {
+      "src": "HaitianLogo384.png",
+      "type": "image/png",
+      "sizes": "384x384"
+    },
+    {
+      "src": "HaitianLogo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
