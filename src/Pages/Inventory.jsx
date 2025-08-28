@@ -481,7 +481,7 @@ export default function Inventory({ user }) {
     <>
       <style>{styl}</style>
 
-      <div className="container-fluid ">
+      <div className="container-fluid mt-3">
         <div className="container">
           <div>
             <h1

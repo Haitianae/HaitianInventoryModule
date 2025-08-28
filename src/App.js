@@ -1162,7 +1162,7 @@ function App() {
       <div className={`fade-container ${isFadingOut ? "fade-out" : ""}`} style={{ display: "flex" }}>
         {isLoggedIn && <SideNavBar onLogout={handleLogout} user={user} />}
 
-        <div style={{ marginLeft: isLoggedIn ? 260 : 0, flex: 1, overflowX: "hidden" }}>
+        <div style={{ marginLeft: isLoggedIn ? 280 : 0, flex: 1, overflowX: "hidden" }}>
           <AppRoutes isLoggedIn={isLoggedIn} handleLoginSuccess={handleLoginSuccess} user={user} />
         </div>
       </div>

@@ -4791,7 +4791,7 @@ userName: user?.email || "",
   return (
     <>
       <style>{styl}</style>
-      <div className="container-fluid ">
+      <div className="container-fluid mt-3">
         <div className="container">
           <div>
             <h1
@@ -4804,7 +4804,7 @@ userName: user?.email || "",
               className="text-center m-0 p-0 haitianInventoryDescriptionText"
               style={{ color: "#0D3884" }}
             >
-              (Add and manage your product categories with ease)
+              (Add items based on the product categories)
             </p>
           </div>
 

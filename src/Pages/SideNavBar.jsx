@@ -672,7 +672,7 @@ export default function SideNavBar({ onLogout, user }) {
       <div
         className="shadow"
         style={{
-          width: 270,
+          width: 290,
           height: "100vh",
           backgroundColor: "#0D3884",
           display: "flex",
