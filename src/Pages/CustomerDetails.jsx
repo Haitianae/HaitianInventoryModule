@@ -35,7 +35,7 @@ export default function CustomerDetails({ user }) {
   const readOnly = access === "Read";
 
 
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbwahlJpnDlxVaffb6064lmCwCVuoXLlVca3J1K2JoIaWlmoSzymHm6v0_dPIOiexalPQw/exec"
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbzgteKmCmsL5AdZjSPGnEEKQjuRKDtKIrFhRSVSur2aPUKCzVAr5lqaUlcEsxSFziAHNw/exec"
 
   
 
@@ -296,8 +296,8 @@ export default function CustomerDetails({ user }) {
                             name="lastname"
                             rules={[
                               {
-                                required: true,
-                                message: "Please enter last name!",
+                                required: false,
+                                // message: "Please enter last name!",
                               },
                               {
                                 pattern: /^[A-Za-z\s.]+$/,
@@ -543,9 +543,9 @@ export default function CustomerDetails({ user }) {
                             name="workPhoneNumber"
                             rules={[
                               {
-                                required: true,
-                                message:
-                                  "Please enter the cutomer work phone number!",
+                                required: false,
+                                // message:
+                                //   "Please enter the cutomer work phone number!",
                               },
                               {
                                 pattern: /^[0-9\s-]+$/,

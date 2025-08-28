@@ -365,7 +365,7 @@ export default function Inventory({ user }) {
       });
 
       const res = await fetch(
-        "https://script.google.com/macros/s/AKfycbwahlJpnDlxVaffb6064lmCwCVuoXLlVca3J1K2JoIaWlmoSzymHm6v0_dPIOiexalPQw/exec",
+        "https://script.google.com/macros/s/AKfycbzgteKmCmsL5AdZjSPGnEEKQjuRKDtKIrFhRSVSur2aPUKCzVAr5lqaUlcEsxSFziAHNw/exec",
         {
           method: "POST",
           body: params,
