@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleUser, faLock } from "@fortawesome/free-solid-svg-icons";
 import HaitianBackgroundImage from "../Images/HaitianBanner.png";
 import { Button, Form, Input, notification } from "antd";
+import "../App.css";
 
 notification.config({
   maxCount: 2,
@@ -229,6 +230,8 @@ export default function Login({ onLoginSuccess }) {
                       >
                         {loading ? "Logging In" : "Login"}
                       </Button>
+                      <p className="text-center m-0 p-0 haitianColor">© 2025 Haitian Middle East. All rights reserved.
+</p>
                     </Form>
                   </div>
                 </div>
