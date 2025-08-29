@@ -117,6 +117,25 @@ export default function ProductCategories({ user }) {
   const [stockCache, setStockCache] = useState({});
   const [loadingStockCache, setLoadingStockCache] = useState(true);
   const [userRole, setUserRole] = useState(user);
+  const [consumablesInputRow, setConsumablesInputRow] = useState({
+    date: "",
+    partNumber: "",
+    description: "",
+    quantity: "",
+    unit: "",
+    stockInHand: "",
+    stockUnit: "",
+    purchaseCost: "",
+    addOnCost: "",
+    sellingCost: "",
+    totalPrice: "",
+    note: "",
+  });
+
+  const [consumablesDataSource, setConsumablesDataSource] = useState([]);
+  const [consumablesUnitOptions, setConsumablesUnitOptions] = useState([]);
+  const [consumablesUnitLoading, setConsumablesUnitLoading] = useState(false);
+  const [consumablesFetching, setConsumablesFetching] = useState(false);
 
   const updateTotalPrice = (purchase, addOn, quantity) => {
     const p = parseFloat(purchase);
@@ -133,7 +152,7 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzgteKmCmsL5AdZjSPGnEEKQjuRKDtKIrFhRSVSur2aPUKCzVAr5lqaUlcEsxSFziAHNw/exec";
+    "https://script.google.com/macros/s/AKfycbxhU19k3RjMdg_fNSHUXdQ8x4_DdQtR812Ir6-YAHiHeJ_UEk1yBAIdLSC67KsHL4Wy2A/exec";
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -612,7 +631,7 @@ export default function ProductCategories({ user }) {
     const part = machineinputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre"];
+    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -637,7 +656,7 @@ export default function ProductCategories({ user }) {
     // ✅ Update dropdown options
     if (unit) {
       setMachineUnitOptions(
-        userRole === "Admin" ? [...new Set([unit, ...defaultUnits])] : [unit]
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
       );
     } else {
       setMachineUnitOptions([...defaultUnits]);
@@ -799,7 +818,7 @@ export default function ProductCategories({ user }) {
     const part = auxiliariesInputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre"];
+    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -817,7 +836,7 @@ export default function ProductCategories({ user }) {
 
     if (unit) {
       setAuxiliariesUnitOptions(
-        userRole === "Admin" ? [...new Set([unit, ...defaultUnits])] : [unit]
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
       );
     } else {
       setAuxiliariesUnitOptions([...defaultUnits]);
@@ -1309,7 +1328,7 @@ export default function ProductCategories({ user }) {
     const part = inputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre"];
+    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -1335,7 +1354,7 @@ export default function ProductCategories({ user }) {
 
       // update dropdown options
       setSpareUnitOptions(
-        userRole === "Admin"
+        isFullControl
           ? unit
             ? [...new Set([unit, ...defaultUnits])]
             : [...defaultUnits]
@@ -1360,6 +1379,260 @@ export default function ProductCategories({ user }) {
     }
   }, [inputRow.partNumber, stockCache, userRole]);
 
+  useEffect(() => {
+    const part = consumablesInputRow.partNumber?.trim();
+    if (!part) return;
+
+    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
+    const cached = stockCache[part];
+    let unit = "";
+    let stock = "0";
+
+    if (cached) {
+      stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+      unit = cached.unit?.trim() || "";
+    }
+
+    setConsumablesInputRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+    }));
+
+    if (unit) {
+      setConsumablesUnitOptions(
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+      );
+    } else {
+      setConsumablesUnitOptions([...defaultUnits]);
+    }
+  }, [consumablesInputRow.partNumber, stockCache, userRole]);
+
+  //   const handleSubmit = async (values) => {
+  //     if (!navigator.onLine) {
+  //       notification.error({
+  //         message: "No Internet Connection",
+  //         description: "Please check your internet and try again.",
+  //       });
+  //       return;
+  //     }
+  //     if (
+  //       loading ||
+  //       (machineDataSource.length === 0 &&
+  //         auxiliariesDataSource.length === 0 &&
+  //         // assetsDataSource.length === 0 &&
+  //         dataSource.length === 0 &&
+  //         !form.getFieldValue("consumables")
+  //         // !form.getFieldValue("tools")
+  //         )
+  //     ) {
+  //       console.log("Return");
+  //       notification.error({
+  //         message: "Error",
+  //         description:
+  //           "Please fill in Date, Part Number, Description, Quantity,  Unit, Purchase Cost, Add On Cost and click Add before submitting",
+  //       });
+  //       return;
+  //     }
+  //     const {
+  //       productCategory,
+  //       machines,
+  //       immSeries,
+  //       maSeries,
+  //       juSeries,
+  //       jeSeries,
+  //       veSeries,
+  //       zeSeries,
+  //       haSeries,
+  //       auxiliaries,
+  //       // assets,
+  //       consumables,
+  //       // tools,
+  //     } = values;
+
+  //     try {
+  //       setLoading(true);
+
+  //       const rowLockResponse = await fetch(GAS_URL, {
+  //         method: "POST",
+  //         headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //         body: new URLSearchParams({ action: "getRowLock" }),
+  //       });
+
+  //       const { rowIndex } = await rowLockResponse.json();
+  //       let currentRow = parseInt(rowIndex || "3", 10);
+
+  //       const maxLength = Math.max(
+  //         machineDataSource.length,
+  //         auxiliariesDataSource.length,
+  //         // assetsDataSource.length,
+  //         dataSource.length
+  //       );
+
+  //       for (let i = 0; i < maxLength; i++) {
+  //         const machine = machineDataSource[i] || {};
+  //         const auxiliary = auxiliariesDataSource[i] || {};
+  //         // const asset = assetsDataSource[i] || {};
+  //         const spare = dataSource[i] || {};
+
+  //         console.log("User object in handleSubmit:", user);
+
+  //         const formData = new URLSearchParams({
+  //           action: "addProductCategories",
+  //           recordType: "machine",
+  //           rowIndex: currentRow.toString(),
+
+  //           // Machine Type Info
+  //           machines,
+  //           immSeries: immSeries || "-",
+  //           maSeries: maSeries || "-",
+  //           juSeries: juSeries || "-",
+  //           jeSeries: jeSeries || "-",
+  //           veSeries: veSeries || "-",
+  //           zeSeries: zeSeries || "-",
+  //           haSeries: haSeries || "-",
+
+  //           // Machine Details
+  //           machinePartNumber: machine.partNumber || "-",
+  //           machineDescription: machine.description || "-",
+  //           machineQuantity: machine.quantity || "-",
+  //           machineStockInHand: machine.stockInHand || "0",
+  //           machineNote: machine.note || "-",
+  //           machinePurchaseCost: machine.purchaseCost || "-",
+  //           machineAddOnCost: machine.addOnCost || "-",
+  //           machineSellingCost: machine.sellingCost || "-",
+  //           machineUnit: machine.unit || "-",
+  //           machineTotalPrice: machine.totalPrice || "-",
+  //           machineDate: machine.date || "",
+  //           // userName: user || "",
+  // userName: user?.email || "",
+
+  //           consumables: i === 0 ? consumables || "" : "",
+  //           // tools: i === 0 ? tools || "" : "",
+
+  //           auxiliaries: Array.isArray(auxiliaries)
+  //             ? auxiliaries.join(" / ")
+  //             : auxiliaries || "",
+
+  //           auxPartNumber: auxiliary.partNumber || "-",
+  //           auxDescription: auxiliary.description || "-",
+  //           auxQuantity: auxiliary.quantity || "-",
+  //           auxStockInHand: auxiliary.stockInHand || "0",
+  //           auxNote: auxiliary.note || "-",
+  //           auxPurchaseCost: auxiliary.purchaseCost || "-",
+  //           auxAddOnCost: auxiliary.addOnCost || "-",
+  //           auxSellingCost: auxiliary.sellingCost || "-",
+  //           auxUnit: auxiliary.unit || "-",
+  //           auxTotalPrice: auxiliary.totalPrice || "-",
+  //           auxDate: auxiliary.date || "-",
+
+  //           // assets: i === 0 ? assets || "-" : "",
+  //           // assets: assets || "-",
+  //           // assetPartNumber: asset.partNumber || "-",
+  //           // assetDescription: asset.description || "-",
+  //           // assetQuantity: asset.quantity || "-",
+  //           // assetStockInHand: asset.stockInHand || "0",
+  //           // assetNote: asset.note || "-",
+  //           // assetPurchaseCost: asset.purchaseCost || "-",
+  //           // assetAddOnCost: asset.addOnCost || "-",
+  //           // assetSellingCost: asset.sellingCost || "-",
+  //           // assetUnit: asset.unit || "-",
+  //           // assetTotalPrice: asset.totalPrice || "-",
+  //           // assetDate: asset.date || "",
+
+  //           sparePartNumber: spare.partNumber || "-",
+  //           spareDescription: spare.description || "-",
+  //           spareQuantity: spare.quantity || "-",
+  //           spareStockInHand: spare.stockInHand || "0",
+  //           spareNote: spare.note || "-",
+  //           sparePurchaseCost: spare.purchaseCost || "-",
+  //           spareAddOnCost: spare.addOnCost || "-",
+  //           spareSellingCost: spare.sellingCost || "-",
+  //           spareUnit: spare.unit || "-",
+  //           spareTotalPrice: spare.totalPrice || "-",
+  //           spareDate: spare.date || "",
+  //         });
+
+  //         console.log(
+  //           `Submitting row ${currentRow}:`,
+  //           Object.fromEntries(formData.entries())
+  //         );
+
+  //         await fetch(GAS_URL, {
+  //           method: "POST",
+  //           headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //           body: formData.toString(),
+  //         });
+
+  //         currentRow++;
+  //       }
+
+  //       if (maxLength === 0 && (consumables)) {
+  //         const formData = new URLSearchParams({
+  //           action: "addProductCategories",
+  //           recordType: "general",
+  //           rowIndex: currentRow.toString(),
+  //           machines: machines || "-",
+  //           immSeries: immSeries || "-",
+  //           maSeries: maSeries || "-",
+  //           juSeries: juSeries || "-",
+  //           jeSeries: jeSeries || "-",
+  //           veSeries: veSeries || "-",
+  //           zeSeries: zeSeries || "-",
+  //           haSeries: haSeries || "-",
+  //           auxiliaries: Array.isArray(auxiliaries)
+  //             ? auxiliaries.join(" / ")
+  //             : auxiliaries || "",
+  //           // assets: assets || "-",
+  //           consumables: consumables || "-",
+  //           // tools: tools || "-",
+  // userName: user?.email || "",
+  //         });
+
+  //         console.log(
+  //           `Submitting (consumables only) row ${currentRow}:`,
+  //           Object.fromEntries(formData.entries())
+  //         );
+
+  //         await fetch(GAS_URL, {
+  //           method: "POST",
+  //           headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //           body: formData.toString(),
+  //         });
+
+  //         currentRow++;
+  //       }
+
+  //       await fetch(GAS_URL, {
+  //         method: "POST",
+  //         headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //         body: new URLSearchParams({ action: "finalizeRowLock" }),
+  //       });
+  //       await fetchAllStock();
+
+  //       notification.success({
+  //         message: "Succes",
+  //         description: "Data Submitted Successfully",
+  //       });
+  //       form.resetFields();
+  //       setSelectedCategory(null);
+  //       setMachineDataSource([]);
+  //       setAuxiliariesDataSource([]);
+  //       // setAssetsDataSource([]);
+  //       setDataSource([]);
+  //     } catch (err) {
+  //       // console.error("Submission failed:", err);
+  //       // message.error("Something went wrong. Check console.");
+  //       notification.error({
+  //         message: "Error",
+  //         description: "Submission failed:",
+  //         err,
+  //       });
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
   const handleSubmit = async (values) => {
     if (!navigator.onLine) {
       notification.error({
@@ -1368,24 +1641,22 @@ export default function ProductCategories({ user }) {
       });
       return;
     }
+
     if (
       loading ||
       (machineDataSource.length === 0 &&
         auxiliariesDataSource.length === 0 &&
-        // assetsDataSource.length === 0 &&
         dataSource.length === 0 &&
-        !form.getFieldValue("consumables")
-        // !form.getFieldValue("tools")
-        )
+        consumablesDataSource.length === 0)
     ) {
-      console.log("Return");
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity,  Unit, Purchase Cost, Add On Cost and click Add before submitting",
+          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and click Add before submitting",
       });
       return;
     }
+
     const {
       productCategory,
       machines,
@@ -1397,9 +1668,6 @@ export default function ProductCategories({ user }) {
       zeSeries,
       haSeries,
       auxiliaries,
-      // assets,
-      consumables,
-      // tools,
     } = values;
 
     try {
@@ -1417,18 +1685,15 @@ export default function ProductCategories({ user }) {
       const maxLength = Math.max(
         machineDataSource.length,
         auxiliariesDataSource.length,
-        // assetsDataSource.length,
-        dataSource.length
+        dataSource.length,
+        consumablesDataSource.length
       );
 
       for (let i = 0; i < maxLength; i++) {
         const machine = machineDataSource[i] || {};
         const auxiliary = auxiliariesDataSource[i] || {};
-        // const asset = assetsDataSource[i] || {};
         const spare = dataSource[i] || {};
-
-        console.log("User object in handleSubmit:", user);
-
+        const consumable = consumablesDataSource[i] || {};
 
         const formData = new URLSearchParams({
           action: "addProductCategories",
@@ -1457,11 +1722,8 @@ export default function ProductCategories({ user }) {
           machineUnit: machine.unit || "-",
           machineTotalPrice: machine.totalPrice || "-",
           machineDate: machine.date || "",
-          // userName: user || "",
-userName: user?.email || "",
 
-          consumables: i === 0 ? consumables || "" : "",
-          // tools: i === 0 ? tools || "" : "",
+          userName: user?.email || "",
 
           auxiliaries: Array.isArray(auxiliaries)
             ? auxiliaries.join(" / ")
@@ -1479,20 +1741,6 @@ userName: user?.email || "",
           auxTotalPrice: auxiliary.totalPrice || "-",
           auxDate: auxiliary.date || "-",
 
-          // assets: i === 0 ? assets || "-" : "",
-          // assets: assets || "-",
-          // assetPartNumber: asset.partNumber || "-",
-          // assetDescription: asset.description || "-",
-          // assetQuantity: asset.quantity || "-",
-          // assetStockInHand: asset.stockInHand || "0",
-          // assetNote: asset.note || "-",
-          // assetPurchaseCost: asset.purchaseCost || "-",
-          // assetAddOnCost: asset.addOnCost || "-",
-          // assetSellingCost: asset.sellingCost || "-",
-          // assetUnit: asset.unit || "-",
-          // assetTotalPrice: asset.totalPrice || "-",
-          // assetDate: asset.date || "",
-
           sparePartNumber: spare.partNumber || "-",
           spareDescription: spare.description || "-",
           spareQuantity: spare.quantity || "-",
@@ -1504,46 +1752,23 @@ userName: user?.email || "",
           spareUnit: spare.unit || "-",
           spareTotalPrice: spare.totalPrice || "-",
           spareDate: spare.date || "",
+
+          // ✅ Consumables
+          consumablePartNumber: consumable.partNumber || "-",
+          consumableDescription: consumable.description || "-",
+          consumableQuantity: consumable.quantity || "-",
+          consumableStockInHand: consumable.stockInHand || "0",
+          consumableNote: consumable.note || "-",
+          consumablePurchaseCost: consumable.purchaseCost || "-",
+          consumableAddOnCost: consumable.addOnCost || "-",
+          consumableSellingCost: consumable.sellingCost || "-",
+          consumableUnit: consumable.unit || "-",
+          consumableTotalPrice: consumable.totalPrice || "-",
+          consumableDate: consumable.date || "-",
         });
 
         console.log(
           `Submitting row ${currentRow}:`,
-          Object.fromEntries(formData.entries())
-        );
-
-        await fetch(GAS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: formData.toString(),
-        });
-
-        currentRow++;
-      }
-
-      if (maxLength === 0 && (consumables)) {
-        const formData = new URLSearchParams({
-          action: "addProductCategories",
-          recordType: "general",
-          rowIndex: currentRow.toString(),
-          machines: machines || "-",
-          immSeries: immSeries || "-",
-          maSeries: maSeries || "-",
-          juSeries: juSeries || "-",
-          jeSeries: jeSeries || "-",
-          veSeries: veSeries || "-",
-          zeSeries: zeSeries || "-",
-          haSeries: haSeries || "-",
-          auxiliaries: Array.isArray(auxiliaries)
-            ? auxiliaries.join(" / ")
-            : auxiliaries || "",
-          // assets: assets || "-",
-          consumables: consumables || "-",
-          // tools: tools || "-",
-userName: user?.email || "",
-        });
-
-        console.log(
-          `Submitting (consumables only) row ${currentRow}:`,
           Object.fromEntries(formData.entries())
         );
 
@@ -1561,21 +1786,21 @@ userName: user?.email || "",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ action: "finalizeRowLock" }),
       });
+
       await fetchAllStock();
 
       notification.success({
-        message: "Succes",
+        message: "Success",
         description: "Data Submitted Successfully",
       });
+
       form.resetFields();
       setSelectedCategory(null);
       setMachineDataSource([]);
       setAuxiliariesDataSource([]);
-      // setAssetsDataSource([]);
       setDataSource([]);
+      setConsumablesDataSource([]); // ✅ clear consumables after submit
     } catch (err) {
-      // console.error("Submission failed:", err);
-      // message.error("Something went wrong. Check console.");
       notification.error({
         message: "Error",
         description: "Submission failed:",
@@ -1624,7 +1849,8 @@ userName: user?.email || "",
       stockUnit: inputRow.stockUnit || "",
     };
 
-    setDataSource([...dataSource, newData]);
+    // setDataSource([...dataSource, newData]);
+    setDataSource((prev) => [...prev, newData]);
     setInputRow({
       partNumber: "",
       description: "",
@@ -2301,6 +2527,589 @@ userName: user?.email || "",
 
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
 
+  const handleConsumablesAdd = async () => {
+    const {
+      partNumber,
+      description,
+      quantity,
+      unit,
+      purchaseCost,
+      addOnCost,
+      sellingCost,
+      totalPrice,
+      date,
+    } = consumablesInputRow;
+
+    if (
+      !partNumber ||
+      !description ||
+      !quantity ||
+      !unit ||
+      !purchaseCost ||
+      !addOnCost ||
+      !sellingCost ||
+      !totalPrice ||
+      !date
+    ) {
+      notification.error({
+        message: "Error",
+        description:
+          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+      });
+      return;
+    }
+
+    const newData = {
+      key: Date.now(),
+      ...consumablesInputRow,
+      stockInHand: consumablesInputRow.stockInHand || "0",
+      stockUnit: consumablesInputRow.stockUnit || "",
+    };
+
+    setConsumablesDataSource((prev) => [...prev, newData]);
+
+    setConsumablesInputRow({
+      date: "",
+      partNumber: "",
+      description: "",
+      quantity: "",
+      unit: "",
+      stockInHand: "",
+      stockUnit: "",
+      purchaseCost: "",
+      addOnCost: "",
+      sellingCost: "",
+      totalPrice: "",
+      note: "",
+    });
+
+    await fetchAllStock(); // ✅ same as spare parts
+  };
+
+  const handleConsumablesDelete = (key) => {
+    setConsumablesDataSource((prev) => prev.filter((item) => item.key !== key));
+  };
+
+  const consumablesColumns = [
+    {
+      title: "Date",
+      dataIndex: "date",
+      width: 220,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <DatePicker
+              format="DD-MM-YYYY"
+              style={{ width: "100%" }}
+              value={
+                consumablesInputRow.date &&
+                dayjs(consumablesInputRow.date, "DD-MM-YYYY").isValid()
+                  ? dayjs.tz(
+                      consumablesInputRow.date,
+                      "DD-MM-YYYY",
+                      "Asia/Dubai"
+                    )
+                  : null
+              }
+              onChange={(dateObj) => {
+                if (!dateObj) {
+                  setConsumablesInputRow({ ...consumablesInputRow, date: "" });
+                  return;
+                }
+                const formatted = dayjs(dateObj)
+                  .tz("Asia/Dubai")
+                  .format("DD-MM-YYYY");
+                setConsumablesInputRow({
+                  ...consumablesInputRow,
+                  date: formatted,
+                });
+              }}
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.date}>
+            <span>{record.date || "-"}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Part Number",
+      dataIndex: "partNumber",
+      width: 250,
+      ellipsis: true,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input
+              placeholder="Enter part number"
+              value={consumablesInputRow.partNumber}
+              onChange={(e) =>
+                setConsumablesInputRow({
+                  ...consumablesInputRow,
+                  partNumber: e.target.value.toUpperCase(),
+                  quantity: "",
+                })
+              }
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.partNumber}>
+            <span>{record.partNumber}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Description",
+      dataIndex: "description",
+      ellipsis: true,
+      width: 500,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input.TextArea
+              rows={1}
+              placeholder="Enter description"
+              value={consumablesInputRow.description}
+              onChange={(e) =>
+                setConsumablesInputRow({
+                  ...consumablesInputRow,
+                  description: e.target.value,
+                })
+              }
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip
+            title={record.description}
+            styles={{
+              root: {
+                maxWidth: 1000,
+                wordWrap: "break-word",
+                whiteSpace: "normal",
+              },
+            }}
+          >
+            <span className="truncate-text">
+              {record.description?.length > 150
+                ? `${record.description.slice(0, 150)}...`
+                : record.description}
+            </span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Purchase Cost In AED (per item)",
+      dataIndex: "purchaseCost",
+      ellipsis: true,
+      width: 250,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input
+              placeholder="Enter purchase cost"
+              type="number"
+              min={0}
+              value={consumablesInputRow.purchaseCost}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  purchaseCost: value,
+                }));
+                setConsumablesFetching(true);
+                clearTimeout(window.consumablesPurchaseDebounce);
+                window.consumablesPurchaseDebounce = setTimeout(() => {
+                  const num = parseFloat(value);
+                  if (
+                    value !== "" &&
+                    (value === "0" ||
+                      value === "0.0" ||
+                      value === ".0" ||
+                      isNaN(num) ||
+                      num <= 0)
+                  ) {
+                    notification.error({
+                      message: "Invalid Purchase Cost",
+                      description: "Purchase cost must be greater than 0.",
+                    });
+                    setConsumablesInputRow((prev) => ({
+                      ...prev,
+                      purchaseCost: "",
+                    }));
+                  } else {
+                    const { totalPrice } = updateTotalPrice(
+                      value,
+                      consumablesInputRow.addOnCost,
+                      consumablesInputRow.quantity
+                    );
+                    setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
+                  }
+                  setConsumablesFetching(false);
+                }, 3000);
+              }}
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.purchaseCost}>
+            <span>{record.purchaseCost || "-"}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Add On Cost In AED",
+      dataIndex: "addOnCost",
+      ellipsis: true,
+      width: 250,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input
+              type="number"
+              min={0}
+              placeholder="Enter add on cost"
+              value={consumablesInputRow.addOnCost}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  addOnCost: value,
+                }));
+                setConsumablesFetching(true);
+
+                clearTimeout(window.consumablesAddOnDebounce);
+                window.consumablesAddOnDebounce = setTimeout(() => {
+                  const num = parseFloat(value);
+                  if (
+                    value !== "" &&
+                    (value === "0" ||
+                      value === "0.0" ||
+                      value === ".0" ||
+                      isNaN(num) ||
+                      num <= 0)
+                  ) {
+                    notification.error({
+                      message: "Invalid Add On Cost",
+                      description: "Add on cost must be greater than 0.",
+                    });
+                    setConsumablesInputRow((prev) => ({
+                      ...prev,
+                      addOnCost: "",
+                    }));
+                  } else {
+                    const { totalPrice } = updateTotalPrice(
+                      consumablesInputRow.purchaseCost,
+                      value,
+                      consumablesInputRow.quantity
+                    );
+                    setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
+                  }
+                  setConsumablesFetching(false);
+                }, 3000);
+              }}
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.addOnCost}>
+            <span>{record.addOnCost}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Selling Cost (AED)",
+      dataIndex: "sellingCost",
+      ellipsis: true,
+      width: 250,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input
+              type="number"
+              min={0}
+              placeholder="Enter Selling Cost"
+              value={consumablesInputRow.sellingCost || ""}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  sellingCost: value,
+                }));
+
+                clearTimeout(window.consumablesSellingDebounce);
+                window.consumablesSellingDebounce = setTimeout(() => {
+                  const num = parseFloat(value);
+                  if (
+                    value !== "" &&
+                    (value === "0" ||
+                      value === "0.0" ||
+                      value === ".0" ||
+                      isNaN(num) ||
+                      num <= 0)
+                  ) {
+                    notification.error({
+                      message: "Invalid Selling Cost",
+                      description: "Selling cost must be greater than 0.",
+                    });
+                    setConsumablesInputRow((prev) => ({
+                      ...prev,
+                      sellingCost: "",
+                    }));
+                  }
+                }, 3000);
+              }}
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.sellingCost}>
+            <span>{record.sellingCost}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Quantity",
+      dataIndex: "quantity",
+      ellipsis: true,
+      width: 200,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input
+              placeholder="Enter Quantity"
+              type="number"
+              disabled={consumablesUnitLoading}
+              value={consumablesInputRow.quantity}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  quantity: value,
+                }));
+                setConsumablesFetching(true);
+
+                clearTimeout(window.consumablesQuantityDebounce);
+                window.consumablesQuantityDebounce = setTimeout(() => {
+                  const num = parseFloat(value);
+                  if (
+                    value !== "" &&
+                    (value === "0" ||
+                      value === "0.0" ||
+                      value === ".0" ||
+                      isNaN(num) ||
+                      num <= 0)
+                  ) {
+                    notification.error({
+                      message: "Invalid Quantity",
+                      description: "Quantity must be greater than 0.",
+                    });
+                    setConsumablesInputRow((prev) => ({
+                      ...prev,
+                      quantity: "",
+                    }));
+                    setConsumablesFetching(false);
+                    return;
+                  }
+
+                  const unit = (consumablesInputRow.unit || "").toLowerCase();
+                  if (
+                    (unit === "set" || unit === "piece") &&
+                    !Number.isInteger(num)
+                  ) {
+                    notification.error({
+                      message: "Invalid Quantity",
+                      description: `Quantity for unit "${consumablesInputRow.unit}" must be a whole number.`,
+                    });
+                    setConsumablesInputRow((prev) => ({
+                      ...prev,
+                      quantity: "",
+                      unit: "",
+                    }));
+                    setConsumablesFetching(false);
+                    return;
+                  }
+
+                  const { totalPrice } = updateTotalPrice(
+                    consumablesInputRow.purchaseCost,
+                    consumablesInputRow.addOnCost,
+                    value
+                  );
+                  setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
+                  setConsumablesFetching(false);
+                }, 3000);
+              }}
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.quantity}>
+            <span>{record.quantity}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Unit",
+      dataIndex: "unit",
+      width: 250,
+      ellipsis: true,
+      render: (_, record) =>
+        record.isInput ? (
+          <Select
+            className="w-100"
+            value={consumablesInputRow.unit}
+            onChange={(selectedUnit) => {
+              clearTimeout(window.consumablesUnitDebounce);
+              window.consumablesUnitDebounce = setTimeout(() => {
+                const unitLower = (selectedUnit || "").toLowerCase();
+                const num = parseFloat(consumablesInputRow.quantity);
+
+                if (
+                  (unitLower === "set" || unitLower === "piece") &&
+                  !Number.isInteger(num)
+                ) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+                  });
+                  setConsumablesInputRow((prev) => ({
+                    ...prev,
+                    unit: "",
+                    quantity: "",
+                  }));
+                  return;
+                }
+
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  unit: selectedUnit,
+                }));
+              }, 300);
+            }}
+            options={consumablesUnitOptions.map((u) => ({
+              value: u,
+              label: u,
+            }))}
+            loading={consumablesUnitLoading}
+            placeholder={
+              consumablesUnitLoading ? "Fetching unit..." : "Select Unit"
+            }
+            notFoundContent={
+              consumablesUnitLoading ? "Fetching unit..." : "No units found"
+            }
+          />
+        ) : (
+          record.unit || ""
+        ),
+    },
+    {
+      title: "Stock In Hand",
+      dataIndex: "stockInHand",
+      width: 200,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input
+              readOnly
+              value={
+                consumablesInputRow.stockInHand
+                  ? `${consumablesInputRow.stockInHand} ${
+                      consumablesInputRow.stockUnit || ""
+                    }`
+                  : ""
+              }
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
+            <span>
+              {record.stockInHand
+                ? `${record.stockInHand} ${record.stockUnit || ""}`
+                : "-"}
+            </span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Total Price In AED",
+      dataIndex: "totalPrice",
+      width: 200,
+      ellipsis: true,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input value={consumablesInputRow.totalPrice || ""} readOnly />
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.totalPrice}>
+            <span>{record.totalPrice || "-"}</span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Note",
+      dataIndex: "note",
+      ellipsis: true,
+      width: 300,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Input.TextArea
+              rows={1}
+              placeholder="Enter note"
+              value={consumablesInputRow.note}
+              onChange={(e) =>
+                setConsumablesInputRow({
+                  ...consumablesInputRow,
+                  note: e.target.value,
+                })
+              }
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip
+            title={record.note}
+            styles={{
+              root: {
+                maxWidth: 1000,
+                wordWrap: "break-word",
+                whiteSpace: "normal",
+              },
+            }}
+          >
+            <span className="truncate-text">
+              {record.note?.length > 150
+                ? `${record.note.slice(0, 150)}...`
+                : record.note}
+            </span>
+          </Tooltip>
+        ),
+    },
+    {
+      title: "Action",
+      width: 120,
+      fixed: "right",
+      align: "center",
+      render: (_, record) =>
+        record.isInput ? (
+          <Button
+            className="addButton ps-4 pe-4"
+            onClick={handleConsumablesAdd}
+            disabled={consumablesFetching}
+            loading={consumablesFetching}
+          >
+            {consumablesFetching ? "Loading" : "Add"}
+          </Button>
+        ) : (
+          <Button
+            className="deleteButton ps-3 pe-3"
+            onClick={() => handleConsumablesDelete(record.key)}
+          >
+            Delete
+          </Button>
+        ),
+    },
+  ];
+  const consumablesDisplayData = [
+    { key: "input", isInput: true },
+    ...consumablesDataSource,
+  ];
+
   const displayAuxiliariesData = [
     { key: "input", isInput: true },
     ...auxiliariesDataSource,
@@ -2351,7 +3160,10 @@ userName: user?.email || "",
       stockInHand: auxiliariesInputRow.stockInHand || "0",
     };
 
-    setAuxiliariesDataSource([...auxiliariesDataSource, newData]);
+    // setAuxiliariesDataSource([...auxiliariesDataSource, newData]);
+
+     setAuxiliariesDataSource((prev) => [...prev, newData]);
+
     setAuxiliariesInputRow({
       partNumber: "",
       description: "",
@@ -3928,7 +4740,8 @@ userName: user?.email || "",
       ...machineinputRow,
       stockInHand: machineinputRow.stockInHand || "0",
     };
-    setMachineDataSource([...machineDataSource, newData]);
+    // setMachineDataSource([...machineDataSource, newData]);
+    setMachineDataSource((prev) => [...prev, newData]);
     setMachineInputRow({
       partNumber: "",
       description: "",
@@ -4781,7 +5594,11 @@ userName: user?.email || "",
 }
     `;
   if (access === "No Access") {
-    return <h2 style={{ padding: 20 }}>You do not have access to Product Categories</h2>;
+    return (
+      <h2 style={{ padding: 20 }}>
+        You do not have access to Product Categories
+      </h2>
+    );
   }
 
   const readOnly = access === "Read";
@@ -4884,6 +5701,13 @@ userName: user?.email || "",
                             //   note: "",
                             // });
                             setAuxiliariesInputRow({
+                              partNumber: "",
+                              description: "",
+                              quantity: "",
+                              stockInHand: "",
+                              note: "",
+                            });
+                            setConsumablesInputRow({
                               partNumber: "",
                               description: "",
                               quantity: "",
@@ -5149,9 +5973,9 @@ userName: user?.email || "",
                           <div className="col-12">
                             <h6
                               className="haitianColor ms-1 text-decoration-underline"
-                              style={{ fontWeight: "500" }}
+                              style={{ fontWeight: "600" }}
                             >
-                              Machines Details
+                              Machine Details
                             </h6>
                             <Table
                               columns={machineColumns}
@@ -5170,21 +5994,23 @@ userName: user?.email || "",
                     )}
 
                     {selectedCategory === "Consumables" && (
-                      <div className="rounded-2 p-1 ">
+                      <div className=" rounded-2 p-1 ">
                         <div className="col-12">
-                          <Form.Item
-                            label="Consumables"
-                            name="consumables"
-                            className="fw-bold"
-                            rules={[
-                              {
-                                required: true,
-                                message: "Please input consumables",
-                              },
-                            ]}
+                          <h6
+                            className="haitianColor ms-1 text-decoration-underline"
+                            style={{ fontWeight: "600" }}
                           >
-                            <Input placeholder="Enter consumables" />
-                          </Form.Item>
+                            Consumables Details
+                          </h6>{" "}
+                          <Table
+                            columns={consumablesColumns}
+                            dataSource={consumablesDisplayData}
+                            pagination={{ ageSize: 10 }}
+                            rowKey="key"
+                            size="middle"
+                            scroll={{ x: "max-content" }}
+                            bordered
+                          />
                         </div>
                       </div>
                     )}
@@ -5236,7 +6062,7 @@ userName: user?.email || "",
                           <div className="col-12">
                             <h6
                               className="haitianColor ms-1 text-decoration-underline"
-                              style={{ fontWeight: "500" }}
+                              style={{ fontWeight: "600" }}
                             >
                               Auxiliaries Details
                             </h6>
@@ -5310,7 +6136,12 @@ userName: user?.email || "",
                     {selectedCategory === "SpareParts" && (
                       <div className=" rounded-2 p-1 ">
                         <div className="col-12">
-                          <h6 className="haitianColor fw-bold">Spare Parts</h6>
+                          <h6
+                            className="haitianColor ms-1 text-decoration-underline"
+                            style={{ fontWeight: "600" }}
+                          >
+                            Spare Parts Details
+                          </h6>{" "}
                           <Table
                             columns={sparePartsColumns}
                             dataSource={displayData}
@@ -5324,121 +6155,123 @@ userName: user?.email || "",
                       </div>
                     )}
                     {!readOnly && (
-                    <div className="col-7 text-center mt-4 mb-3 d-flex m-auto">
-                      <Button
-                        htmlType="submit"
-                        size="large"
-                        className="submitButton mt-2"
-                        // disabled={
-                        //   loading ||
-                        //   (machineDataSource.length === 0 &&
-                        //     auxiliariesDataSource.length === 0 &&
-                        //     assetsDataSource.length === 0 &&
-                        //     dataSource.length === 0 &&
-                        //     !form.getFieldValue("consumables") &&
-                        //     !form.getFieldValue("tools"))
-                        // }
-                        loading={loading}
-                      >
-                        {loading
-                          ? "Submitting Categories Data"
-                          : "Submit Categories Data"}
-                      </Button>
+                      <div className="col-7 text-center mt-4 mb-3 d-flex m-auto">
+                        <Button
+                          htmlType="submit"
+                          size="large"
+                          className="submitButton mt-2"
+                          // disabled={
+                          //   loading ||
+                          //   (machineDataSource.length === 0 &&
+                          //     auxiliariesDataSource.length === 0 &&
+                          //     assetsDataSource.length === 0 &&
+                          //     dataSource.length === 0 &&
+                          //     !form.getFieldValue("consumables") &&
+                          //     !form.getFieldValue("tools"))
+                          // }
+                          loading={loading}
+                        >
+                          {loading
+                            ? `Submitting Category Data`
+                            : "Submit Categories Data"}
+                        </Button>
 
-                      <Button
-                        size="large"
-                        className="clearButton mt-2 ms-3"
-                        onClick={() => {
-                          // Helper function to check if all fields in an object are empty
-                          const isObjectEmpty = (obj) =>
-                            Object.values(obj).every(
-                              (value) =>
-                                value === "" ||
-                                value === null ||
-                                value === undefined
-                            );
+                        <Button
+                          size="large"
+                          className="clearButton mt-2 ms-3"
+                          onClick={() => {
+                            // Helper function to check if all fields in an object are empty
+                            const isObjectEmpty = (obj) =>
+                              Object.values(obj).every(
+                                (value) =>
+                                  value === "" ||
+                                  value === null ||
+                                  value === undefined
+                              );
 
-                          const formValues = form.getFieldsValue(true);
+                            const formValues = form.getFieldsValue(true);
 
-                          const isEverythingEmpty =
-                            (!formValues ||
-                              Object.values(formValues).every((val) => !val)) &&
-                            machineDataSource.length === 0 &&
-                            auxiliariesDataSource.length === 0 &&
-                            // assetsDataSource.length === 0 &&
-                            dataSource.length === 0 &&
-                            isObjectEmpty(inputRow) &&
-                            isObjectEmpty(machineinputRow) &&
-                            isObjectEmpty(auxiliariesInputRow)
+                            const isEverythingEmpty =
+                              (!formValues ||
+                                Object.values(formValues).every(
+                                  (val) => !val
+                                )) &&
+                              machineDataSource.length === 0 &&
+                              auxiliariesDataSource.length === 0 &&
+                              // assetsDataSource.length === 0 &&
+                              dataSource.length === 0 &&
+                              isObjectEmpty(inputRow) &&
+                              isObjectEmpty(machineinputRow) &&
+                              isObjectEmpty(auxiliariesInputRow);
                             // isObjectEmpty(assetsInputRow);
 
-                          if (isEverythingEmpty) {
-                            notification.info({
-                              message: "Nothing to Clear",
-                              description:
-                                "There are no fields or rows to clear.",
+                            if (isEverythingEmpty) {
+                              notification.info({
+                                message: "Nothing to Clear",
+                                description:
+                                  "There are no fields or rows to clear.",
+                              });
+                              return;
+                            }
+
+                            // Reset everything
+                            form.resetFields();
+
+                            setInputRow({
+                              partNumber: "",
+                              description: "",
+                              quantity: "",
+                              stockInHand: "",
+                              note: "",
+                              price: "",
+                              totalPrice: "",
                             });
-                            return;
-                          }
 
-                          // Reset everything
-                          form.resetFields();
+                            setMachineInputRow({
+                              partNumber: "",
+                              description: "",
+                              quantity: "",
+                              stockInHand: "",
+                              note: "",
+                              price: "",
+                              totalPrice: "",
+                            });
 
-                          setInputRow({
-                            partNumber: "",
-                            description: "",
-                            quantity: "",
-                            stockInHand: "",
-                            note: "",
-                            price: "",
-                            totalPrice: "",
-                          });
+                            setAuxiliariesInputRow({
+                              partNumber: "",
+                              description: "",
+                              quantity: "",
+                              stockInHand: "",
+                              note: "",
+                              price: "",
+                              totalPrice: "",
+                            });
 
-                          setMachineInputRow({
-                            partNumber: "",
-                            description: "",
-                            quantity: "",
-                            stockInHand: "",
-                            note: "",
-                            price: "",
-                            totalPrice: "",
-                          });
+                            // setAssetsInputRow({
+                            //   partNumber: "",
+                            //   description: "",
+                            //   quantity: "",
+                            //   stockInHand: "",
+                            //   note: "",
+                            //   price: "",
+                            //   totalPrice: "",
+                            // });
 
-                          setAuxiliariesInputRow({
-                            partNumber: "",
-                            description: "",
-                            quantity: "",
-                            stockInHand: "",
-                            note: "",
-                            price: "",
-                            totalPrice: "",
-                          });
+                            setSelectedCategory(null);
+                            setMachineDataSource([]);
+                            setAuxiliariesDataSource([]);
+                            // setAssetsDataSource([]);
+                            setDataSource([]);
 
-                          // setAssetsInputRow({
-                          //   partNumber: "",
-                          //   description: "",
-                          //   quantity: "",
-                          //   stockInHand: "",
-                          //   note: "",
-                          //   price: "",
-                          //   totalPrice: "",
-                          // });
-
-                          setSelectedCategory(null);
-                          setMachineDataSource([]);
-                          setAuxiliariesDataSource([]);
-                          // setAssetsDataSource([]);
-                          setDataSource([]);
-
-                          notification.success({
-                            message: "Success",
-                            description: "Form cleared successfully!",
-                          });
-                        }}
-                      >
-                        Clear Input
-                      </Button>
-                    </div>
+                            notification.success({
+                              message: "Success",
+                              description: "Form cleared successfully!",
+                            });
+                          }}
+                        >
+                          Clear Input
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </Form>
