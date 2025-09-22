@@ -152,7 +152,7 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxhU19k3RjMdg_fNSHUXdQ8x4_DdQtR812Ir6-YAHiHeJ_UEk1yBAIdLSC67KsHL4Wy2A/exec";
+    "https://script.google.com/macros/s/AKfycbx-Uq0Zg944fJwU-ZAQy--CvVcOrzU43JxXxjg9Lbs_7c2tt56KP10sZKFN8tyCdZUaAQ/exec";
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -1841,7 +1841,14 @@ export default function ProductCategories({ user }) {
       });
       return;
     }
-
+     const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  if (!regex.test(inputRow.date)) {
+    notification.error({
+      message: "Invalid Date",
+      description: "Enter date in DD-MM-YYYY format",
+    });
+    return;
+  }
     const newData = {
       key: Date.now(),
       ...inputRow,
@@ -1879,7 +1886,7 @@ export default function ProductCategories({ user }) {
       render: (_, record) =>
         record.isInput ? (
           <Tooltip>
-            <DatePicker
+            {/* <DatePicker
               format="DD-MM-YYYY"
               style={{ width: "100%" }}
               value={
@@ -1897,7 +1904,28 @@ export default function ProductCategories({ user }) {
                   .format("DD-MM-YYYY");
                 setInputRow({ ...inputRow, date: formatted });
               }}
-            />
+            /> */}
+            <Input
+          placeholder="DD-MM-YYYY"
+          maxLength={10}
+          value={inputRow.date}
+          onChange={(e) => {
+            const value = e.target.value;
+            setInputRow({ ...inputRow, date: value });
+
+            // validate only when full length is reached
+            if (value.length === 10) {
+              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+              if (!regex.test(value)) {
+                notification.error({
+                  message: "Invalid Date",
+                  description: "Enter date in DD-MM-YYYY format",
+                });
+                setInputRow({ ...inputRow, date: "" });
+              }
+            }
+          }}
+        />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -2558,7 +2586,14 @@ export default function ProductCategories({ user }) {
       });
       return;
     }
-
+     const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  if (!regex.test(date)) {
+    notification.error({
+      message: "Invalid Date",
+      description: "Enter date in DD-MM-YYYY format",
+    });
+    return;
+  }
     const newData = {
       key: Date.now(),
       ...consumablesInputRow,
@@ -2598,7 +2633,7 @@ export default function ProductCategories({ user }) {
       render: (_, record) =>
         record.isInput ? (
           <Tooltip>
-            <DatePicker
+            {/* <DatePicker
               format="DD-MM-YYYY"
               style={{ width: "100%" }}
               value={
@@ -2624,7 +2659,29 @@ export default function ProductCategories({ user }) {
                   date: formatted,
                 });
               }}
-            />
+            /> */}
+
+             <Input
+          placeholder="DD-MM-YYYY"
+          maxLength={10}
+          value={consumablesInputRow.date}
+          onChange={(e) => {
+            const value = e.target.value;
+            setConsumablesInputRow({ ...consumablesInputRow, date: value });
+
+            // validate only when full length is reached
+            if (value.length === 10) {
+              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+              if (!regex.test(value)) {
+                notification.error({
+                  message: "Invalid Date",
+                  description: "Enter date in DD-MM-YYYY format",
+                });
+                setConsumablesInputRow({ ...consumablesInputRow, date: "" });
+              }
+            }
+          }}
+        />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -3154,6 +3211,15 @@ export default function ProductCategories({ user }) {
       return;
     }
 
+         const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  if (!regex.test(auxiliariesInputRow.date)) {
+    notification.error({
+      message: "Invalid Date",
+      description: "Enter date in DD-MM-YYYY format",
+    });
+    return;
+  }
+
     const newData = {
       key: Date.now(),
       ...auxiliariesInputRow,
@@ -3194,7 +3260,7 @@ export default function ProductCategories({ user }) {
       render: (_, record) =>
         record.isInput ? (
           <Tooltip>
-            <DatePicker
+            {/* <DatePicker
               format="DD-MM-YYYY"
               style={{ width: "100%" }}
               value={
@@ -3220,7 +3286,29 @@ export default function ProductCategories({ user }) {
                   date: formatted,
                 });
               }}
-            />
+            /> */}
+
+             <Input
+          placeholder="DD-MM-YYYY"
+          maxLength={10}
+          value={auxiliariesInputRow.date}
+          onChange={(e) => {
+            const value = e.target.value;
+            setAuxiliariesInputRow({ ...auxiliariesInputRow, date: value });
+
+            // validate only when full length is reached
+            if (value.length === 10) {
+              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+              if (!regex.test(value)) {
+                notification.error({
+                  message: "Invalid Date",
+                  description: "Enter date in DD-MM-YYYY format",
+                });
+                setAuxiliariesInputRow({ ...auxiliariesInputRow, date: "" });
+              }
+            }
+          }}
+        />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -4735,6 +4823,15 @@ export default function ProductCategories({ user }) {
       return;
     }
 
+      const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  if (!regex.test(machineinputRow.date)) {
+    notification.error({
+      message: "Invalid Date",
+      description: "Enter date in DD-MM-YYYY format",
+    });
+    return;
+  }
+
     const newData = {
       key: Date.now(),
       ...machineinputRow,
@@ -4770,7 +4867,7 @@ export default function ProductCategories({ user }) {
       render: (_, record) =>
         record.isInput ? (
           <Tooltip>
-            <DatePicker
+            {/* <DatePicker
               format="DD-MM-YYYY"
               style={{ width: "100%" }}
               value={
@@ -4789,7 +4886,29 @@ export default function ProductCategories({ user }) {
                   .format("DD-MM-YYYY");
                 setMachineInputRow({ ...machineinputRow, date: formatted });
               }}
-            />
+            /> */}
+
+        <Input
+          placeholder="DD-MM-YYYY"
+          maxLength={10}
+          value={machineinputRow.date}
+          onChange={(e) => {
+            const value = e.target.value;
+            setMachineInputRow({ ...machineinputRow, date: value });
+
+            // validate only when full length is reached
+            if (value.length === 10) {
+              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+              if (!regex.test(value)) {
+                notification.error({
+                  message: "Invalid Date",
+                  description: "Enter date in DD-MM-YYYY format",
+                });
+                setMachineInputRow({ ...machineinputRow, date: "" });
+              }
+            }
+          }}
+        />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
