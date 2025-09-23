@@ -1,18 +1,18 @@
 {
   "files": {
     "main.css": "/HaitianInventoryModule/static/css/main.5372dfb4.css",
-    "main.js": "/HaitianInventoryModule/static/js/main.cde9182e.js",
+    "main.js": "/HaitianInventoryModule/static/js/main.9a571792.js",
     "static/js/239.00603e74.chunk.js": "/HaitianInventoryModule/static/js/239.00603e74.chunk.js",
     "static/js/977.6bcba40c.chunk.js": "/HaitianInventoryModule/static/js/977.6bcba40c.chunk.js",
     "static/js/667.1865c402.chunk.js": "/HaitianInventoryModule/static/js/667.1865c402.chunk.js",
     "static/js/453.225d8625.chunk.js": "/HaitianInventoryModule/static/js/453.225d8625.chunk.js",
     "static/media/HaitianBanner.png": "/HaitianInventoryModule/static/media/HaitianBanner.0082d73a22facdc1c871.png",
     "static/media/Dirham.png": "/HaitianInventoryModule/static/media/Dirham.bb8aecdcdad3679997f8.png",
-    "static/media/Haitian.png": "/HaitianInventoryModule/static/media/Haitian.ea21fc1ea24edb6bb124.png",
-    "static/media/HaitianLogo.png": "/HaitianInventoryModule/static/media/HaitianLogo.3f8b06fd59001edfc8ae.png",
+    "static/media/Haitian.png": "/HaitianInventoryModule/static/media/Haitian.2580847cf46662192dce.png",
+    "static/media/HaitianLogo.png": "/HaitianInventoryModule/static/media/HaitianLogo.c60ee5c77c77973ffb22.png",
     "index.html": "/HaitianInventoryModule/index.html",
     "main.5372dfb4.css.map": "/HaitianInventoryModule/static/css/main.5372dfb4.css.map",
-    "main.cde9182e.js.map": "/HaitianInventoryModule/static/js/main.cde9182e.js.map",
+    "main.9a571792.js.map": "/HaitianInventoryModule/static/js/main.9a571792.js.map",
     "239.00603e74.chunk.js.map": "/HaitianInventoryModule/static/js/239.00603e74.chunk.js.map",
     "977.6bcba40c.chunk.js.map": "/HaitianInventoryModule/static/js/977.6bcba40c.chunk.js.map",
     "667.1865c402.chunk.js.map": "/HaitianInventoryModule/static/js/667.1865c402.chunk.js.map",
@@ -20,6 +20,6 @@
   },
   "entrypoints": [
     "static/css/main.5372dfb4.css",
-    "static/js/main.cde9182e.js"
+    "static/js/main.9a571792.js"
   ]
 }
