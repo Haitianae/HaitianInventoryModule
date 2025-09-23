@@ -35,7 +35,7 @@ export default function CustomerDetails({ user }) {
   const readOnly = access === "Read";
 
 
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbx-Uq0Zg944fJwU-ZAQy--CvVcOrzU43JxXxjg9Lbs_7c2tt56KP10sZKFN8tyCdZUaAQ/exec"
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbzFklQOjkj8ZthkAZC_WtQwpLakw0Qkhz6i1-WRHxV21SOmmmk4DY7LgdA8RF-eLVEo-Q/exec"
 
   
 
@@ -57,17 +57,17 @@ export default function CustomerDetails({ user }) {
       const result = await response.json();
       if (result.success && Array.isArray(result.owners)) {
         setOwnerOptions(result.owners);
-        console.log(ownerOptions);
+        // console.log(ownerOptions);
       }
     } catch (err) {
-      console.error("Error fetching owners:", err);
+      // console.error("Error fetching owners:", err);
     } finally {
       setOwnerLoading(false);
     }
   };
 
   const handleSubmit = async (values) => {
-    console.log(values);
+    // console.log(values);
 
     try {
       setLoading(true);

@@ -61,7 +61,7 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx-Uq0Zg944fJwU-ZAQy--CvVcOrzU43JxXxjg9Lbs_7c2tt56KP10sZKFN8tyCdZUaAQ/exec";
+    "https://script.google.com/macros/s/AKfycbzFklQOjkj8ZthkAZC_WtQwpLakw0Qkhz6i1-WRHxV21SOmmmk4DY7LgdA8RF-eLVEo-Q/exec";
   const fetchUsers = async () => {
     setFetching(true);
     try {
@@ -227,7 +227,7 @@ export default function AddUser({ user }) {
       });
       }
     } catch (error) {
-      console.error("Update error:", error);
+      // console.error("Update error:", error);
       // message.error("Please check the form and try again.");
        notification.success({
         message: "Error",

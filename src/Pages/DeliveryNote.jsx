@@ -113,7 +113,7 @@ export default function DeliveryNote({ user }) {
   const access = user?.access?.["Delivery Note"] || "No Access";
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx-Uq0Zg944fJwU-ZAQy--CvVcOrzU43JxXxjg9Lbs_7c2tt56KP10sZKFN8tyCdZUaAQ/exec";
+    "https://script.google.com/macros/s/AKfycbzFklQOjkj8ZthkAZC_WtQwpLakw0Qkhz6i1-WRHxV21SOmmmk4DY7LgdA8RF-eLVEo-Q/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -184,7 +184,7 @@ export default function DeliveryNote({ user }) {
         const json = await res.json();
         if (json.success) return json;
       } catch (err) {
-        console.warn(`Retry ${i + 1} failed`, err);
+        // console.warn(`Retry ${i + 1} failed`, err);
       }
     }
     throw new Error("Failed after retries");
@@ -221,7 +221,7 @@ export default function DeliveryNote({ user }) {
       // ✅ Fetch delivery notes separately (doesn’t need retry)
       await fetchDeliveryNotesData();
     } catch (err) {
-      console.error("Error fetching initial data:", err);
+      // console.error("Error fetching initial data:", err);
       notification.error({
         message: "Error",
         description: "Failed to fetch initial data",
@@ -285,7 +285,7 @@ export default function DeliveryNote({ user }) {
           setStockMap(result.data); // { partNumber: { stockInHand, unit }, ... }
         }
       } catch (err) {
-        console.error("Error fetching stock:", err);
+        // console.error("Error fetching stock:", err);
       }
     };
     fetchStock();
@@ -326,7 +326,7 @@ export default function DeliveryNote({ user }) {
           }
         } catch (err) {
           if (err.name !== "AbortError") {
-            console.error("Fetch stock error:", err);
+            // console.error("Fetch stock error:", err);
           }
         } finally {
           setStockLoading(false);
@@ -450,7 +450,7 @@ export default function DeliveryNote({ user }) {
                       },
                     }));
                   } catch (err) {
-                    console.error("Live stock fetch failed", err);
+                    // console.error("Live stock fetch failed", err);
                   }
                 })();
               }}
@@ -567,7 +567,7 @@ export default function DeliveryNote({ user }) {
                       },
                     }));
                   } catch (err) {
-                    console.error("Live stock fetch failed (description)", err);
+                    // console.error("Live stock fetch failed (description)", err);
                   }
                 })();
               }}
@@ -1611,8 +1611,10 @@ export default function DeliveryNote({ user }) {
           dataSource,
           false
         );
+          doc.save(`DeliveryNote_${confirmedDeliveryNumber}.pdf`);
+
       } catch (pdfErr) {
-        console.error("PDF generation failed:", pdfErr);
+        // console.error("PDF generation failed:", pdfErr);
         throw new Error("Form saved, but PDF generation failed.");
       }
 
@@ -1623,7 +1625,7 @@ export default function DeliveryNote({ user }) {
 
       const pdfBase64 = doc.output("datauristring").split(",")[1];
       const pdfSizeKB = ((pdfBase64.length * 3) / 4 / 1024).toFixed(2);
-      console.log("PDF size:", pdfSizeKB, "KB");
+      // console.log("PDF size:", pdfSizeKB, "KB");
       if (pdfSizeKB > 6000) {
         throw new Error(
           "PDF too large for Apps Script upload (limit ~6MB). Try reducing content."
@@ -1685,7 +1687,7 @@ export default function DeliveryNote({ user }) {
       // Fetch new delivery number etc.
       await fetchInitialData();
     } catch (err) {
-      console.error("Submit error:", err);
+      // console.error("Submit error:", err);
       notification.error({
         message: "Submission Error",
         description: err.message,
@@ -2025,7 +2027,7 @@ export default function DeliveryNote({ user }) {
         setFetchedData(cleaned);
       }
     } catch (err) {
-      console.error("Error fetching delivery notes:", err);
+      // console.error("Error fetching delivery notes:", err);
       notification.error({
         message: "Error",
         description: "Failed to fetch delivery notes",
@@ -3210,7 +3212,7 @@ export default function DeliveryNote({ user }) {
         });
       }
     } catch (err) {
-      console.error("Download error:", err);
+      // console.error("Download error:", err);
       notification.error({
         message: "Error",
         description: "Something went wrong while downloading the PDF.",

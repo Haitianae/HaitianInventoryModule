@@ -152,7 +152,7 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx-Uq0Zg944fJwU-ZAQy--CvVcOrzU43JxXxjg9Lbs_7c2tt56KP10sZKFN8tyCdZUaAQ/exec";
+    "https://script.google.com/macros/s/AKfycbzFklQOjkj8ZthkAZC_WtQwpLakw0Qkhz6i1-WRHxV21SOmmmk4DY7LgdA8RF-eLVEo-Q/exec";
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -478,7 +478,7 @@ export default function ProductCategories({ user }) {
         setStockCache(result.data); // store { partNumber: { stockInHand, unit, categories } }
       }
     } catch (err) {
-      console.error("Error fetching all stock:", err);
+      // console.error("Error fetching all stock:", err);
     } finally {
       setLoadingStockCache(false);
     }
@@ -1363,7 +1363,7 @@ export default function ProductCategories({ user }) {
           : [...defaultUnits]
       );
     } catch (err) {
-      console.error("❌ Error updating spare parts from cache:", err);
+      // console.error("❌ Error updating spare parts from cache:", err);
 
       setInputRow((prev) => ({
         ...prev,
@@ -1767,10 +1767,10 @@ export default function ProductCategories({ user }) {
           consumableDate: consumable.date || "-",
         });
 
-        console.log(
-          `Submitting row ${currentRow}:`,
-          Object.fromEntries(formData.entries())
-        );
+        // console.log(
+        //   `Submitting row ${currentRow}:`,
+        //   Object.fromEntries(formData.entries())
+        // );
 
         await fetch(GAS_URL, {
           method: "POST",
