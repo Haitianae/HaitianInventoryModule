@@ -1922,6 +1922,16 @@ export default function DeliveryNote({ user }) {
   });
 
   const handleExport = () => {
+
+    if (!groupedData || groupedData.length === 0) {
+    notification.warning({
+      message: "Export Failed",
+      description: "No data available to export.",
+      placement: "bottomRight",
+    });
+    return;
+  }
+
     const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
     const fileName = `Delivery_Note_Report_${now}.xlsx`;
 
