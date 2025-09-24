@@ -1841,14 +1841,14 @@ export default function ProductCategories({ user }) {
       });
       return;
     }
-     const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-  if (!regex.test(inputRow.date)) {
-    notification.error({
-      message: "Invalid Date",
-      description: "Enter date in DD-MM-YYYY format",
-    });
-    return;
-  }
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(inputRow.date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
     const newData = {
       key: Date.now(),
       ...inputRow,
@@ -1906,26 +1906,26 @@ export default function ProductCategories({ user }) {
               }}
             /> */}
             <Input
-          placeholder="DD-MM-YYYY"
-          maxLength={10}
-          value={inputRow.date}
-          onChange={(e) => {
-            const value = e.target.value;
-            setInputRow({ ...inputRow, date: value });
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={inputRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setInputRow({ ...inputRow, date: value });
 
-            // validate only when full length is reached
-            if (value.length === 10) {
-              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-              if (!regex.test(value)) {
-                notification.error({
-                  message: "Invalid Date",
-                  description: "Enter date in DD-MM-YYYY format",
-                });
-                setInputRow({ ...inputRow, date: "" });
-              }
-            }
-          }}
-        />
+                // validate only when full length is reached
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setInputRow({ ...inputRow, date: "" });
+                  }
+                }
+              }}
+            />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -2147,11 +2147,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Add On Cost",
@@ -2200,11 +2201,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Selling Cost",
@@ -2586,14 +2588,14 @@ export default function ProductCategories({ user }) {
       });
       return;
     }
-     const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-  if (!regex.test(date)) {
-    notification.error({
-      message: "Invalid Date",
-      description: "Enter date in DD-MM-YYYY format",
-    });
-    return;
-  }
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
     const newData = {
       key: Date.now(),
       ...consumablesInputRow,
@@ -2661,27 +2663,30 @@ export default function ProductCategories({ user }) {
               }}
             /> */}
 
-             <Input
-          placeholder="DD-MM-YYYY"
-          maxLength={10}
-          value={consumablesInputRow.date}
-          onChange={(e) => {
-            const value = e.target.value;
-            setConsumablesInputRow({ ...consumablesInputRow, date: value });
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={consumablesInputRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setConsumablesInputRow({ ...consumablesInputRow, date: value });
 
-            // validate only when full length is reached
-            if (value.length === 10) {
-              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-              if (!regex.test(value)) {
-                notification.error({
-                  message: "Invalid Date",
-                  description: "Enter date in DD-MM-YYYY format",
-                });
-                setConsumablesInputRow({ ...consumablesInputRow, date: "" });
-              }
-            }
-          }}
-        />
+                // validate only when full length is reached
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setConsumablesInputRow({
+                      ...consumablesInputRow,
+                      date: "",
+                    });
+                  }
+                }
+              }}
+            />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -2838,11 +2843,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Add On Cost",
@@ -2896,11 +2902,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Selling Cost",
@@ -3211,14 +3218,14 @@ export default function ProductCategories({ user }) {
       return;
     }
 
-         const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-  if (!regex.test(auxiliariesInputRow.date)) {
-    notification.error({
-      message: "Invalid Date",
-      description: "Enter date in DD-MM-YYYY format",
-    });
-    return;
-  }
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(auxiliariesInputRow.date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
 
     const newData = {
       key: Date.now(),
@@ -3228,7 +3235,7 @@ export default function ProductCategories({ user }) {
 
     // setAuxiliariesDataSource([...auxiliariesDataSource, newData]);
 
-     setAuxiliariesDataSource((prev) => [...prev, newData]);
+    setAuxiliariesDataSource((prev) => [...prev, newData]);
 
     setAuxiliariesInputRow({
       partNumber: "",
@@ -3288,27 +3295,30 @@ export default function ProductCategories({ user }) {
               }}
             /> */}
 
-             <Input
-          placeholder="DD-MM-YYYY"
-          maxLength={10}
-          value={auxiliariesInputRow.date}
-          onChange={(e) => {
-            const value = e.target.value;
-            setAuxiliariesInputRow({ ...auxiliariesInputRow, date: value });
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={auxiliariesInputRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setAuxiliariesInputRow({ ...auxiliariesInputRow, date: value });
 
-            // validate only when full length is reached
-            if (value.length === 10) {
-              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-              if (!regex.test(value)) {
-                notification.error({
-                  message: "Invalid Date",
-                  description: "Enter date in DD-MM-YYYY format",
-                });
-                setAuxiliariesInputRow({ ...auxiliariesInputRow, date: "" });
-              }
-            }
-          }}
-        />
+                // validate only when full length is reached
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setAuxiliariesInputRow({
+                      ...auxiliariesInputRow,
+                      date: "",
+                    });
+                  }
+                }
+              }}
+            />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -3552,11 +3562,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Add On Cost",
@@ -3614,11 +3625,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Selling Cost",
@@ -4823,14 +4835,14 @@ export default function ProductCategories({ user }) {
       return;
     }
 
-      const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-  if (!regex.test(machineinputRow.date)) {
-    notification.error({
-      message: "Invalid Date",
-      description: "Enter date in DD-MM-YYYY format",
-    });
-    return;
-  }
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(machineinputRow.date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
 
     const newData = {
       key: Date.now(),
@@ -4888,27 +4900,27 @@ export default function ProductCategories({ user }) {
               }}
             /> */}
 
-        <Input
-          placeholder="DD-MM-YYYY"
-          maxLength={10}
-          value={machineinputRow.date}
-          onChange={(e) => {
-            const value = e.target.value;
-            setMachineInputRow({ ...machineinputRow, date: value });
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={machineinputRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setMachineInputRow({ ...machineinputRow, date: value });
 
-            // validate only when full length is reached
-            if (value.length === 10) {
-              const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-              if (!regex.test(value)) {
-                notification.error({
-                  message: "Invalid Date",
-                  description: "Enter date in DD-MM-YYYY format",
-                });
-                setMachineInputRow({ ...machineinputRow, date: "" });
-              }
-            }
-          }}
-        />
+                // validate only when full length is reached
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setMachineInputRow({ ...machineinputRow, date: "" });
+                  }
+                }
+              }}
+            />
           </Tooltip>
         ) : (
           <Tooltip title={record.date}>
@@ -5146,11 +5158,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Add On Cost",
@@ -5255,11 +5268,12 @@ export default function ProductCategories({ user }) {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
+                    // (value === "0" ||
+                    //   value === "0.0" ||
+                    //   value === ".0" ||
+                    //   isNaN(num) ||
+                    //   num <= 0)
+                    isNaN(num)
                   ) {
                     notification.error({
                       message: "Invalid Selling Cost",
