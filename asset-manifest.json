@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/HaitianInventoryModule/static/css/main.5372dfb4.css",
-    "main.js": "/HaitianInventoryModule/static/js/main.66fb4082.js",
+    "main.js": "/HaitianInventoryModule/static/js/main.f0f8dcbd.js",
     "static/js/239.00603e74.chunk.js": "/HaitianInventoryModule/static/js/239.00603e74.chunk.js",
     "static/js/977.6bcba40c.chunk.js": "/HaitianInventoryModule/static/js/977.6bcba40c.chunk.js",
     "static/js/667.1865c402.chunk.js": "/HaitianInventoryModule/static/js/667.1865c402.chunk.js",
@@ -12,7 +12,7 @@
     "static/media/HaitianLogo.png": "/HaitianInventoryModule/static/media/HaitianLogo.c60ee5c77c77973ffb22.png",
     "index.html": "/HaitianInventoryModule/index.html",
     "main.5372dfb4.css.map": "/HaitianInventoryModule/static/css/main.5372dfb4.css.map",
-    "main.66fb4082.js.map": "/HaitianInventoryModule/static/js/main.66fb4082.js.map",
+    "main.f0f8dcbd.js.map": "/HaitianInventoryModule/static/js/main.f0f8dcbd.js.map",
     "239.00603e74.chunk.js.map": "/HaitianInventoryModule/static/js/239.00603e74.chunk.js.map",
     "977.6bcba40c.chunk.js.map": "/HaitianInventoryModule/static/js/977.6bcba40c.chunk.js.map",
     "667.1865c402.chunk.js.map": "/HaitianInventoryModule/static/js/667.1865c402.chunk.js.map",
@@ -20,6 +20,6 @@
   },
   "entrypoints": [
     "static/css/main.5372dfb4.css",
-    "static/js/main.66fb4082.js"
+    "static/js/main.f0f8dcbd.js"
   ]
 }
