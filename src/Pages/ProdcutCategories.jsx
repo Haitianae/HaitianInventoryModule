@@ -1810,8 +1810,15 @@ export default function ProductCategories({ user }) {
       setLoading(false);
     }
   };
-
+const maxTableRows = 10;
   const handleSparePartsAdd = async () => {
+      if (dataSource.length >= maxTableRows) {
+    notification.error({
+      message: "Limit Reached",
+      description: `You can only add up to ${maxTableRows} rows.`,
+    });
+    return;
+  }
     const {
       partNumber,
       description,
@@ -2558,6 +2565,13 @@ export default function ProductCategories({ user }) {
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
 
   const handleConsumablesAdd = async () => {
+      if (consumablesDataSource.length >= maxTableRows) {
+    notification.error({
+      message: "Limit Reached",
+      description: `You can only add up to ${maxTableRows} rows.`,
+    });
+    return;
+  }
     const {
       partNumber,
       description,
@@ -3180,6 +3194,13 @@ export default function ProductCategories({ user }) {
   ];
 
   const handleAuxiliariesAdd = async () => {
+      if (auxiliariesDataSource.length >= maxTableRows) {
+    notification.error({
+      message: "Limit Reached",
+      description: `You can only add up to ${maxTableRows} rows.`,
+    });
+    return;
+  }
     const {
       partNumber,
       description,
@@ -4805,6 +4826,13 @@ export default function ProductCategories({ user }) {
   ];
 
   const handleMachineAdd = async () => {
+      if (machineDataSource.length >= maxTableRows) {
+    notification.error({
+      message: "Limit Reached",
+      description: `You can only add up to ${maxTableRows} rows.`,
+    });
+    return;
+  }
     const {
       partNumber,
       description,
