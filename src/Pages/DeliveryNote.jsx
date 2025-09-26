@@ -113,7 +113,7 @@ export default function DeliveryNote({ user }) {
   const access = user?.access?.["Delivery Note"] || "No Access";
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzFklQOjkj8ZthkAZC_WtQwpLakw0Qkhz6i1-WRHxV21SOmmmk4DY7LgdA8RF-eLVEo-Q/exec";
+    "https://script.google.com/macros/s/AKfycbw6xjYrdJ0jazwig71VQLd4NjK6_jt0Yyh4kHg5DRXNGBef63_Bs4759m2bVYP0K9LIag/exec";
 
   // const fetchInitialData = async () => {
   //   try {
