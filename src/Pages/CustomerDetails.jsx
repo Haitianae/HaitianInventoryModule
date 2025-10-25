@@ -24,6 +24,7 @@ import {
   AutoComplete,
 } from "antd";
 import "../App.css";
+import dayjs from "dayjs";
 
 export default function CustomerDetails({ user }) {
   const [form] = Form.useForm();
@@ -31,28 +32,23 @@ export default function CustomerDetails({ user }) {
   const [ownerLoading, setOwnerLoading] = useState(false);
 
   const [ownerOptions, setOwnerOptions] = useState([]);
-  const access = user?.access?.["Customer Details"] || "No Access"; 
+  const access = user?.access?.["Customer Details"] || "No Access";
   const readOnly = access === "Read";
 
-
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbyi2f_I52eWi5HR0MAuZUCW47Y74cVypnneRYqYN9fi6drT3YfrsboOZRELFF1fJsjWYA/exec"
-
-  
+  const GAS_URL =
+    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
 
   useEffect(() => {
     fetchCustomerOwners();
   }, []);
-  
+
   const fetchCustomerOwners = async () => {
     setOwnerLoading(true);
     try {
-      const response = await fetch(
-        GAS_URL,
-        {
-          method: "POST",
-          body: new URLSearchParams({ action: "getCustomerOwners" }),
-        }
-      );
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: new URLSearchParams({ action: "getCustomerOwners" }),
+      });
 
       const result = await response.json();
       if (result.success && Array.isArray(result.owners)) {
@@ -66,43 +62,43 @@ export default function CustomerDetails({ user }) {
     }
   };
 
+  const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+  console.log(userLocalDateTime);
+
   const handleSubmit = async (values) => {
     // console.log(values);
 
     try {
       setLoading(true);
-      const response = await fetch(
-        GAS_URL,
-        {
-          method: "POST",
-          body: new URLSearchParams({
-            action: "addCustomer",
-            customername: values.customername || "-",
-            salutation: values.salutation || "-",
-            firstname: values.firstname || "-",
-            lastname: values.lastname || "-",
-            contactPersonSalutation: values.contactPersonSalutation || "-",
-            contactPersonFirstName: values.contactPersonFirstName || "-",
-            contactPersonLastName: values.contactPersonLastName || "-",
-            contactPersonPosition: values.contactPersonPosition || "-",
-            contactPersonNumber: values.contactPersonNumber || "-",
-            contactPersonEmail: values.contactPersonEmail || "-",
-            customerOwner: values.customerOwner || "-",
-            customerEmail: values.customerEmail || "-",
-            workPhoneNumber: values.workPhoneNumber || "-",
-            mobileNumber: values.mobileNumber || "-",
-            address: values.address || "-",
-            vataxId: values.vataxId || "-",
-            currency: values.currency || "-",
-            paymentTerms: values.paymentTerms || "-",
-            creditLimit: values.creditLimit || "-",
-            deliveryTerms: values.deliveryTerms || "-",
-            // userName: user || "-",
-            userName: user?.email || "",
-
-          }),
-        }
-      );
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: new URLSearchParams({
+          action: "addCustomer",
+          customername: values.customername || "-",
+          salutation: values.salutation || "-",
+          firstname: values.firstname || "-",
+          lastname: values.lastname || "-",
+          contactPersonSalutation: values.contactPersonSalutation || "-",
+          contactPersonFirstName: values.contactPersonFirstName || "-",
+          contactPersonLastName: values.contactPersonLastName || "-",
+          contactPersonPosition: values.contactPersonPosition || "-",
+          contactPersonNumber: values.contactPersonNumber || "-",
+          contactPersonEmail: values.contactPersonEmail || "-",
+          customerOwner: values.customerOwner || "-",
+          customerEmail: values.customerEmail || "-",
+          workPhoneNumber: values.workPhoneNumber || "-",
+          mobileNumber: values.mobileNumber || "-",
+          address: values.address || "-",
+          vataxId: values.vataxId || "-",
+          currency: values.currency || "-",
+          paymentTerms: values.paymentTerms || "-",
+          creditLimit: values.creditLimit || "-",
+          deliveryTerms: values.deliveryTerms || "-",
+          // userName: user || "-",
+          modifiedDateTime: userLocalDateTime,
+          userName: user?.email || "",
+        }),
+      });
       const result = await response.json();
       if (result.success) {
         notification.success({
@@ -222,7 +218,8 @@ export default function CustomerDetails({ user }) {
                   layout="vertical"
                   onFinish={handleSubmit}
                   className="mt-3 mt-lg-3"
- disabled={loading || readOnly}                  >
+                  disabled={loading || readOnly}
+                >
                   <div className="row mt-3">
                     <Form.Item
                       label="Customer Name"
@@ -627,12 +624,14 @@ export default function CustomerDetails({ user }) {
                               style={{ width: "30px" }}
                             />{" "}
                             <span className="ms-1">
-                              United Arab Emirates - AED (<img
-                              src={Dirham}
-                              alt="Dirham"
-                              style={{ width: "15px" }}
-                              className="img-fluid m-0 p-0"
-                            />)
+                              United Arab Emirates - AED (
+                              <img
+                                src={Dirham}
+                                alt="Dirham"
+                                style={{ width: "15px" }}
+                                className="img-fluid m-0 p-0"
+                              />
+                              )
                             </span>
                           </div>
                         </option>
@@ -640,8 +639,14 @@ export default function CustomerDetails({ user }) {
                           <div className="d-flex align-items-center">
                             <img src={US} alt="US" style={{ width: "30px" }} />{" "}
                             <span className="ms-1">
-                              United States Of America - USD (<span className="fw-bold"                               style={{ width: "15px" }}
->$</span>)
+                              United States Of America - USD (
+                              <span
+                                className="fw-bold"
+                                style={{ width: "15px" }}
+                              >
+                                $
+                              </span>
+                              )
                             </span>
                           </div>
                         </option>
@@ -658,31 +663,30 @@ export default function CustomerDetails({ user }) {
                         },
                       ]}
                     >
-                       <Select placeholder="Select Payment Terms">
+                      <Select placeholder="Select Payment Terms">
                         <option value="30% as an advance, Balance 70% before the Shipment">
-                        30% as an advance, Balance 70% before the Shipment
+                          30% as an advance, Balance 70% before the Shipment
                         </option>
-                         <option value="40% as an advance, Balance 60% before the Shipment">
-                        40% as an advance, Balance 60% before the Shipment
+                        <option value="40% as an advance, Balance 60% before the Shipment">
+                          40% as an advance, Balance 60% before the Shipment
                         </option>
-                         <option value="50% as an advance, Balance 50% before the Shipment">
-                        50% as an advance, Balance 50% before the Shipment
+                        <option value="50% as an advance, Balance 50% before the Shipment">
+                          50% as an advance, Balance 50% before the Shipment
                         </option>
-                         <option value="30% as an advance balance, 365 days' Credit from the date of BL based on Insurance approval">
-                        30% as an advance balance, 365 days' Credit from the date of BL based on Insurance approval
+                        <option value="30% as an advance balance, 365 days' Credit from the date of BL based on Insurance approval">
+                          30% as an advance balance, 365 days' Credit from the
+                          date of BL based on Insurance approval
                         </option>
-                         <option value="30% as an advance, Balance 70% before the Shipment">
-                        30% as an advance, Balance 70% before the Shipment
-                        </option>
-                         <option value="100% advance">
-                        100% advance 
-                        </option>
-                          <option value="90days from the date Invoice">
-                        90days from the date Invoice
+                        {/* <option value="30% as an advance, Balance 70% before the Shipment">
+                          30% as an advance, Balance 70% before the Shipment
+                        </option> */}
+                        <option value="100% advance">100% advance</option>
+                        <option value="90days from the date Invoice">
+                          90days from the date Invoice
                         </option>
                       </Select>
                     </Form.Item>
-                
+
                     <Form.Item
                       label="Delivery Terms"
                       name="deliveryTerms"
@@ -696,26 +700,19 @@ export default function CustomerDetails({ user }) {
                     >
                       {/* <Input placeholder="Enter Payment Terms" /> */}
                       <Select placeholder="Select Payment Terms">
-                        <option value="Ex-works Ningbo">
-                        Ex-works Ningbo
+                        <option value="Ex-works Ningbo">Ex-works Ningbo</option>
+                        <option value="FOB Ningbo">FOB Ningbo</option>
+                        <option value="CIF Jebel Ali">CIF Jebel Ali</option>
+                        <option value="Ex-works Hamriyah freezone">
+                          Ex-works Hamriyah freezone
                         </option>
-                         <option value="FOB Ningbo">
-                        FOB Ningbo
+                        <option value="Ex-works Umm al Quwain">
+                          Ex-works Umm al Quwain
                         </option>
-                         <option value="CIF Jebel Ali">
-                        CIF Jebel Ali
-                        </option>
-                         <option value="Ex-works Hamriyah freezone">
-                        Ex-works Hamriyah freezone
-                        </option>
-                         <option value="Ex-works Umm al Quwain">
-                        Ex-works Umm al Quwain
-                        </option>
-                        
                       </Select>
                     </Form.Item>
 
-                          <Form.Item
+                    <Form.Item
                       label="Credit Limit"
                       name="creditLimit"
                       className="fw-bold"
@@ -729,47 +726,49 @@ export default function CustomerDetails({ user }) {
                       <Input placeholder="Enter Credit Limit" />
                     </Form.Item>
 
-                   {!readOnly && ( <div className="col-7 text-center mt-5 pt-3 mb-3 d-flex m-auto">
-                      <Button
-                        htmlType="submit"
-                        size="large"
-                        className="submitButton mt-2"
-                        loading={loading}
-                      >
-                        {loading ? "Adding Customer" : "Add Customer"}
-                      </Button>
-                      
-                      <Button
-                        htmlType="button"
-                        size="large"
-                        className="clearButton mt-2 ms-3"
-                        onClick={() => {
-                          const values = form.getFieldsValue();
-                          const isEmpty = Object.values(values).every(
-                            (value) =>
-                              value === undefined ||
-                              value === null ||
-                              value === "" ||
-                              (Array.isArray(value) && value.length === 0)
-                          );
+                    {!readOnly && (
+                      <div className="col-7 text-center mt-5 pt-3 mb-3 d-flex m-auto">
+                        <Button
+                          htmlType="submit"
+                          size="large"
+                          className="submitButton mt-2"
+                          loading={loading}
+                        >
+                          {loading ? "Adding Customer" : "Add Customer"}
+                        </Button>
 
-                          if (isEmpty) {
-                            notification.info({
-                              message: "Nothing to clear",
-                              description: "All fields are already empty.",
-                            });
-                          } else {
-                            form.resetFields();
-                            notification.success({
-                              message: "Success",
-                              description: "Form cleared successfully!",
-                            });
-                          }
-                        }}
-                      >
-                        Clear Input
-                      </Button>
-                    </div>)}
+                        <Button
+                          htmlType="button"
+                          size="large"
+                          className="clearButton mt-2 ms-3"
+                          onClick={() => {
+                            const values = form.getFieldsValue();
+                            const isEmpty = Object.values(values).every(
+                              (value) =>
+                                value === undefined ||
+                                value === null ||
+                                value === "" ||
+                                (Array.isArray(value) && value.length === 0)
+                            );
+
+                            if (isEmpty) {
+                              notification.info({
+                                message: "Nothing to clear",
+                                description: "All fields are already empty.",
+                              });
+                            } else {
+                              form.resetFields();
+                              notification.success({
+                                message: "Success",
+                                description: "Form cleared successfully!",
+                              });
+                            }
+                          }}
+                        >
+                          Clear Input
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Form>
               </div>

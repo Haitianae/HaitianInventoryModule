@@ -492,3 +492,42 @@ body, input, textarea, select, button, label, h1, h2, h3, h4, h5, h6, p, span, d
   will-change: opacity, transform;
 }
 
+.custom-card {
+  border-radius: 1rem;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+}
+
+.custom-card:hover {
+  transform: scale(1.05);
+  box-shadow: 1px 6px 11px rgba(0, 0, 0, 0.15);
+}
+
+/* Optional: Tidy up typography */
+.card-title {
+  font-weight: 600;
+  color: #343a40;
+}
+
+.card-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #212529;
+}
+
+.bg-mint {
+  background: linear-gradient(135deg, #7ed6df, #22a6b3);
+  color: #fff;
+}
+
+.bg-sky {
+  background: linear-gradient(135deg, #74b9ff, #0984e3);
+  color: #fff;
+}
+
+.bg-sunset {
+  background: linear-gradient(135deg, #fab1a0, #e17055);
+  color: #fff;
+}

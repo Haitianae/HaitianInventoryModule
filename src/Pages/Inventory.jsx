@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "antd/dist/reset.css";
-import { Button, Form, Input, Table, Tooltip, Modal } from "antd";
+import { Button, Form, Input, Table, Tooltip, Modal, Tag } from "antd";
 import { notification } from "antd";
 // import HaitianLogo from "../Images/HaitianLogo.jpeg";
 import "../App.css";
@@ -271,6 +271,52 @@ export default function Inventory({ user }) {
         </Tooltip>
       ),
     },
+        {
+          title: "Category",
+          dataIndex: "Category",
+          key: "Category",
+          render: (text) => (
+            <Tooltip title={text || "Unknown"}>
+              <span>{text || "Unknown"}</span>
+            </Tooltip>
+          ),
+        },
+        // {
+        //   title: "Status",
+        //   key: "status",
+        //   render: (_, record) => {
+        //     const qty = Number(record.quantity) || 0;
+        //     let status = "In Stock";
+        //     if (qty === 0) status = "Out of Stock";
+        //     else if (qty < 5) status = "Low Stock";
+    
+        //     return (
+        //       <Tooltip title={status}>
+        //         <span>{status}</span>
+        //       </Tooltip>
+        //     );
+        //   },
+        // },
+
+        {
+              title: "Status",
+              key: "status",
+              render: (_, record) => {
+                const qty = Number(record.quantity) || 0;
+                let status = "In Stock";
+                let color = "green";
+        
+                if (qty === 0) {
+                  status = "Out of Stock";
+                  color = "red";
+                } else if (qty < 5) {
+                  status = "Low Stock";
+                  color = "orange";
+                }
+        
+                return <Tag color={color}>{status}</Tag>;
+              },
+            },
   ];
 
   // extra columns only visible to Full Control
@@ -365,7 +411,7 @@ export default function Inventory({ user }) {
       });
 
       const res = await fetch(
-        "https://script.google.com/macros/s/AKfycbyi2f_I52eWi5HR0MAuZUCW47Y74cVypnneRYqYN9fi6drT3YfrsboOZRELFF1fJsjWYA/exec",
+        "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec",
         {
           method: "POST",
           body: params,

@@ -11,7 +11,10 @@ import {
   Tooltip,
   DatePicker,
   AutoComplete,
+  Divider,
 } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
+
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faListCheck } from "@fortawesome/free-solid-svg-icons";
 import "../App.css";
@@ -33,7 +36,10 @@ export default function ProductCategories({ user }) {
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
-  const [dataSource, setDataSource] = useState([]);
+  // const [dataSource, setDataSource] = useState([]);
+  const [sparePartsDataSource, setSparePartsDataSource] = useState([]);
+  const [auxOptionLoading, setAuxOptionLoading] = useState(false);
+
   const [machineDataSource, setMachineDataSource] = useState([]);
   // const [assetsDataSource, setAssetsDataSource] = useState([]);
   const [auxiliariesDataSource, setAuxiliariesDataSource] = useState([]);
@@ -107,12 +113,27 @@ export default function ProductCategories({ user }) {
   const [machineUnitFetched, setMachineUnitFetched] = useState(false);
   const [machineUnitOptions, setMachineUnitOptions] = useState([]);
   const [machineUnitLoading, setMachineUnitLoading] = useState(false);
+  const [machinesEditingKey, setMachinesEditingKey] = useState("");
+  const [machinesEditRow, setMachinesEditRow] = useState(null);
+  const [machinesAddLoading, setMachinesAddLoading] = useState(false);
+  const [machinesSaveLoading, setMachinesSaveLoading] = useState(false);
+  const [seriesModels, setSeriesModels] = useState([]);
+  const [newModel, setNewModel] = useState("");
+  const [seriesLoading, setSeriesLoading] = useState(false);
   // const [assetsUnitFetched, setAssetsUnitFetched] = useState(false);
   // const [assetsUnitOptions, setAssetsUnitOptions] = useState([]);
   // const [assetsUnitLoading, setAssetsUnitLoading] = useState(false);
   const [auxiliariesUnitFetched, setAuxiliariesUnitFetched] = useState(false);
   const [auxiliariesUnitOptions, setAuxiliariesUnitOptions] = useState([]);
   const [auxiliariesUnitLoading, setAuxiliariesUnitLoading] = useState(false);
+
+  const [auxiliariesEditingKey, setAuxiliariesEditingKey] = useState("");
+  const [auxiliariesEditRow, setAuxiliariesEditRow] = useState(null);
+  const [auxiliariesAddLoading, setAuxiliariesAddLoading] = useState(false);
+  const [auxiliariesSaveLoading, setAuxiliariesSaveLoading] = useState(false);
+
+  const LOCAL_KEY = "auxiliariesOptionsData";
+  const [selectedPath, setSelectedPath] = useState([]);
 
   const [stockCache, setStockCache] = useState({});
   const [loadingStockCache, setLoadingStockCache] = useState(true);
@@ -137,6 +158,16 @@ export default function ProductCategories({ user }) {
   const [consumablesUnitLoading, setConsumablesUnitLoading] = useState(false);
   const [consumablesFetching, setConsumablesFetching] = useState(false);
 
+  const [consumablesEditingKey, setConsumablesEditingKey] = useState("");
+  const [consumablesEditRow, setConsumablesEditRow] = useState(null);
+  const [consumablesAddLoading, setConsumablesAddLoading] = useState(false);
+  const [consumablesSaveLoading, setConsumablesSaveLoading] = useState(false);
+
+  const [sparePartsEditingKey, setSparePartsEditingKey] = useState("");
+  const [sparePartsEditRow, setSparePartsEditRow] = useState(null);
+  const [sparePartsAddLoading, setSparePartsAddLoading] = useState(false);
+  const [sparePartsSaveLoading, setSparePartsSaveLoading] = useState(false);
+
   const updateTotalPrice = (purchase, addOn, quantity) => {
     const p = parseFloat(purchase);
     const a = parseFloat(addOn);
@@ -152,7 +183,7 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyi2f_I52eWi5HR0MAuZUCW47Y74cVypnneRYqYN9fi6drT3YfrsboOZRELFF1fJsjWYA/exec";
+    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -466,6 +497,590 @@ export default function ProductCategories({ user }) {
     },
   ];
 
+  const [options, setOptions] = useState(auxiliariesOptions);
+  const [newItem, setNewItem] = useState("");
+
+  //  useEffect(() => {
+  //   const saved = localStorage.getItem(LOCAL_KEY);
+  //   if (saved) setOptions(JSON.parse(saved));
+  // }, []);
+
+  // useEffect(() => {
+  //   localStorage.setItem(LOCAL_KEY, JSON.stringify(options));
+  // }, [options]);
+  
+const formatPartNumber = (value) => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  return trimmed.startsWith("ME-") ? trimmed : `ME-${trimmed}`;
+};
+  const handleAuxiliariesChange = (value) => {
+    setSelectedPath(value);
+    setSelectedAuxiliaries(value);
+
+    form.setFieldsValue({ auxiliaries: value });
+    setAuxiliariesInputRow({
+      partNumber: "",
+      description: "",
+      quantity: "",
+      unit: "",
+      stockInHand: "",
+      note: "",
+      purchaseCost: "",
+      sellingCost: "",
+      stockUnit: "",
+      addOnCost: "",
+      totalPrice: "",
+    });
+    setAuxiliariesDataSource([]);
+  };
+
+  const addNewItem = () => {
+    const trimmedItem = newItem?.trim();
+    if (!trimmedItem) {
+      notification.warning({
+        message: "Warning",
+        description: "Please enter input to add",
+      });
+      form.setFieldsValue({ auxiliaries: selectedPath });
+
+      return;
+    }
+
+    const currentPath = selectedPath || [];
+
+    // Prevent more than 3 levels deep
+    if (currentPath.length >= 3) {
+      notification.warning({
+        message: "Warning",
+        description: "Cannot add more than 3 levels",
+      });
+      return;
+    }
+
+    // Recursive function to add item at correct path
+    const addItemRecursively = (nodes, path) => {
+      if (!Array.isArray(nodes)) nodes = [];
+      const key = path[0];
+      const remainingPath = path.slice(1);
+
+      if (key === undefined) {
+        // Top-level insertion
+        if (
+          !nodes.some(
+            (n) => n?.value?.trim().toLowerCase() === trimmedItem.toLowerCase()
+          )
+        ) {
+          nodes.push({ value: trimmedItem, label: trimmedItem });
+        } else {
+          throw new Error("Item already exists at this level");
+        }
+        return nodes;
+      }
+
+      return nodes.map((node) => {
+        if (node.value === key) {
+          const children = Array.isArray(node.children)
+            ? [...node.children]
+            : [];
+          if (remainingPath.length === 0) {
+            // Insert new item at this level
+            if (
+              children.some(
+                (n) =>
+                  n?.value?.trim().toLowerCase() === trimmedItem.toLowerCase()
+              )
+            ) {
+              throw new Error("Item already exists at this level");
+            }
+            node.children = [
+              ...children,
+              { value: trimmedItem, label: trimmedItem },
+            ];
+          } else {
+            node.children = addItemRecursively(children, remainingPath);
+          }
+        }
+        return node;
+      });
+    };
+
+    try {
+      const updatedOptions = addItemRecursively([...options], currentPath);
+      setOptions(updatedOptions);
+
+      // Update selected path to include new item
+      const newPath = [...currentPath, trimmedItem];
+      setSelectedPath(newPath);
+      setSelectedAuxiliaries(newPath);
+      form.setFieldsValue({ auxiliaries: newPath });
+
+      notification.success({
+        message: "Success",
+        description: `Added new item: ${trimmedItem}`,
+      });
+      setNewItem(""); // reset input
+    } catch (err) {
+      notification.info({
+        message: "Info",
+        description: err.message,
+      });
+    }
+  };
+
+  // const addNewItem = () => {
+  //   const trimmedItem = newItem.trim();
+
+  //   if (!trimmedItem) {
+  //     notification.warning({
+  //       message: "Warning",
+  //       description: "Please enter a name to add",
+  //     });
+  //     return;
+  //   }
+
+  //   // Prevent more than 3 levels deep
+  //   if (selectedPath.length >= 3) {
+  //     notification.warning({
+  //       message: "Warning",
+  //       description: "Cannot add more than 3 levels",
+  //     });
+  //     return;
+  //   }
+
+  //   let updated = [...options];
+  //   let exists = false;
+
+  //   // Helper to check duplicates (case-insensitive and trimmed)
+  //   const alreadyExists = (arr) =>
+  //     arr?.some(
+  //       (i) => i.value.trim().toLowerCase() === trimmedItem.toLowerCase()
+  //     );
+
+  //   if (selectedPath.length === 0) {
+  //     if (alreadyExists(updated)) {
+  //       exists = true;
+  //     } else {
+  //       updated.push({ value: trimmedItem, label: trimmedItem });
+  //     }
+  //   } else if (selectedPath.length === 1) {
+  //     updated = updated.map((cat) => {
+  //       if (cat.value === selectedPath[0]) {
+  //         if (alreadyExists(cat.children)) {
+  //           exists = true;
+  //           return cat;
+  //         }
+  //         return {
+  //           ...cat,
+  //           children: [
+  //             ...(cat.children || []),
+  //             { value: trimmedItem, label: trimmedItem },
+  //           ],
+  //         };
+  //       }
+  //       return cat;
+  //     });
+  //   } else if (selectedPath.length === 2) {
+  //     updated = updated.map((cat) => {
+  //       if (cat.value === selectedPath[0]) {
+  //         return {
+  //           ...cat,
+  //           children: cat.children.map((type) => {
+  //             if (type.value === selectedPath[1]) {
+  //               if (alreadyExists(type.children)) {
+  //                 exists = true;
+  //                 return type;
+  //               }
+  //               return {
+  //                 ...type,
+  //                 children: [
+  //                   ...(type.children || []),
+  //                   { value: trimmedItem, label: trimmedItem },
+  //                 ],
+  //               };
+  //             }
+  //             return type;
+  //           }),
+  //         };
+  //       }
+  //       return cat;
+  //     });
+  //   }
+
+  //   if (exists) {
+  //     notification.info({
+  //       message: "Info",
+  //       description: "Item already exists at this level",
+  //     });
+  //     return; // ✅ stop further processing
+  //   }
+
+  //   setOptions(updated);
+
+  //   notification.success({
+  //     message: "Success",
+  //     description: `Added new item: ${trimmedItem}`,
+  //   });
+
+  //   setNewItem(""); // ✅ reset input only after successful add
+  // };
+
+  // const addNewItem = () => {
+  //   const trimmedItem = newItem.trim();
+
+  //   // Only warn if user tried to add and input is empty
+  //   if (!trimmedItem) {
+  //     if (newItem !== "") {
+  //       notification.warning({
+  //         message: "Warning",
+  //         description: "Please enter a name to add",
+  //       });
+  //     }
+  //     return;
+  //   }
+
+  //   // Check max levels
+  //   if (selectedPath.length >= 3) {
+  //     notification.warning({
+  //       message: "Warning",
+  //       description: `Cannot add more than 3 levels`,
+  //     });
+  //     return;
+  //   }
+
+  //   let updated = [...options];
+
+  //   // Helper to check duplicates using trimmed values
+  //   const existsInArray = (arr) => arr?.some((i) => i.value.trim() === trimmedItem);
+
+  //   if (selectedPath.length === 0) {
+  //     if (existsInArray(updated)) {
+  //       notification.info({
+  //         message: "Info",
+  //         description: "Category already exists",
+  //       });
+  //       return;
+  //     }
+  //     updated.push({ value: trimmedItem, label: trimmedItem });
+  //   } else if (selectedPath.length === 1) {
+  //     updated = updated.map((cat) => {
+  //       if (cat.value === selectedPath[0]) {
+  //         if (existsInArray(cat.children)) return cat;
+  //         return {
+  //           ...cat,
+  //           children: [...(cat.children || []), { value: trimmedItem, label: trimmedItem }],
+  //         };
+  //       }
+  //       return cat;
+  //     });
+  //   } else if (selectedPath.length === 2) {
+  //     updated = updated.map((cat) => {
+  //       if (cat.value === selectedPath[0]) {
+  //         return {
+  //           ...cat,
+  //           children: cat.children.map((type) => {
+  //             if (type.value === selectedPath[1]) {
+  //               if (existsInArray(type.children)) return type;
+  //               return {
+  //                 ...type,
+  //                 children: [...(type.children || []), { value: trimmedItem, label: trimmedItem }],
+  //               };
+  //             }
+  //             return type;
+  //           }),
+  //         };
+  //       }
+  //       return cat;
+  //     });
+  //   }
+
+  //   setOptions(updated);
+
+  //   notification.success({
+  //     message: "Success",
+  //     description: `Added new item: ${trimmedItem}`,
+  //   });
+
+  //   setNewItem(""); // reset input after successful add
+  // };
+
+  //  useEffect(() => {
+  //   setSelectedPath([]);
+  //   form.setFieldsValue({ auxiliaries: [] });
+  //   setSelectedAuxiliaries(null);
+  //     setNewItem("");
+  // }, [selectedCategory]);
+
+  // Fetch series list when IMM changes
+  // useEffect(() => {
+  //   if (!selectedIMMSeries) return;
+
+  //   setSeriesLoading(true);
+
+  //   fetch(GAS_URL, {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //     body: new URLSearchParams({
+  //       action: "getMachineSeries",
+  //       series: selectedIMMSeries, // MA, JU, etc.
+  //     }),
+  //   })
+  //     .then((res) => res.json())
+  //     .then((data) => {
+  //       console.log("Fetched Machine Series Data:", data); // 👈 View results here
+
+  //       if (data.success) {
+  //         setSeriesModels(data.data || []);
+  //       } else {
+  //         console.error("Failed to load:", data.message);
+  //         setSeriesModels([]);
+  //       }
+  //     })
+  //     .catch((err) => {
+  //       console.error("Error fetching series:", err);
+  //       setSeriesModels([]);
+  //     })
+  //     .finally(() => setSeriesLoading(false));
+  // }, [selectedIMMSeries]);
+
+  useEffect(() => {
+    if (!selectedIMMSeries) return;
+
+    const controller = new AbortController();
+    const debounceTimer = setTimeout(() => {
+      setSeriesLoading(true);
+
+      fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "getMachineSeries",
+          series: selectedIMMSeries,
+        }),
+        signal: controller.signal,
+      })
+        .then((res) => res.json())
+        // .then((data) => {
+        //   if (data.success) setSeriesModels(data.data || []);
+        //   else setSeriesModels([]);
+        // })
+        // inside useEffect that fetches series (you already have this)
+.then((data) => {
+  if (data.success) {
+    // remove empty and '-' placeholders
+    const cleaned = (data.data || []).filter((m) => m && String(m).trim() !== "-");
+    setSeriesModels(cleaned);
+  } else {
+    setSeriesModels([]);
+  }
+})
+
+        .catch((err) => {
+          if (err.name !== "AbortError") setSeriesModels([]);
+        })
+        .finally(() => setSeriesLoading(false));
+    }, 300); // debounce 300ms
+
+    return () => {
+      clearTimeout(debounceTimer);
+      controller.abort(); // cancel previous request
+    };
+  }, [selectedIMMSeries]);
+
+  useEffect(() => {
+    if (!selectedMachine || !selectedIMMSeries) return;
+
+    setMachineDataSource([]);
+    setMachinesEditingKey("");
+    setMachinesEditRow(null);
+    setMachineInputRow({
+      partNumber: "",
+      description: "",
+      quantity: "",
+      unit: "",
+      stockInHand: "",
+      note: "",
+      purchaseCost: "",
+      sellingCost: "",
+      stockUnit: "",
+      addOnCost: "",
+      totalPrice: "",
+    });
+  }, [selectedMachine, selectedIMMSeries]);
+
+  useEffect(() => {
+    const fetchAuxiliaries = async () => {
+      setAuxOptionLoading(true);
+      try {
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ action: "getAuxiliariesList" }),
+        });
+        const data = await res.json();
+        console.log("Fetched auxiliaries data from backend:", data);
+
+        if (data.success && Array.isArray(data.data)) {
+          setOptions((prevOptions) => mergeCascader(prevOptions, data.data));
+        }
+      } catch (err) {
+        console.error("Error fetching auxiliaries list:", err);
+      } finally {
+        setAuxOptionLoading(false);
+      }
+    };
+
+    fetchAuxiliaries();
+  }, []);
+
+  // Deep merge function for cascader options
+  // function mergeCascader(existing, incoming) {
+  //   const map = {};
+
+  //   existing.forEach((item) => {
+  //     map[item.value.toLowerCase()] = { ...item };
+  //     if (item.children)
+  //       map[item.value.toLowerCase()].children = [...item.children];
+  //   });
+
+  //   incoming.forEach((item) => {
+  //     const key = item.value.toLowerCase();
+  //     if (!map[key]) {
+  //       map[key] = item;
+  //     } else if (item.children) {
+  //       map[key].children = mergeCascader(
+  //         map[key].children || [],
+  //         item.children
+  //       );
+  //     }
+  //   });
+
+  //   return Object.values(map);
+  // }
+
+  function mergeCascader(existing = [], incoming = []) {
+    const map = {};
+
+    // Process existing items safely
+    (existing || []).forEach((item) => {
+      if (!item || !item.value) return; // skip invalid items
+      const key = item.value.toLowerCase();
+      map[key] = {
+        ...item,
+        children: Array.isArray(item.children) ? [...item.children] : [],
+      };
+    });
+
+    // Process incoming items safely
+    (incoming || []).forEach((item) => {
+      if (!item || !item.value) return; // skip invalid items
+      const key = item.value.toLowerCase();
+
+      if (!map[key]) {
+        map[key] = {
+          ...item,
+          children: Array.isArray(item.children) ? [...item.children] : [],
+        };
+      } else if (Array.isArray(item.children) && item.children.length > 0) {
+        map[key].children = mergeCascader(
+          map[key].children || [],
+          item.children
+        );
+      }
+    });
+
+    return Object.values(map);
+  }
+
+  useEffect(() => {
+    // 🔹 Reset common values
+    setSelectedPath([]);
+    form.setFieldsValue({ auxiliaries: [] });
+    setSelectedAuxiliaries(null);
+    setNewItem("");
+
+    // 🔹 Reset Auxiliaries when not selected
+    if (selectedCategory !== "Auxiliaries") {
+      setAuxiliariesDataSource([]);
+      setAuxiliariesEditRow(null);
+      setAuxiliariesEditingKey("");
+      setAuxiliariesInputRow({
+        partNumber: "",
+        description: "",
+        quantity: "",
+        unit: "",
+        stockInHand: "",
+        note: "",
+        purchaseCost: "",
+        sellingCost: "",
+        stockUnit: "",
+        addOnCost: "",
+        totalPrice: "",
+      });
+    }
+
+    // 🔹 Reset Machine when not selected
+    if (selectedCategory !== "Machine") {
+      setMachineDataSource([]);
+      setMachinesEditRow(null);
+      setMachinesEditingKey("");
+      setMachineInputRow({
+        partNumber: "",
+        description: "",
+        quantity: "",
+        unit: "",
+        stockInHand: "",
+        note: "",
+        purchaseCost: "",
+        sellingCost: "",
+        stockUnit: "",
+        addOnCost: "",
+        totalPrice: "",
+      });
+    }
+
+    // 🔹 Reset Spare Parts when not selected
+    if (selectedCategory !== "Spare Parts") {
+      setSparePartsDataSource([]);
+      setSparePartsEditRow(null);
+      setSparePartsEditingKey("");
+      setInputRow({
+        partNumber: "",
+        description: "",
+        quantity: "",
+        unit: "",
+        stockInHand: "",
+        note: "",
+        purchaseCost: "",
+        sellingCost: "",
+        stockUnit: "",
+        addOnCost: "",
+        totalPrice: "",
+      });
+    }
+
+    // 🔹 Reset Consumables when not selected
+    if (selectedCategory !== "Consumables") {
+      setConsumablesDataSource([]);
+      setConsumablesEditRow(null);
+      setConsumablesEditingKey("");
+      setConsumablesInputRow({
+        date: "",
+        partNumber: "",
+        description: "",
+        quantity: "",
+        unit: "",
+        stockInHand: "",
+        stockUnit: "",
+        purchaseCost: "",
+        addOnCost: "",
+        sellingCost: "",
+        totalPrice: "",
+        note: "",
+      });
+    }
+  }, [selectedCategory]);
+
   const fetchAllStock = async () => {
     try {
       const res = await fetch(GAS_URL, {
@@ -631,7 +1246,7 @@ export default function ProductCategories({ user }) {
     const part = machineinputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -662,6 +1277,77 @@ export default function ProductCategories({ user }) {
       setMachineUnitOptions([...defaultUnits]);
     }
   }, [machineinputRow.partNumber, stockCache, userRole]);
+
+  useEffect(() => {
+    const part = machineinputRow.partNumber?.trim();
+    if (!part) return;
+
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    const cached = stockCache[part];
+    let unit = "";
+    let stock = "0";
+
+    if (cached) {
+      stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+
+      // ✅ category check
+      // const belongsToCategory = cached.categories?.includes("Machine");
+      // if (belongsToCategory && cached.unit) {
+      //   unit = cached.unit.trim();
+      // }
+      unit = cached.unit?.trim() || "";
+    }
+
+    setMachineInputRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+    }));
+
+    // ✅ Update dropdown options
+    if (unit) {
+      setMachineUnitOptions(
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+      );
+    } else {
+      setMachineUnitOptions([...defaultUnits]);
+    }
+  }, [machineinputRow.partNumber, stockCache, userRole]);
+
+  useEffect(() => {
+    if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
+
+    const part = machinesEditRow.partNumber.trim();
+    const cached = stockCache[part];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+    let stock = "0";
+    let unit = machinesEditRow.unit?.trim() || "";
+
+    if (cached) {
+      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+      if (!unit) unit = cached.unit?.trim() || "";
+    }
+
+    setMachinesEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      machinesUnitFetched: !!unit,
+    }));
+
+    form.setFieldsValue({ unit });
+
+    setMachineUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
+        : [...defaultUnits]
+    );
+  }, [machinesEditRow?.partNumber, stockCache]);
 
   // useEffect(() => {
   //   const controller = new AbortController();
@@ -818,7 +1504,7 @@ export default function ProductCategories({ user }) {
     const part = auxiliariesInputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -842,6 +1528,41 @@ export default function ProductCategories({ user }) {
       setAuxiliariesUnitOptions([...defaultUnits]);
     }
   }, [auxiliariesInputRow.partNumber, stockCache, userRole]);
+
+  useEffect(() => {
+    if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
+
+    const part = auxiliariesEditRow.partNumber.trim();
+    const cached = stockCache[part];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+    let stock = "0";
+    let unit = auxiliariesEditRow.unit?.trim() || "";
+
+    if (cached) {
+      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+      if (!unit) unit = cached.unit?.trim() || "";
+    }
+
+    setAuxiliariesEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      auxiliariesUnitFetched: !!unit,
+    }));
+
+    form.setFieldsValue({ unit });
+
+    setAuxiliariesUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
+        : [...defaultUnits]
+    );
+  }, [auxiliariesEditRow?.partNumber, stockCache]);
 
   // useEffect(() => {
   //   const controller = new AbortController();
@@ -1328,7 +2049,7 @@ export default function ProductCategories({ user }) {
     const part = inputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -1379,11 +2100,122 @@ export default function ProductCategories({ user }) {
     }
   }, [inputRow.partNumber, stockCache, userRole]);
 
+  // useEffect(() => {
+  //   if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
+
+  //   const part = sparePartsEditRow.partNumber.trim();
+  //   const cached = stockCache[part];
+  //   const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
+
+  //   let stock = "0";
+  //   let unit = "";
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+  //     unit = cached.unit?.trim() || "";
+  //   }
+
+  //   setSparePartsEditRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //     sparePartsUnitFetched: !!unit,
+  //   }));
+
+  //   // update AntD form field
+  //   form.setFieldsValue({ unit });
+
+  //   // update dropdown options
+  //   setSpareUnitOptions(
+  //     isFullControl
+  //       ? unit
+  //         ? [...new Set([unit, ...defaultUnits])]
+  //         : [...defaultUnits]
+  //       : unit
+  //       ? [unit]
+  //       : [...defaultUnits]
+  //   );
+  // }, [sparePartsEditRow?.partNumber, stockCache]);
+
+  useEffect(() => {
+    if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
+
+    const part = sparePartsEditRow.partNumber.trim();
+    const cached = stockCache[part];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+    let stock = "0";
+    let unit = sparePartsEditRow.unit?.trim() || ""; // ✅ prefer row’s unit
+
+    if (cached) {
+      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+      if (!unit) {
+        unit = cached.unit?.trim() || "";
+      }
+    }
+
+    setSparePartsEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      sparePartsUnitFetched: !!unit,
+    }));
+
+    form.setFieldsValue({ unit });
+
+    setSpareUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
+        : [...defaultUnits]
+    );
+  }, [sparePartsEditRow?.partNumber, stockCache]);
+
+  useEffect(() => {
+    if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
+
+    const part = consumablesEditRow.partNumber.trim();
+    const cached = stockCache[part];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+    let stock = "0";
+    let unit = consumablesEditRow.unit?.trim() || ""; // ✅ prefer row’s unit
+
+    if (cached) {
+      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+      if (!unit) {
+        unit = cached.unit?.trim() || "";
+      }
+    }
+
+    setConsumablesEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      consumablesUnitFetched: !!unit,
+    }));
+
+    form.setFieldsValue({ unit });
+
+    setConsumablesUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
+        : [...defaultUnits]
+    );
+  }, [consumablesEditRow?.partNumber, stockCache]);
+
   useEffect(() => {
     const part = consumablesInputRow.partNumber?.trim();
     if (!part) return;
 
-    const defaultUnits = ["Set", "Number", "Metre", "Piece", "Litre", "Kg"];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
     const cached = stockCache[part];
     let unit = "";
     let stock = "0";
@@ -1632,7 +2464,8 @@ export default function ProductCategories({ user }) {
   //       setLoading(false);
   //     }
   //   };
-
+const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+console.log(userLocalDateTime);
   const handleSubmit = async (values) => {
     if (!navigator.onLine) {
       notification.error({
@@ -1646,7 +2479,8 @@ export default function ProductCategories({ user }) {
       loading ||
       (machineDataSource.length === 0 &&
         auxiliariesDataSource.length === 0 &&
-        dataSource.length === 0 &&
+        // dataSource.length === 0 &&
+        sparePartsDataSource.length === 0 &&
         consumablesDataSource.length === 0)
     ) {
       notification.error({
@@ -1656,6 +2490,21 @@ export default function ProductCategories({ user }) {
       });
       return;
     }
+
+    // const {
+    //   productCategory,
+    //   machines,
+    //   immSeries,
+    //   maSeries,
+    //   juSeries,
+    //   jeSeries,
+    //   veSeries,
+    //   zeSeries,
+    //   haSeries,
+    //   auxiliaries,
+    // } = values;
+
+    const currentValues = form.getFieldsValue(true);
 
     const {
       productCategory,
@@ -1667,8 +2516,9 @@ export default function ProductCategories({ user }) {
       veSeries,
       zeSeries,
       haSeries,
-      auxiliaries,
-    } = values;
+    } = currentValues;
+
+    const auxiliaries = currentValues.auxiliaries;
 
     try {
       setLoading(true);
@@ -1685,14 +2535,18 @@ export default function ProductCategories({ user }) {
       const maxLength = Math.max(
         machineDataSource.length,
         auxiliariesDataSource.length,
-        dataSource.length,
+        // dataSource.length,
+        sparePartsDataSource.length,
+
         consumablesDataSource.length
       );
 
       for (let i = 0; i < maxLength; i++) {
         const machine = machineDataSource[i] || {};
         const auxiliary = auxiliariesDataSource[i] || {};
-        const spare = dataSource[i] || {};
+        // const spare = dataSource[i] || {};
+        const spare = sparePartsDataSource[i] || {};
+
         const consumable = consumablesDataSource[i] || {};
 
         const formData = new URLSearchParams({
@@ -1711,7 +2565,8 @@ export default function ProductCategories({ user }) {
           haSeries: haSeries || "-",
 
           // Machine Details
-          machinePartNumber: machine.partNumber || "-",
+          // machinePartNumber: machine.partNumber || "-",
+          machinePartNumber: formatPartNumber(machine.partNumber) || "-",
           machineDescription: machine.description || "-",
           machineQuantity: machine.quantity || "-",
           machineStockInHand: machine.stockInHand || "0",
@@ -1723,13 +2578,15 @@ export default function ProductCategories({ user }) {
           machineTotalPrice: machine.totalPrice || "-",
           machineDate: machine.date || "",
 
+          modifiedDateTime: userLocalDateTime,
           userName: user?.email || "",
 
           auxiliaries: Array.isArray(auxiliaries)
             ? auxiliaries.join(" / ")
             : auxiliaries || "",
 
-          auxPartNumber: auxiliary.partNumber || "-",
+          // auxPartNumber: auxiliary.partNumber || "-",
+          auxPartNumber: formatPartNumber(auxiliary.partNumber) || "-",
           auxDescription: auxiliary.description || "-",
           auxQuantity: auxiliary.quantity || "-",
           auxStockInHand: auxiliary.stockInHand || "0",
@@ -1741,7 +2598,8 @@ export default function ProductCategories({ user }) {
           auxTotalPrice: auxiliary.totalPrice || "-",
           auxDate: auxiliary.date || "-",
 
-          sparePartNumber: spare.partNumber || "-",
+          // sparePartNumber: spare.partNumber || "-",
+          sparePartNumber: formatPartNumber(spare.partNumber) || "-",
           spareDescription: spare.description || "-",
           spareQuantity: spare.quantity || "-",
           spareStockInHand: spare.stockInHand || "0",
@@ -1754,7 +2612,8 @@ export default function ProductCategories({ user }) {
           spareDate: spare.date || "",
 
           // ✅ Consumables
-          consumablePartNumber: consumable.partNumber || "-",
+          // consumablePartNumber: consumable.partNumber || "-",
+          consumablePartNumber: formatPartNumber(consumable.partNumber) || "-",
           consumableDescription: consumable.description || "-",
           consumableQuantity: consumable.quantity || "-",
           consumableStockInHand: consumable.stockInHand || "0",
@@ -1798,7 +2657,8 @@ export default function ProductCategories({ user }) {
       setSelectedCategory(null);
       setMachineDataSource([]);
       setAuxiliariesDataSource([]);
-      setDataSource([]);
+      // setDataSource([]);
+      setSparePartsDataSource([]);
       setConsumablesDataSource([]); // ✅ clear consumables after submit
     } catch (err) {
       notification.error({
@@ -1810,15 +2670,16 @@ export default function ProductCategories({ user }) {
       setLoading(false);
     }
   };
-const maxTableRows = 10;
+  const maxTableRows = 5;
   const handleSparePartsAdd = async () => {
-      if (dataSource.length >= maxTableRows) {
-    notification.error({
-      message: "Limit Reached",
-      description: `You can only add up to ${maxTableRows} rows.`,
-    });
-    return;
-  }
+    // if (dataSource.length >= maxTableRows) {
+    if (sparePartsDataSource.length >= maxTableRows) {
+      notification.error({
+        message: "Limit Reached",
+        description: `You can only add up to ${maxTableRows} rows.`,
+      });
+      return;
+    }
     const {
       partNumber,
       description,
@@ -1864,7 +2725,9 @@ const maxTableRows = 10;
     };
 
     // setDataSource([...dataSource, newData]);
-    setDataSource((prev) => [...prev, newData]);
+    // setDataSource((prev) => [...prev, newData]);
+    setSparePartsDataSource((prev) => [...prev, newData]);
+
     setInputRow({
       partNumber: "",
       description: "",
@@ -1882,36 +2745,767 @@ const maxTableRows = 10;
   };
 
   const handleSparePartsDelete = (key) => {
-    setDataSource(dataSource.filter((item) => item.key !== key));
+    // setDataSource(dataSource.filter((item) => item.key !== key));
+    setSparePartsDataSource(
+      sparePartsDataSource.filter((item) => item.key !== key)
+    );
   };
+
+  const isSparePartsEditing = (record) => record.key === sparePartsEditingKey;
+
+  const handleSparePartsEdit = (key) => {
+    // const row = dataSource.find((item) => item.key === key);
+    const row = sparePartsDataSource.find((item) => item.key === key);
+
+    setSparePartsEditingKey(key);
+    setSparePartsEditRow({ ...row });
+  };
+
+  const handleSparePartsSave = () => {
+    if (!sparePartsEditRow) return;
+
+    const {
+      partNumber,
+      description,
+      quantity,
+      unit,
+      purchaseCost,
+      addOnCost,
+      sellingCost,
+      totalPrice,
+      date,
+    } = sparePartsEditRow;
+
+    if (
+      !partNumber ||
+      !description ||
+      !quantity ||
+      !unit ||
+      !purchaseCost ||
+      !addOnCost ||
+      !sellingCost ||
+      !totalPrice ||
+      !date
+    ) {
+      notification.error({
+        message: "Error",
+        description:
+          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+      });
+      return;
+    }
+
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
+
+    // setDataSource((prev) =>
+    setSparePartsDataSource((prev) =>
+      prev.map((item) =>
+        item.key === sparePartsEditingKey
+          ? { ...sparePartsEditRow, key: sparePartsEditingKey }
+          : item
+      )
+    );
+    setSparePartsEditingKey("");
+    setSparePartsEditRow(null);
+  };
+
+  const handleSparePartsCancel = () => {
+    setSparePartsEditingKey("");
+    setSparePartsEditRow(null);
+  };
+
+  // const sparePartsColumns = [
+  //   {
+  //     title: "Date",
+  //     dataIndex: "date",
+  //     width: 220,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           {/* <DatePicker
+  //             format="DD-MM-YYYY"
+  //             style={{ width: "100%" }}
+  //             value={
+  //               inputRow.date && dayjs(inputRow.date, "DD-MM-YYYY").isValid()
+  //                 ? dayjs.tz(inputRow.date, "DD-MM-YYYY", "Asia/Dubai")
+  //                 : null
+  //             }
+  //             onChange={(dateObj) => {
+  //               if (!dateObj) {
+  //                 setInputRow({ ...inputRow, date: "" });
+  //                 return;
+  //               }
+  //               const formatted = dayjs(dateObj)
+  //                 .tz("Asia/Dubai")
+  //                 .format("DD-MM-YYYY");
+  //               setInputRow({ ...inputRow, date: formatted });
+  //             }}
+  //           /> */}
+  //           <Input
+  //             placeholder="DD-MM-YYYY"
+  //             maxLength={10}
+  //             value={inputRow.date}
+  //             onChange={(e) => {
+  //               const value = e.target.value;
+  //               setInputRow({ ...inputRow, date: value });
+
+  //               // validate only when full length is reached
+  //               if (value.length === 10) {
+  //                 const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  //                 if (!regex.test(value)) {
+  //                   notification.error({
+  //                     message: "Invalid Date",
+  //                     description: "Enter date in DD-MM-YYYY format",
+  //                   });
+  //                   setInputRow({ ...inputRow, date: "" });
+  //                 }
+  //               }
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.date}>
+  //           <span>{record.date || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Part Number",
+  //     dataIndex: "partNumber",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter part number"
+  //             value={inputRow.partNumber}
+  //             onChange={(e) =>
+  //               setInputRow({
+  //                 ...inputRow,
+  //                 partNumber: e.target.value.toUpperCase(),
+  //                 quantity: "",
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.partNumber}>
+  //           <span>{record.partNumber}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Description",
+  //     dataIndex: "description",
+  //     ellipsis: true,
+  //     width: 500,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             // autoSize={{ minRows: 1, maxRows: 1 }}
+  //             rows={1}
+  //             placeholder="Enter description"
+  //             value={inputRow.description}
+  //             onChange={(e) =>
+  //               setInputRow({ ...inputRow, description: e.target.value })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         // <Tooltip title={record.description}>
+  //         //   <span>{record.description}</span>
+  //         // </Tooltip>
+  //         <Tooltip
+  //           title={record.description}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           <span className="truncate-text">
+  //             {record.description?.length > 150
+  //               ? `${record.description.slice(0, 150)}...`
+  //               : record.description}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   // {
+  //   //   title: "Purchase Cost In AED (per item)",
+  //   //   dataIndex: "purchaseCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           placeholder="Enter purchase cost"
+  //   //           type="number"
+  //   //           min={0}
+  //   //           value={inputRow.purchaseCost}
+  //   //           onChange={(e) => {
+  //   //             const purchaseCost = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               purchaseCost,
+  //   //               inputRow.addOnCost,
+  //   //               inputRow.quantity
+  //   //             );
+  //   //             setInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               purchaseCost,
+  //   //               sellingCost: sellingPrice,
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.purchaseCost}>
+  //   //         <span>{record.purchaseCost || "-"}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Purchase Cost In AED (per item)",
+  //     dataIndex: "purchaseCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter purchase cost"
+  //             type="number"
+  //             min={0}
+  //             value={inputRow.purchaseCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setInputRow((prev) => ({ ...prev, purchaseCost: value }));
+  //               setSparePartsFetching(true);
+  //               clearTimeout(window.purchaseCostDebounce);
+  //               window.purchaseCostDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Purchase Cost",
+  //                     description: "Purchase cost must be greater than 0.",
+  //                   });
+  //                   setInputRow((prev) => ({ ...prev, purchaseCost: "" }));
+  //                 } else {
+  //                   const { totalPrice } = updateTotalPrice(
+  //                     value,
+  //                     inputRow.addOnCost,
+  //                     inputRow.quantity
+  //                   );
+  //                   setInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 }
+  //                 setSparePartsFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.purchaseCost}>
+  //           <span>{record.purchaseCost || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Add On Cost In AED",
+  //   //   dataIndex: "addOnCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           type="number"
+  //   //           min={0}
+  //   //           placeholder="Enter add on cost"
+  //   //           value={inputRow.addOnCost}
+  //   //           onChange={(e) => {
+  //   //             const addOnCost = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               inputRow.purchaseCost,
+  //   //               addOnCost,
+  //   //               inputRow.quantity
+  //   //             );
+  //   //             setInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               addOnCost,
+  //   //               sellingCost: sellingPrice,
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.addOnCost}>
+  //   //         <span>{record.addOnCost}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Add On Cost In AED",
+  //     dataIndex: "addOnCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             min={0}
+  //             placeholder="Enter add on cost"
+  //             value={inputRow.addOnCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setInputRow((prev) => ({ ...prev, addOnCost: value }));
+  //               setSparePartsFetching(true);
+
+  //               clearTimeout(window.addOnCostDebounce);
+  //               window.addOnCostDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Add On Cost",
+  //                     description: "Add on cost must be greater than 0.",
+  //                   });
+  //                   setInputRow((prev) => ({ ...prev, addOnCost: "" }));
+  //                 } else {
+  //                   const { totalPrice } = updateTotalPrice(
+  //                     inputRow.purchaseCost,
+  //                     value,
+  //                     inputRow.quantity
+  //                   );
+  //                   setInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 }
+  //                 setSparePartsFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.addOnCost}>
+  //           <span>{record.addOnCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Selling Cost (AED)",
+  //     dataIndex: "sellingCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record, index) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             min={0}
+  //             placeholder="Enter Selling Cost"
+  //             value={inputRow.sellingCost || ""}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setInputRow((prev) => ({ ...prev, sellingCost: value }));
+
+  //               clearTimeout(window.sellingCostDebounce);
+  //               window.sellingCostDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Selling Cost",
+  //                     description: "Selling cost must be greater than 0.",
+  //                   });
+  //                   setInputRow((prev) => ({ ...prev, sellingCost: "" }));
+  //                 }
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.sellingCost}>
+  //           <span>{record.sellingCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Quantity",
+  //   //   dataIndex: "quantity",
+  //   //   ellipsis: true,
+  //   //   width: 200,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           placeholder="Enter quantity"
+  //   //           type="number"
+  //   //           min={1}
+  //   //           value={inputRow.quantity}
+  //   //           onChange={(e) => {
+  //   //             const quantity = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               inputRow.purchaseCost,
+  //   //               inputRow.addOnCost,
+  //   //               quantity
+  //   //             );
+  //   //             setInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               quantity,
+  //   //               sellingCost: sellingPrice, // still needed in case it's blank initially
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.quantity}>
+  //   //         <span>{record.quantity}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Quantity",
+  //     dataIndex: "quantity",
+  //     ellipsis: true,
+  //     width: 200,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter Quantity"
+  //             type="number"
+  //             // min={1}
+  //             disabled={spareUnitLoading}
+  //             value={inputRow.quantity}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setInputRow((prev) => ({ ...prev, quantity: value }));
+  //               setSparePartsFetching(true);
+
+  //               clearTimeout(window.quantityDebounce);
+  //               window.quantityDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 // if (
+  //                 //   value !== "" &&
+  //                 //   (value === "0" ||
+  //                 //     value === "0.0" ||
+  //                 //     value === ".0" ||
+  //                 //     isNaN(num) ||
+  //                 //     num === 0)
+  //                 // ) {
+  //                 //   notification.error({
+  //                 //     message: "Invalid Quantity",
+  //                 //     description: "Quantity must be greater than 0.",
+  //                 //   });
+  //                 //   setInputRow((prev) => ({ ...prev, quantity: "" }));
+  //                 // } else {
+  //                 //   const { totalPrice } = updateTotalPrice(
+  //                 //     inputRow.purchaseCost,
+  //                 //     inputRow.addOnCost,
+  //                 //     value
+  //                 //   );
+  //                 //   setInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 // }
+
+  //                 // Basic invalid checks
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: "Quantity must be greater than 0.",
+  //                   });
+  //                   setInputRow((prev) => ({ ...prev, quantity: "" }));
+  //                   setSparePartsFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 // Extra check for Set / Piece units - must be whole number
+  //                 const unit = (inputRow.unit || "").toLowerCase();
+  //                 if (
+  //                   (unit === "set" || unit === "piece") &&
+  //                   !Number.isInteger(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: `Quantity for unit "${inputRow.unit}" must be a whole number.`,
+  //                   });
+  //                   setInputRow((prev) => ({
+  //                     ...prev,
+  //                     quantity: "",
+  //                     unit: "",
+  //                   }));
+  //                   setSparePartsFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 // Update total price if all checks pass
+  //                 const { totalPrice } = updateTotalPrice(
+  //                   inputRow.purchaseCost,
+  //                   inputRow.addOnCost,
+  //                   value
+  //                 );
+  //                 setInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 setSparePartsFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.quantity}>
+  //           <span>{record.quantity}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Unit",
+  //   //   dataIndex: "unit",
+  //   //   width: 250,
+  //   //   ellipsis: true,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Select
+  //   //         className="w-100"
+  //   //         value={inputRow.unit}
+  //   //         onChange={(value) => {
+
+  //   //             const unit = (inputRow.unit || "").toLowerCase();
+  //   //             const num = inputRow.quantity
+  //   //           if ((unit === "set" || unit === "piece") && !Number.isInteger(num)) {
+  //   //             notification.error({
+  //   //               message: "Invalid Quantity",
+  //   //               description: `Quantity for unit "${inputRow.unit}" must be a whole number.`,
+  //   //             });
+  //   //             setInputRow((prev) => ({ ...prev, unit:"" }));
+  //   //             return;
+  //   //           }
+  //   //           setInputRow((prev) => ({ ...prev, unit: value }))}
+  //   //         }
+  //   //         options={spareUnitOptions.map((u) => ({ value: u, label: u }))}
+  //   //         loading={spareUnitLoading}
+  //   //         placeholder={spareUnitLoading ? "Fetching unit..." : "Select Unit"}
+  //   //         notFoundContent={
+  //   //           spareUnitLoading ? "Fetching unit..." : "No units found"
+  //   //         }
+  //   //         // disabled={inputRow.sparePartsUnitFetched && userRole !== "Admin"}
+  //   //       />
+  //   //     ) : (
+  //   //       record.unit || ""
+  //   //     ),
+  //   // },
+  //   {
+  //     title: "Unit",
+  //     dataIndex: "unit",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Select
+  //           className="w-100"
+  //           value={inputRow.unit}
+  //           onChange={(selectedUnit) => {
+  //             clearTimeout(window.unitDebounce);
+  //             window.unitDebounce = setTimeout(() => {
+  //               const unitLower = (selectedUnit || "").toLowerCase();
+  //               const num = parseFloat(inputRow.quantity);
+
+  //               // Check if quantity must be whole number
+  //               if (
+  //                 (unitLower === "set" || unitLower === "piece") &&
+  //                 !Number.isInteger(num)
+  //               ) {
+  //                 notification.error({
+  //                   message: "Invalid Quantity",
+  //                   description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+  //                 });
+  //                 setInputRow((prev) => ({ ...prev, unit: "", quantity: "" }));
+  //                 return;
+  //               }
+
+  //               // If valid, update the unit
+  //               setInputRow((prev) => ({ ...prev, unit: selectedUnit }));
+  //             }, 300);
+  //           }}
+  //           options={spareUnitOptions.map((u) => ({ value: u, label: u }))}
+  //           loading={spareUnitLoading}
+  //           placeholder={spareUnitLoading ? "Fetching unit..." : "Select Unit"}
+  //           notFoundContent={
+  //             spareUnitLoading ? "Fetching unit..." : "No units found"
+  //           }
+  //         />
+  //       ) : (
+  //         record.unit || ""
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Stock In Hand",
+  //     dataIndex: "stockInHand",
+  //     width: 200,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             readOnly
+  //             value={
+  //               inputRow.stockInHand
+  //                 ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
+  //                 : ""
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
+  //           <span>
+  //             {record.stockInHand
+  //               ? `${record.stockInHand} ${record.stockUnit || ""}`
+  //               : "-"}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Total Price In AED",
+  //     dataIndex: "totalPrice",
+  //     width: 200,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input value={inputRow.totalPrice || ""} readOnly />{" "}
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.totalPrice}>
+  //           <span>{record.totalPrice || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Note",
+  //     dataIndex: "note",
+  //     ellipsis: true,
+  //     width: 300,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             // autoSize={{ minRows: 1, maxRows: 1 }}
+  //             rows={1}
+  //             placeholder="Enter note"
+  //             value={inputRow.note}
+  //             onChange={(e) =>
+  //               setInputRow({ ...inputRow, note: e.target.value })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         // <Tooltip title={record.note}>
+  //         //   <span>{record.note}</span>
+  //         // </Tooltip>
+  //         <Tooltip
+  //           title={record.note}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           {/* <span> {record.note}</span> */}
+  //           <span className="truncate-text">
+  //             {record.note?.length > 150
+  //               ? `${record.note.slice(0, 150)}...`
+  //               : record.note}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Action",
+  //     width: 120,
+  //     fixed: "right",
+  //     align: "center",
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Button
+  //           className="addButton ps-4 pe-4"
+  //           onClick={handleSparePartsAdd}
+  //           disabled={sparePartsFetching}
+  //           loading={sparePartsFetching}
+  //         >
+  //           {sparePartsFetching ? "Loading" : "Add"}
+  //         </Button>
+  //       ) : (
+  //         <Button
+  //           className="deleteButton ps-3 pe-3"
+  //           onClick={() => handleSparePartsDelete(record.key)}
+  //         >
+  //           Delete
+  //         </Button>
+  //       ),
+  //   },
+  // ];
 
   const sparePartsColumns = [
     {
       title: "Date",
       dataIndex: "date",
       width: 220,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            {/* <DatePicker
-              format="DD-MM-YYYY"
-              style={{ width: "100%" }}
-              value={
-                inputRow.date && dayjs(inputRow.date, "DD-MM-YYYY").isValid()
-                  ? dayjs.tz(inputRow.date, "DD-MM-YYYY", "Asia/Dubai")
-                  : null
-              }
-              onChange={(dateObj) => {
-                if (!dateObj) {
-                  setInputRow({ ...inputRow, date: "" });
-                  return;
-                }
-                const formatted = dayjs(dateObj)
-                  .tz("Asia/Dubai")
-                  .format("DD-MM-YYYY");
-                setInputRow({ ...inputRow, date: formatted });
-              }}
-            /> */}
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input
               placeholder="DD-MM-YYYY"
               maxLength={10}
@@ -1920,7 +3514,6 @@ const maxTableRows = 10;
                 const value = e.target.value;
                 setInputRow({ ...inputRow, date: value });
 
-                // validate only when full length is reached
                 if (value.length === 10) {
                   const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
                   if (!regex.test(value)) {
@@ -1933,21 +3526,43 @@ const maxTableRows = 10;
                 }
               }}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.date}>
-            <span>{record.date || "-"}</span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={sparePartsEditRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSparePartsEditRow((prev) => ({ ...prev, date: value }));
+
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setSparePartsEditRow((prev) => ({ ...prev, date: "" }));
+                  }
+                }
+              }}
+            />
+          );
+        }
+        return <span>{record.date || "-"}</span>;
+      },
     },
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input
               placeholder="Enter part number"
               value={inputRow.partNumber}
@@ -1959,23 +3574,35 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.partNumber}>
-            <span>{record.partNumber}</span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter part number"
+              value={sparePartsEditRow.partNumber}
+              onChange={(e) =>
+                setSparePartsEditRow((prev) => ({
+                  ...prev,
+                  partNumber: e.target.value.toUpperCase(),
+                  quantity: "",
+                }))
+              }
+            />
+          );
+        }
+        return <span>{record.partNumber}</span>;
+      },
     },
     {
       title: "Description",
       dataIndex: "description",
       ellipsis: true,
       width: 500,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input.TextArea
-              // autoSize={{ minRows: 1, maxRows: 1 }}
               rows={1}
               placeholder="Enter description"
               value={inputRow.description}
@@ -1983,499 +3610,347 @@ const maxTableRows = 10;
                 setInputRow({ ...inputRow, description: e.target.value })
               }
             />
-          </Tooltip>
-        ) : (
-          // <Tooltip title={record.description}>
-          //   <span>{record.description}</span>
-          // </Tooltip>
-          <Tooltip
-            title={record.description}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            <span className="truncate-text">
-              {record.description?.length > 150
-                ? `${record.description.slice(0, 150)}...`
-                : record.description}
-            </span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input.TextArea
+              rows={1}
+              value={sparePartsEditRow.description}
+              onChange={(e) =>
+                setSparePartsEditRow((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
+            />
+          );
+        }
+        return (
+          <span>
+            {record.description?.length > 150
+              ? `${record.description.slice(0, 150)}...`
+              : record.description}
+          </span>
+        );
+      },
     },
-    // {
-    //   title: "Purchase Cost In AED (per item)",
-    //   dataIndex: "purchaseCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           placeholder="Enter purchase cost"
-    //           type="number"
-    //           min={0}
-    //           value={inputRow.purchaseCost}
-    //           onChange={(e) => {
-    //             const purchaseCost = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               purchaseCost,
-    //               inputRow.addOnCost,
-    //               inputRow.quantity
-    //             );
-    //             setInputRow((prev) => ({
-    //               ...prev,
-    //               purchaseCost,
-    //               sellingCost: sellingPrice,
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.purchaseCost}>
-    //         <span>{record.purchaseCost || "-"}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
       title: "Purchase Cost In AED (per item)",
       dataIndex: "purchaseCost",
       ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              placeholder="Enter purchase cost"
-              type="number"
-              min={0}
-              value={inputRow.purchaseCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setInputRow((prev) => ({ ...prev, purchaseCost: value }));
-                setSparePartsFetching(true);
-                clearTimeout(window.purchaseCostDebounce);
-                window.purchaseCostDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Purchase Cost",
-                      description: "Purchase cost must be greater than 0.",
-                    });
-                    setInputRow((prev) => ({ ...prev, purchaseCost: "" }));
-                  } else {
-                    const { totalPrice } = updateTotalPrice(
-                      value,
-                      inputRow.addOnCost,
-                      inputRow.quantity
-                    );
-                    setInputRow((prev) => ({ ...prev, totalPrice }));
-                  }
-                  setSparePartsFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.purchaseCost}>
-            <span>{record.purchaseCost || "-"}</span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            placeholder="Enter purchase cost"
+            type="number"
+            min={0}
+            value={row.purchaseCost}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, purchaseCost: value }));
+              if (record.isInput) {
+                setSparePartsAddLoading(true);
+              } else if (isSparePartsEditing(record)) {
+                setSparePartsSaveLoading(true);
+              }
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && (isNaN(num) || num <= 0)) {
+                  notification.error({
+                    message: "Invalid Purchase Cost",
+                    description: "Purchase cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, purchaseCost: "" }));
+                } else {
+                  const { totalPrice } = updateTotalPrice(
+                    value,
+                    row.addOnCost,
+                    row.quantity
+                  );
+                  setRow((prev) => ({ ...prev, totalPrice }));
+                }
+                if (record.isInput) {
+                  setSparePartsAddLoading(false);
+                } else if (isSparePartsEditing(record)) {
+                  setSparePartsSaveLoading(false);
+                }
+              }, 3000);
+            }}
+          />
+        );
+        if (record.isInput)
+          return renderInput(inputRow, setInputRow, "purchaseCostDebounce");
+        if (isSparePartsEditing(record))
+          return renderInput(
+            sparePartsEditRow,
+            setSparePartsEditRow,
+            "editPurchaseCostDebounce"
+          );
+        return <span>{record.purchaseCost || "-"}</span>;
+      },
     },
-
-    // {
-    //   title: "Add On Cost In AED",
-    //   dataIndex: "addOnCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           type="number"
-    //           min={0}
-    //           placeholder="Enter add on cost"
-    //           value={inputRow.addOnCost}
-    //           onChange={(e) => {
-    //             const addOnCost = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               inputRow.purchaseCost,
-    //               addOnCost,
-    //               inputRow.quantity
-    //             );
-    //             setInputRow((prev) => ({
-    //               ...prev,
-    //               addOnCost,
-    //               sellingCost: sellingPrice,
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.addOnCost}>
-    //         <span>{record.addOnCost}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
       title: "Add On Cost In AED",
       dataIndex: "addOnCost",
       ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Enter add on cost"
-              value={inputRow.addOnCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setInputRow((prev) => ({ ...prev, addOnCost: value }));
-                setSparePartsFetching(true);
-
-                clearTimeout(window.addOnCostDebounce);
-                window.addOnCostDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Add On Cost",
-                      description: "Add on cost must be greater than 0.",
-                    });
-                    setInputRow((prev) => ({ ...prev, addOnCost: "" }));
-                  } else {
-                    const { totalPrice } = updateTotalPrice(
-                      inputRow.purchaseCost,
-                      value,
-                      inputRow.quantity
-                    );
-                    setInputRow((prev) => ({ ...prev, totalPrice }));
-                  }
-                  setSparePartsFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.addOnCost}>
-            <span>{record.addOnCost}</span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter add on cost"
+            value={row.addOnCost}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, addOnCost: value }));
+              if (record.isInput) {
+                setSparePartsAddLoading(true);
+              } else if (isSparePartsEditing(record)) {
+                setSparePartsSaveLoading(true);
+              }
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && isNaN(num)) {
+                  notification.error({
+                    message: "Invalid Add On Cost",
+                    description: "Add on cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, addOnCost: "" }));
+                } else {
+                  const { totalPrice } = updateTotalPrice(
+                    row.purchaseCost,
+                    value,
+                    row.quantity
+                  );
+                  setRow((prev) => ({ ...prev, totalPrice }));
+                }
+                if (record.isInput) {
+                  setSparePartsAddLoading(false);
+                } else if (isSparePartsEditing(record)) {
+                  setSparePartsSaveLoading(false);
+                }
+              }, 3000);
+            }}
+          />
+        );
+        if (record.isInput)
+          return renderInput(inputRow, setInputRow, "addOnCostDebounce");
+        if (isSparePartsEditing(record))
+          return renderInput(
+            sparePartsEditRow,
+            setSparePartsEditRow,
+            "editAddOnCostDebounce"
+          );
+        return <span>{record.addOnCost}</span>;
+      },
     },
-
     {
       title: "Selling Cost (AED)",
       dataIndex: "sellingCost",
       ellipsis: true,
       width: 250,
-      render: (_, record, index) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Enter Selling Cost"
-              value={inputRow.sellingCost || ""}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setInputRow((prev) => ({ ...prev, sellingCost: value }));
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter Selling Cost"
+            value={row.sellingCost || ""}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, sellingCost: value }));
 
-                clearTimeout(window.sellingCostDebounce);
-                window.sellingCostDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Selling Cost",
-                      description: "Selling cost must be greater than 0.",
-                    });
-                    setInputRow((prev) => ({ ...prev, sellingCost: "" }));
-                  }
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.sellingCost}>
-            <span>{record.sellingCost}</span>
-          </Tooltip>
-        ),
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && isNaN(num)) {
+                  notification.error({
+                    message: "Invalid Selling Cost",
+                    description: "Selling cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, sellingCost: "" }));
+                }
+              }, 3000);
+            }}
+          />
+        );
+        if (record.isInput)
+          return renderInput(inputRow, setInputRow, "sellingCostDebounce");
+        if (isSparePartsEditing(record))
+          return renderInput(
+            sparePartsEditRow,
+            setSparePartsEditRow,
+            "editSellingCostDebounce"
+          );
+        return <span>{record.sellingCost}</span>;
+      },
     },
-
-    // {
-    //   title: "Quantity",
-    //   dataIndex: "quantity",
-    //   ellipsis: true,
-    //   width: 200,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           placeholder="Enter quantity"
-    //           type="number"
-    //           min={1}
-    //           value={inputRow.quantity}
-    //           onChange={(e) => {
-    //             const quantity = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               inputRow.purchaseCost,
-    //               inputRow.addOnCost,
-    //               quantity
-    //             );
-    //             setInputRow((prev) => ({
-    //               ...prev,
-    //               quantity,
-    //               sellingCost: sellingPrice, // still needed in case it's blank initially
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.quantity}>
-    //         <span>{record.quantity}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
       title: "Quantity",
       dataIndex: "quantity",
       ellipsis: true,
       width: 200,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              placeholder="Enter Quantity"
-              type="number"
-              // min={1}
-              disabled={spareUnitLoading}
-              value={inputRow.quantity}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setInputRow((prev) => ({ ...prev, quantity: value }));
-                setSparePartsFetching(true);
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            placeholder="Enter Quantity"
+            type="number"
+            value={row.quantity}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, quantity: value }));
+              if (record.isInput) {
+                setSparePartsAddLoading(true);
+              } else if (isSparePartsEditing(record)) {
+                setSparePartsSaveLoading(true);
+              }
 
-                clearTimeout(window.quantityDebounce);
-                window.quantityDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  // if (
-                  //   value !== "" &&
-                  //   (value === "0" ||
-                  //     value === "0.0" ||
-                  //     value === ".0" ||
-                  //     isNaN(num) ||
-                  //     num === 0)
-                  // ) {
-                  //   notification.error({
-                  //     message: "Invalid Quantity",
-                  //     description: "Quantity must be greater than 0.",
-                  //   });
-                  //   setInputRow((prev) => ({ ...prev, quantity: "" }));
-                  // } else {
-                  //   const { totalPrice } = updateTotalPrice(
-                  //     inputRow.purchaseCost,
-                  //     inputRow.addOnCost,
-                  //     value
-                  //   );
-                  //   setInputRow((prev) => ({ ...prev, totalPrice }));
-                  // }
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
 
-                  // Basic invalid checks
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: "Quantity must be greater than 0.",
-                    });
-                    setInputRow((prev) => ({ ...prev, quantity: "" }));
-                    setSparePartsFetching(false);
+                if (value !== "" && (value === "0" || isNaN(num) || num <= 0)) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: "Quantity must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, quantity: "" }));
+                  return;
+                }
 
-                    return;
-                  }
+                const unit = (row.unit || "").toLowerCase();
+                if (
+                  (unit === "set" || unit === "piece") &&
+                  !Number.isInteger(num)
+                ) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: `Quantity for unit "${row.unit}" must be a whole number.`,
+                  });
+                  setRow((prev) => ({ ...prev, quantity: "", unit: "" }));
+                  return;
+                }
 
-                  // Extra check for Set / Piece units - must be whole number
-                  const unit = (inputRow.unit || "").toLowerCase();
-                  if (
-                    (unit === "set" || unit === "piece") &&
-                    !Number.isInteger(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: `Quantity for unit "${inputRow.unit}" must be a whole number.`,
-                    });
-                    setInputRow((prev) => ({
-                      ...prev,
-                      quantity: "",
-                      unit: "",
-                    }));
-                    setSparePartsFetching(false);
-
-                    return;
-                  }
-
-                  // Update total price if all checks pass
-                  const { totalPrice } = updateTotalPrice(
-                    inputRow.purchaseCost,
-                    inputRow.addOnCost,
-                    value
-                  );
-                  setInputRow((prev) => ({ ...prev, totalPrice }));
-                  setSparePartsFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.quantity}>
-            <span>{record.quantity}</span>
-          </Tooltip>
-        ),
+                const { totalPrice } = updateTotalPrice(
+                  row.purchaseCost,
+                  row.addOnCost,
+                  value
+                );
+                setRow((prev) => ({ ...prev, totalPrice }));
+                if (record.isInput) {
+                  setSparePartsAddLoading(false);
+                } else if (isSparePartsEditing(record)) {
+                  setSparePartsSaveLoading(false);
+                }
+              }, 3000);
+            }}
+          />
+        );
+        if (record.isInput)
+          return renderInput(inputRow, setInputRow, "quantityDebounce");
+        if (isSparePartsEditing(record))
+          return renderInput(
+            sparePartsEditRow,
+            setSparePartsEditRow,
+            "editQuantityDebounce"
+          );
+        return <span>{record.quantity}</span>;
+      },
     },
-
-    // {
-    //   title: "Unit",
-    //   dataIndex: "unit",
-    //   width: 250,
-    //   ellipsis: true,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Select
-    //         className="w-100"
-    //         value={inputRow.unit}
-    //         onChange={(value) => {
-
-    //             const unit = (inputRow.unit || "").toLowerCase();
-    //             const num = inputRow.quantity
-    //           if ((unit === "set" || unit === "piece") && !Number.isInteger(num)) {
-    //             notification.error({
-    //               message: "Invalid Quantity",
-    //               description: `Quantity for unit "${inputRow.unit}" must be a whole number.`,
-    //             });
-    //             setInputRow((prev) => ({ ...prev, unit:"" }));
-    //             return;
-    //           }
-    //           setInputRow((prev) => ({ ...prev, unit: value }))}
-    //         }
-    //         options={spareUnitOptions.map((u) => ({ value: u, label: u }))}
-    //         loading={spareUnitLoading}
-    //         placeholder={spareUnitLoading ? "Fetching unit..." : "Select Unit"}
-    //         notFoundContent={
-    //           spareUnitLoading ? "Fetching unit..." : "No units found"
-    //         }
-    //         // disabled={inputRow.sparePartsUnitFetched && userRole !== "Admin"}
-    //       />
-    //     ) : (
-    //       record.unit || ""
-    //     ),
-    // },
     {
       title: "Unit",
       dataIndex: "unit",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
+      render: (_, record) => {
+        const renderSelect = (row, setRow, debounceKey) => (
           <Select
             className="w-100"
-            value={inputRow.unit}
+            value={row.unit}
             onChange={(selectedUnit) => {
-              clearTimeout(window.unitDebounce);
-              window.unitDebounce = setTimeout(() => {
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
                 const unitLower = (selectedUnit || "").toLowerCase();
-                const num = parseFloat(inputRow.quantity);
+                const num = parseFloat(row.quantity);
 
-                // Check if quantity must be whole number
                 if (
                   (unitLower === "set" || unitLower === "piece") &&
                   !Number.isInteger(num)
                 ) {
                   notification.error({
                     message: "Invalid Quantity",
-                    description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+                    description: `Quantity for unit "${selectedUnit}" must be a whole number.`,
                   });
-                  setInputRow((prev) => ({ ...prev, unit: "", quantity: "" }));
+                  setRow((prev) => ({ ...prev, unit: "", quantity: "" }));
                   return;
                 }
 
-                // If valid, update the unit
-                setInputRow((prev) => ({ ...prev, unit: selectedUnit }));
+                setRow((prev) => ({ ...prev, unit: selectedUnit }));
               }, 300);
             }}
             options={spareUnitOptions.map((u) => ({ value: u, label: u }))}
-            loading={spareUnitLoading}
-            placeholder={spareUnitLoading ? "Fetching unit..." : "Select Unit"}
-            notFoundContent={
-              spareUnitLoading ? "Fetching unit..." : "No units found"
-            }
+            placeholder="Select Unit"
           />
-        ) : (
-          record.unit || ""
-        ),
+        );
+        if (record.isInput)
+          return renderSelect(inputRow, setInputRow, "unitDebounce");
+        if (isSparePartsEditing(record))
+          return renderSelect(
+            sparePartsEditRow,
+            setSparePartsEditRow,
+            "editUnitDebounce"
+          );
+        return record.unit || "";
+      },
     },
-
+    // {
+    //   title: "Stock In Hand",
+    //   dataIndex: "stockInHand",
+    //   width: 200,
+    //   render: (_, record) => {
+    //     if (record.isInput) {
+    //       return (
+    //         <Input
+    //           readOnly
+    //           value={
+    //             inputRow.stockInHand
+    //               ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
+    //               : ""
+    //           }
+    //         />
+    //       );
+    //     }
+    //     return (
+    //       <span>
+    //         {record.stockInHand
+    //           ? `${record.stockInHand} ${record.stockUnit || ""}`
+    //           : "-"}
+    //       </span>
+    //     );
+    //   },
+    // },
     {
       title: "Stock In Hand",
       dataIndex: "stockInHand",
       width: 200,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              readOnly
-              value={
-                inputRow.stockInHand
-                  ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
-                  : ""
-              }
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
-            <span>
-              {record.stockInHand
-                ? `${record.stockInHand} ${record.stockUnit || ""}`
-                : "-"}
-            </span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        if (record.isInput) {
+          return <Input readOnly value={inputRow.stockInHand || ""} />;
+        }
+
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input readOnly value={sparePartsEditRow?.stockInHand || "0"} />
+          );
+        }
+
+        return <span>{record.stockInHand || "-"}</span>;
+      },
     },
 
     {
@@ -2483,27 +3958,23 @@ const maxTableRows = 10;
       dataIndex: "totalPrice",
       width: 200,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input value={inputRow.totalPrice || ""} readOnly />{" "}
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.totalPrice}>
-            <span>{record.totalPrice || "-"}</span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        if (record.isInput)
+          return <Input value={inputRow.totalPrice || ""} readOnly />;
+        if (isSparePartsEditing(record))
+          return <Input value={sparePartsEditRow.totalPrice || ""} readOnly />;
+        return <span>{record.totalPrice || "-"}</span>;
+      },
     },
     {
       title: "Note",
       dataIndex: "note",
       ellipsis: true,
       width: 300,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input.TextArea
-              // autoSize={{ minRows: 1, maxRows: 1 }}
               rows={1}
               placeholder="Enter note"
               value={inputRow.note}
@@ -2511,67 +3982,164 @@ const maxTableRows = 10;
                 setInputRow({ ...inputRow, note: e.target.value })
               }
             />
-          </Tooltip>
-        ) : (
-          // <Tooltip title={record.note}>
-          //   <span>{record.note}</span>
-          // </Tooltip>
-          <Tooltip
-            title={record.note}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            {/* <span> {record.note}</span> */}
-            <span className="truncate-text">
-              {record.note?.length > 150
-                ? `${record.note.slice(0, 150)}...`
-                : record.note}
-            </span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input.TextArea
+              rows={1}
+              value={sparePartsEditRow.note}
+              onChange={(e) =>
+                setSparePartsEditRow((prev) => ({
+                  ...prev,
+                  note: e.target.value,
+                }))
+              }
+            />
+          );
+        }
+        return (
+          <span>
+            {record.note?.length > 150
+              ? `${record.note.slice(0, 150)}...`
+              : record.note}
+          </span>
+        );
+      },
     },
-
+    // {
+    //   title: "Action",
+    //   width: 200,
+    //   fixed: "right",
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Button
+    //         className="addButton w-100"
+    //         onClick={handleSparePartsAdd}
+    //         // disabled={sparePartsFetching}
+    //         // loading={sparePartsFetching}
+    //         disabled={sparePartsAddLoading}
+    //         loading={sparePartsAddLoading}
+    //       >
+    //         {/* {sparePartsFetching ? "Loading" : "Add"} */}
+    //         {sparePartsAddLoading ? "Loading" : "Add"}
+    //       </Button>
+    //     ) : isSparePartsEditing(record) ? (
+    //       <>
+    //         <Button
+    //           type="primary"
+    //           onClick={handleSparePartsSave}
+    //           // loading={sparePartsFetching}
+    //           loading={sparePartsSaveLoading}
+    //           className="addButton"
+    //         >
+    //           {/* {sparePartsFetching ? "Loading" : "Save"} */}
+    //           {sparePartsSaveLoading ? "Loading" : "Save"}
+    //         </Button>
+    //         <Button
+    //           onClick={handleSparePartsCancel}
+    //           style={{ marginLeft: 8 }}
+    //           className="deleteButton"
+    //         >
+    //           Cancel
+    //         </Button>
+    //       </>
+    //     ) : (
+    //       <>
+    //         <Button
+    //           onClick={() => handleSparePartsEdit(record.key)}
+    //           className="addButton"
+    //         >
+    //           Edit
+    //         </Button>
+    //         <Button
+    //           onClick={() => handleSparePartsDelete(record.key)}
+    //           style={{ marginLeft: 8 }}
+    //           className="deleteButton"
+    //         >
+    //           Delete
+    //         </Button>
+    //       </>
+    //     ),
+    // },
     {
       title: "Action",
-      width: 120,
+      width: 200,
       fixed: "right",
-      align: "center",
-      render: (_, record) =>
-        record.isInput ? (
-          <Button
-            className="addButton ps-4 pe-4"
-            onClick={handleSparePartsAdd}
-            disabled={sparePartsFetching}
-            loading={sparePartsFetching}
-          >
-            {sparePartsFetching ? "Loading" : "Add"}
-          </Button>
-        ) : (
-          <Button
-            className="deleteButton ps-3 pe-3"
-            onClick={() => handleSparePartsDelete(record.key)}
-          >
-            Delete
-          </Button>
-        ),
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
+            <Button
+              className="addButton w-100"
+              onClick={handleSparePartsAdd}
+              loading={sparePartsAddLoading}
+              style={{ minWidth: 90 }} // ensures width stays stable
+            >
+              {sparePartsAddLoading ? "Loading..." : "Add"}
+            </Button>
+          );
+        }
+
+        if (isSparePartsEditing(record)) {
+          return (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                type="primary"
+                onClick={handleSparePartsSave}
+                loading={sparePartsSaveLoading}
+                className="addButton"
+                style={{ minWidth: 90 }}
+              >
+                {sparePartsSaveLoading ? "Loading..." : "Save"}
+              </Button>
+              <Button
+                onClick={handleSparePartsCancel}
+                className="deleteButton"
+                style={{ minWidth: 90 }}
+              >
+                Cancel
+              </Button>
+            </div>
+          );
+        }
+
+        return (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button
+              onClick={() => handleSparePartsEdit(record.key)}
+              className="addButton"
+              style={{ minWidth: 90 }}
+            >
+              Edit
+            </Button>
+            <Button
+              onClick={() => handleSparePartsDelete(record.key)}
+              className="deleteButton"
+              danger
+              style={{ minWidth: 90 }}
+            >
+              Delete
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
-  const displayData = [{ key: "input", isInput: true }, ...dataSource];
+  // const displayData = [{ key: "input", isInput: true }, ...dataSource];
+  const displayData = [
+    { key: "input", isInput: true },
+    ...sparePartsDataSource,
+  ];
 
   const handleConsumablesAdd = async () => {
-      if (consumablesDataSource.length >= maxTableRows) {
-    notification.error({
-      message: "Limit Reached",
-      description: `You can only add up to ${maxTableRows} rows.`,
-    });
-    return;
-  }
+    if (consumablesDataSource.length >= maxTableRows) {
+      notification.error({
+        message: "Limit Reached",
+        description: `You can only add up to ${maxTableRows} rows.`,
+      });
+      return;
+    }
     const {
       partNumber,
       description,
@@ -2641,42 +4209,81 @@ const maxTableRows = 10;
     setConsumablesDataSource((prev) => prev.filter((item) => item.key !== key));
   };
 
+  const isConsumablesEditing = (record) => record.key === consumablesEditingKey;
+
+  const handleConsumablesEdit = (key) => {
+    const row = consumablesDataSource.find((item) => item.key === key);
+    setConsumablesEditingKey(key);
+    setConsumablesEditRow({ ...row });
+  };
+
+  const handleConsumablesSave = () => {
+    if (!consumablesEditRow) return;
+
+    const {
+      partNumber,
+      description,
+      quantity,
+      unit,
+      purchaseCost,
+      addOnCost,
+      sellingCost,
+      totalPrice,
+      date,
+    } = consumablesEditRow;
+
+    if (
+      !partNumber ||
+      !description ||
+      !quantity ||
+      !unit ||
+      !purchaseCost ||
+      !addOnCost ||
+      !sellingCost ||
+      !totalPrice ||
+      !date
+    ) {
+      notification.error({
+        message: "Error",
+        description:
+          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+      });
+      return;
+    }
+
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
+
+    setConsumablesDataSource((prev) =>
+      prev.map((item) =>
+        item.key === consumablesEditingKey
+          ? { ...consumablesEditRow, key: consumablesEditingKey }
+          : item
+      )
+    );
+    setConsumablesEditingKey("");
+    setConsumablesEditRow(null);
+  };
+
+  const handleConsumablesCancel = () => {
+    setConsumablesEditingKey("");
+    setConsumablesEditRow(null);
+  };
+
   const consumablesColumns = [
     {
       title: "Date",
       dataIndex: "date",
       width: 220,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            {/* <DatePicker
-              format="DD-MM-YYYY"
-              style={{ width: "100%" }}
-              value={
-                consumablesInputRow.date &&
-                dayjs(consumablesInputRow.date, "DD-MM-YYYY").isValid()
-                  ? dayjs.tz(
-                      consumablesInputRow.date,
-                      "DD-MM-YYYY",
-                      "Asia/Dubai"
-                    )
-                  : null
-              }
-              onChange={(dateObj) => {
-                if (!dateObj) {
-                  setConsumablesInputRow({ ...consumablesInputRow, date: "" });
-                  return;
-                }
-                const formatted = dayjs(dateObj)
-                  .tz("Asia/Dubai")
-                  .format("DD-MM-YYYY");
-                setConsumablesInputRow({
-                  ...consumablesInputRow,
-                  date: formatted,
-                });
-              }}
-            /> */}
-
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input
               placeholder="DD-MM-YYYY"
               maxLength={10}
@@ -2685,7 +4292,6 @@ const maxTableRows = 10;
                 const value = e.target.value;
                 setConsumablesInputRow({ ...consumablesInputRow, date: value });
 
-                // validate only when full length is reached
                 if (value.length === 10) {
                   const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
                   if (!regex.test(value)) {
@@ -2701,21 +4307,45 @@ const maxTableRows = 10;
                 }
               }}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.date}>
-            <span>{record.date || "-"}</span>
-          </Tooltip>
-        ),
+          );
+        }
+
+        if (isConsumablesEditing(record)) {
+          return (
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={consumablesEditRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setConsumablesEditRow((prev) => ({ ...prev, date: value }));
+
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setConsumablesEditRow((prev) => ({ ...prev, date: "" }));
+                  }
+                }
+              }}
+            />
+          );
+        }
+
+        return <span>{record.date || "-"}</span>;
+      },
     },
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input
               placeholder="Enter part number"
               value={consumablesInputRow.partNumber}
@@ -2727,21 +4357,36 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.partNumber}>
-            <span>{record.partNumber}</span>
-          </Tooltip>
-        ),
+          );
+        }
+
+        if (isConsumablesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter part number"
+              value={consumablesEditRow.partNumber}
+              onChange={(e) =>
+                setConsumablesEditRow((prev) => ({
+                  ...prev,
+                  partNumber: e.target.value.toUpperCase(),
+                  quantity: "",
+                }))
+              }
+            />
+          );
+        }
+
+        return <span>{record.partNumber}</span>;
+      },
     },
     {
       title: "Description",
       dataIndex: "description",
-      ellipsis: true,
       width: 500,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      ellipsis: true,
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input.TextArea
               rows={1}
               placeholder="Enter description"
@@ -2753,380 +4398,363 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip
-            title={record.description}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            <span className="truncate-text">
-              {record.description?.length > 150
-                ? `${record.description.slice(0, 150)}...`
-                : record.description}
-            </span>
-          </Tooltip>
-        ),
+          );
+        }
+
+        if (isConsumablesEditing(record)) {
+          return (
+            <Input.TextArea
+              rows={1}
+              value={consumablesEditRow.description}
+              onChange={(e) =>
+                setConsumablesEditRow((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
+            />
+          );
+        }
+
+        return (
+          <span>
+            {record.description?.length > 150
+              ? `${record.description.slice(0, 150)}...`
+              : record.description}
+          </span>
+        );
+      },
     },
     {
       title: "Purchase Cost In AED (per item)",
       dataIndex: "purchaseCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              placeholder="Enter purchase cost"
-              type="number"
-              min={0}
-              value={consumablesInputRow.purchaseCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setConsumablesInputRow((prev) => ({
-                  ...prev,
-                  purchaseCost: value,
-                }));
-                setConsumablesFetching(true);
-                clearTimeout(window.consumablesPurchaseDebounce);
-                window.consumablesPurchaseDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Purchase Cost",
-                      description: "Purchase cost must be greater than 0.",
-                    });
-                    setConsumablesInputRow((prev) => ({
-                      ...prev,
-                      purchaseCost: "",
-                    }));
-                  } else {
-                    const { totalPrice } = updateTotalPrice(
-                      value,
-                      consumablesInputRow.addOnCost,
-                      consumablesInputRow.quantity
-                    );
-                    setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
-                  }
-                  setConsumablesFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.purchaseCost}>
-            <span>{record.purchaseCost || "-"}</span>
-          </Tooltip>
-        ),
+      ellipsis: true,
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter purchase cost"
+            value={row.purchaseCost}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, purchaseCost: value }));
+              if (record.isInput) {
+                setConsumablesAddLoading(true);
+              } else if (isConsumablesEditing(record)) {
+                setConsumablesSaveLoading(true);
+              }
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && (isNaN(num) || num <= 0)) {
+                  notification.error({
+                    message: "Invalid Purchase Cost",
+                    description: "Purchase cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, purchaseCost: "" }));
+                } else {
+                  const { totalPrice } = updateTotalPrice(
+                    value,
+                    row.addOnCost,
+                    row.quantity
+                  );
+                  setRow((prev) => ({ ...prev, totalPrice }));
+                }
+                if (record.isInput) {
+                  setConsumablesAddLoading(false);
+                } else if (isConsumablesEditing(record)) {
+                  setConsumablesSaveLoading(false);
+                }
+              }, 3000);
+            }}
+          />
+        );
+
+        if (record.isInput)
+          return renderInput(
+            consumablesInputRow,
+            setConsumablesInputRow,
+            "consumablesPurchaseCostDebounce"
+          );
+        if (isConsumablesEditing(record))
+          return renderInput(
+            consumablesEditRow,
+            setConsumablesEditRow,
+            "consumablesEditPurchaseCostDebounce"
+          );
+        return <span>{record.purchaseCost || "-"}</span>;
+      },
     },
     {
       title: "Add On Cost In AED",
       dataIndex: "addOnCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Enter add on cost"
-              value={consumablesInputRow.addOnCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setConsumablesInputRow((prev) => ({
-                  ...prev,
-                  addOnCost: value,
-                }));
-                setConsumablesFetching(true);
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter add on cost"
+            value={row.addOnCost}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, addOnCost: value }));
+              if (record.isInput) {
+                setConsumablesAddLoading(true);
+              } else if (isConsumablesEditing(record)) {
+                setConsumablesSaveLoading(true);
+              }
 
-                clearTimeout(window.consumablesAddOnDebounce);
-                window.consumablesAddOnDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Add On Cost",
-                      description: "Add on cost must be greater than 0.",
-                    });
-                    setConsumablesInputRow((prev) => ({
-                      ...prev,
-                      addOnCost: "",
-                    }));
-                  } else {
-                    const { totalPrice } = updateTotalPrice(
-                      consumablesInputRow.purchaseCost,
-                      value,
-                      consumablesInputRow.quantity
-                    );
-                    setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
-                  }
-                  setConsumablesFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.addOnCost}>
-            <span>{record.addOnCost}</span>
-          </Tooltip>
-        ),
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && isNaN(num)) {
+                  notification.error({
+                    message: "Invalid Add On Cost",
+                    description: "Add on cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, addOnCost: "" }));
+                } else {
+                  const { totalPrice } = updateTotalPrice(
+                    row.purchaseCost,
+                    value,
+                    row.quantity
+                  );
+                  setRow((prev) => ({ ...prev, totalPrice }));
+                }
+                if (record.isInput) {
+                  setConsumablesAddLoading(false);
+                } else if (isConsumablesEditing(record)) {
+                  setConsumablesSaveLoading(false);
+                }
+              }, 3000);
+            }}
+          />
+        );
+
+        if (record.isInput)
+          return renderInput(
+            consumablesInputRow,
+            setConsumablesInputRow,
+            "consumablesAddOnCostDebounce"
+          );
+        if (isConsumablesEditing(record))
+          return renderInput(
+            consumablesEditRow,
+            setConsumablesEditRow,
+            "consumablesEditAddOnCostDebounce"
+          );
+        return <span>{record.addOnCost || "-"}</span>;
+      },
     },
     {
       title: "Selling Cost (AED)",
       dataIndex: "sellingCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Enter Selling Cost"
-              value={consumablesInputRow.sellingCost || ""}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setConsumablesInputRow((prev) => ({
-                  ...prev,
-                  sellingCost: value,
-                }));
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter Selling Cost"
+            value={row.sellingCost || ""}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, sellingCost: value }));
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && isNaN(num)) {
+                  notification.error({
+                    message: "Invalid Selling Cost",
+                    description: "Selling cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, sellingCost: "" }));
+                }
+              }, 3000);
+            }}
+          />
+        );
 
-                clearTimeout(window.consumablesSellingDebounce);
-                window.consumablesSellingDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Selling Cost",
-                      description: "Selling cost must be greater than 0.",
-                    });
-                    setConsumablesInputRow((prev) => ({
-                      ...prev,
-                      sellingCost: "",
-                    }));
-                  }
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.sellingCost}>
-            <span>{record.sellingCost}</span>
-          </Tooltip>
-        ),
+        if (record.isInput)
+          return renderInput(
+            consumablesInputRow,
+            setConsumablesInputRow,
+            "consumablesSellingCostDebounce"
+          );
+        if (isConsumablesEditing(record))
+          return renderInput(
+            consumablesEditRow,
+            setConsumablesEditRow,
+            "consumablesEditSellingCostDebounce"
+          );
+        return <span>{record.sellingCost || "-"}</span>;
+      },
     },
     {
       title: "Quantity",
       dataIndex: "quantity",
-      ellipsis: true,
       width: 200,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              placeholder="Enter Quantity"
-              type="number"
-              disabled={consumablesUnitLoading}
-              value={consumablesInputRow.quantity}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setConsumablesInputRow((prev) => ({
-                  ...prev,
-                  quantity: value,
-                }));
-                setConsumablesFetching(true);
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            placeholder="Enter Quantity"
+            value={row.quantity}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, quantity: value }));
+              if (record.isInput) {
+                setConsumablesAddLoading(true);
+              } else if (isConsumablesEditing(record)) {
+                setConsumablesSaveLoading(true);
+              }
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && (value === "0" || isNaN(num) || num <= 0)) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: "Quantity must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, quantity: "" }));
+                  return;
+                }
+                const unit = (row.unit || "").toLowerCase();
+                if (
+                  (unit === "set" || unit === "piece") &&
+                  !Number.isInteger(num)
+                ) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: `Quantity for unit "${row.unit}" must be a whole number.`,
+                  });
+                  setRow((prev) => ({ ...prev, quantity: "", unit: "" }));
+                  return;
+                }
+                const { totalPrice } = updateTotalPrice(
+                  row.purchaseCost,
+                  row.addOnCost,
+                  value
+                );
+                setRow((prev) => ({ ...prev, totalPrice }));
+                if (record.isInput) {
+                  setConsumablesAddLoading(false);
+                } else if (isConsumablesEditing(record)) {
+                  setConsumablesSaveLoading(false);
+                }
+              }, 3000);
+            }}
+          />
+        );
 
-                clearTimeout(window.consumablesQuantityDebounce);
-                window.consumablesQuantityDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: "Quantity must be greater than 0.",
-                    });
-                    setConsumablesInputRow((prev) => ({
-                      ...prev,
-                      quantity: "",
-                    }));
-                    setConsumablesFetching(false);
-                    return;
-                  }
-
-                  const unit = (consumablesInputRow.unit || "").toLowerCase();
-                  if (
-                    (unit === "set" || unit === "piece") &&
-                    !Number.isInteger(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: `Quantity for unit "${consumablesInputRow.unit}" must be a whole number.`,
-                    });
-                    setConsumablesInputRow((prev) => ({
-                      ...prev,
-                      quantity: "",
-                      unit: "",
-                    }));
-                    setConsumablesFetching(false);
-                    return;
-                  }
-
-                  const { totalPrice } = updateTotalPrice(
-                    consumablesInputRow.purchaseCost,
-                    consumablesInputRow.addOnCost,
-                    value
-                  );
-                  setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
-                  setConsumablesFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.quantity}>
-            <span>{record.quantity}</span>
-          </Tooltip>
-        ),
+        if (record.isInput)
+          return renderInput(
+            consumablesInputRow,
+            setConsumablesInputRow,
+            "consumablesQuantityDebounce"
+          );
+        if (isConsumablesEditing(record))
+          return renderInput(
+            consumablesEditRow,
+            setConsumablesEditRow,
+            "consumablesEditQuantityDebounce"
+          );
+        return <span>{record.quantity || "-"}</span>;
+      },
     },
     {
       title: "Unit",
       dataIndex: "unit",
       width: 250,
-      ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
+      render: (_, record) => {
+        const renderSelect = (row, setRow, debounceKey) => (
           <Select
             className="w-100"
-            value={consumablesInputRow.unit}
+            value={row.unit}
             onChange={(selectedUnit) => {
-              clearTimeout(window.consumablesUnitDebounce);
-              window.consumablesUnitDebounce = setTimeout(() => {
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
                 const unitLower = (selectedUnit || "").toLowerCase();
-                const num = parseFloat(consumablesInputRow.quantity);
-
+                const num = parseFloat(row.quantity);
                 if (
                   (unitLower === "set" || unitLower === "piece") &&
                   !Number.isInteger(num)
                 ) {
                   notification.error({
                     message: "Invalid Quantity",
-                    description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+                    description: `Quantity for unit "${selectedUnit}" must be a whole number.`,
                   });
-                  setConsumablesInputRow((prev) => ({
-                    ...prev,
-                    unit: "",
-                    quantity: "",
-                  }));
+                  setRow((prev) => ({ ...prev, unit: "", quantity: "" }));
                   return;
                 }
-
-                setConsumablesInputRow((prev) => ({
-                  ...prev,
-                  unit: selectedUnit,
-                }));
+                setRow((prev) => ({ ...prev, unit: selectedUnit }));
               }, 300);
             }}
             options={consumablesUnitOptions.map((u) => ({
               value: u,
               label: u,
             }))}
-            loading={consumablesUnitLoading}
-            placeholder={
-              consumablesUnitLoading ? "Fetching unit..." : "Select Unit"
-            }
-            notFoundContent={
-              consumablesUnitLoading ? "Fetching unit..." : "No units found"
-            }
+            placeholder="Select Unit"
           />
-        ) : (
-          record.unit || ""
-        ),
+        );
+
+        if (record.isInput)
+          return renderSelect(
+            consumablesInputRow,
+            setConsumablesInputRow,
+            "consumablesUnitDebounce"
+          );
+        if (isConsumablesEditing(record))
+          return renderSelect(
+            consumablesEditRow,
+            setConsumablesEditRow,
+            "consumablesEditUnitDebounce"
+          );
+        return <span>{record.unit || "-"}</span>;
+      },
     },
     {
       title: "Stock In Hand",
       dataIndex: "stockInHand",
       width: 200,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              readOnly
-              value={
-                consumablesInputRow.stockInHand
-                  ? `${consumablesInputRow.stockInHand} ${
-                      consumablesInputRow.stockUnit || ""
-                    }`
-                  : ""
-              }
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
-            <span>
-              {record.stockInHand
-                ? `${record.stockInHand} ${record.stockUnit || ""}`
-                : "-"}
-            </span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        if (record.isInput)
+          return (
+            <Input readOnly value={consumablesInputRow.stockInHand || ""} />
+          );
+        if (isConsumablesEditing(record))
+          return (
+            <Input readOnly value={consumablesEditRow.stockInHand || "0"} />
+          );
+        return <span>{record.stockInHand || "-"}</span>;
+      },
     },
     {
       title: "Total Price In AED",
       dataIndex: "totalPrice",
       width: 200,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput)
+          return (
             <Input value={consumablesInputRow.totalPrice || ""} readOnly />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.totalPrice}>
-            <span>{record.totalPrice || "-"}</span>
-          </Tooltip>
-        ),
+          );
+        if (isConsumablesEditing(record))
+          return <Input value={consumablesEditRow.totalPrice || ""} readOnly />;
+        return <span>{record.totalPrice || "-"}</span>;
+      },
     },
     {
       title: "Note",
       dataIndex: "note",
-      ellipsis: true,
       width: 300,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      ellipsis: true,
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input.TextArea
               rows={1}
               placeholder="Enter note"
@@ -3138,51 +4766,638 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip
-            title={record.note}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            <span className="truncate-text">
-              {record.note?.length > 150
-                ? `${record.note.slice(0, 150)}...`
-                : record.note}
-            </span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isConsumablesEditing(record)) {
+          return (
+            <Input.TextArea
+              rows={1}
+              value={consumablesEditRow.note}
+              onChange={(e) =>
+                setConsumablesEditRow((prev) => ({
+                  ...prev,
+                  note: e.target.value,
+                }))
+              }
+            />
+          );
+        }
+        return (
+          <span>
+            {record.note?.length > 150
+              ? `${record.note.slice(0, 150)}...`
+              : record.note}
+          </span>
+        );
+      },
     },
     {
       title: "Action",
-      width: 120,
+      width: 200,
       fixed: "right",
-      align: "center",
-      render: (_, record) =>
-        record.isInput ? (
-          <Button
-            className="addButton ps-4 pe-4"
-            onClick={handleConsumablesAdd}
-            disabled={consumablesFetching}
-            loading={consumablesFetching}
-          >
-            {consumablesFetching ? "Loading" : "Add"}
-          </Button>
-        ) : (
-          <Button
-            className="deleteButton ps-3 pe-3"
-            onClick={() => handleConsumablesDelete(record.key)}
-          >
-            Delete
-          </Button>
-        ),
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
+            <Button
+              className="addButton w-100"
+              onClick={handleConsumablesAdd}
+              loading={consumablesAddLoading}
+              style={{ minWidth: 90 }}
+            >
+              {consumablesAddLoading ? "Loading..." : "Add"}
+            </Button>
+          );
+        }
+
+        if (isConsumablesEditing(record)) {
+          return (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                type="primary"
+                onClick={handleConsumablesSave}
+                loading={consumablesSaveLoading}
+                className="addButton"
+                style={{ minWidth: 90 }}
+              >
+                {consumablesSaveLoading ? "Loading..." : "Save"}
+              </Button>
+              <Button
+                onClick={handleConsumablesCancel}
+                className="deleteButton"
+                style={{ minWidth: 90 }}
+              >
+                Cancel
+              </Button>
+            </div>
+          );
+        }
+
+        return (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button
+              onClick={() => handleConsumablesEdit(record.key)}
+              className="addButton"
+              style={{ minWidth: 90 }}
+            >
+              Edit
+            </Button>
+            <Button
+              onClick={() => handleConsumablesDelete(record.key)}
+              className="deleteButton"
+              danger
+              style={{ minWidth: 90 }}
+            >
+              Delete
+            </Button>
+          </div>
+        );
+      },
     },
   ];
+
+  // const consumablesColumns = [
+  //   {
+  //     title: "Date",
+  //     dataIndex: "date",
+  //     width: 220,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           {/* <DatePicker
+  //             format="DD-MM-YYYY"
+  //             style={{ width: "100%" }}
+  //             value={
+  //               consumablesInputRow.date &&
+  //               dayjs(consumablesInputRow.date, "DD-MM-YYYY").isValid()
+  //                 ? dayjs.tz(
+  //                     consumablesInputRow.date,
+  //                     "DD-MM-YYYY",
+  //                     "Asia/Dubai"
+  //                   )
+  //                 : null
+  //             }
+  //             onChange={(dateObj) => {
+  //               if (!dateObj) {
+  //                 setConsumablesInputRow({ ...consumablesInputRow, date: "" });
+  //                 return;
+  //               }
+  //               const formatted = dayjs(dateObj)
+  //                 .tz("Asia/Dubai")
+  //                 .format("DD-MM-YYYY");
+  //               setConsumablesInputRow({
+  //                 ...consumablesInputRow,
+  //                 date: formatted,
+  //               });
+  //             }}
+  //           /> */}
+
+  //           <Input
+  //             placeholder="DD-MM-YYYY"
+  //             maxLength={10}
+  //             value={consumablesInputRow.date}
+  //             onChange={(e) => {
+  //               const value = e.target.value;
+  //               setConsumablesInputRow({ ...consumablesInputRow, date: value });
+
+  //               // validate only when full length is reached
+  //               if (value.length === 10) {
+  //                 const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  //                 if (!regex.test(value)) {
+  //                   notification.error({
+  //                     message: "Invalid Date",
+  //                     description: "Enter date in DD-MM-YYYY format",
+  //                   });
+  //                   setConsumablesInputRow({
+  //                     ...consumablesInputRow,
+  //                     date: "",
+  //                   });
+  //                 }
+  //               }
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.date}>
+  //           <span>{record.date || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Part Number",
+  //     dataIndex: "partNumber",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter part number"
+  //             value={consumablesInputRow.partNumber}
+  //             onChange={(e) =>
+  //               setConsumablesInputRow({
+  //                 ...consumablesInputRow,
+  //                 partNumber: e.target.value.toUpperCase(),
+  //                 quantity: "",
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.partNumber}>
+  //           <span>{record.partNumber}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Description",
+  //     dataIndex: "description",
+  //     ellipsis: true,
+  //     width: 500,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             rows={1}
+  //             placeholder="Enter description"
+  //             value={consumablesInputRow.description}
+  //             onChange={(e) =>
+  //               setConsumablesInputRow({
+  //                 ...consumablesInputRow,
+  //                 description: e.target.value,
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip
+  //           title={record.description}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           <span className="truncate-text">
+  //             {record.description?.length > 150
+  //               ? `${record.description.slice(0, 150)}...`
+  //               : record.description}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Purchase Cost In AED (per item)",
+  //     dataIndex: "purchaseCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter purchase cost"
+  //             type="number"
+  //             min={0}
+  //             value={consumablesInputRow.purchaseCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setConsumablesInputRow((prev) => ({
+  //                 ...prev,
+  //                 purchaseCost: value,
+  //               }));
+  //               setConsumablesFetching(true);
+  //               clearTimeout(window.consumablesPurchaseDebounce);
+  //               window.consumablesPurchaseDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Purchase Cost",
+  //                     description: "Purchase cost must be greater than 0.",
+  //                   });
+  //                   setConsumablesInputRow((prev) => ({
+  //                     ...prev,
+  //                     purchaseCost: "",
+  //                   }));
+  //                 } else {
+  //                   const { totalPrice } = updateTotalPrice(
+  //                     value,
+  //                     consumablesInputRow.addOnCost,
+  //                     consumablesInputRow.quantity
+  //                   );
+  //                   setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 }
+  //                 setConsumablesFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.purchaseCost}>
+  //           <span>{record.purchaseCost || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Add On Cost In AED",
+  //     dataIndex: "addOnCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             min={0}
+  //             placeholder="Enter add on cost"
+  //             value={consumablesInputRow.addOnCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setConsumablesInputRow((prev) => ({
+  //                 ...prev,
+  //                 addOnCost: value,
+  //               }));
+  //               setConsumablesFetching(true);
+
+  //               clearTimeout(window.consumablesAddOnDebounce);
+  //               window.consumablesAddOnDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Add On Cost",
+  //                     description: "Add on cost must be greater than 0.",
+  //                   });
+  //                   setConsumablesInputRow((prev) => ({
+  //                     ...prev,
+  //                     addOnCost: "",
+  //                   }));
+  //                 } else {
+  //                   const { totalPrice } = updateTotalPrice(
+  //                     consumablesInputRow.purchaseCost,
+  //                     value,
+  //                     consumablesInputRow.quantity
+  //                   );
+  //                   setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 }
+  //                 setConsumablesFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.addOnCost}>
+  //           <span>{record.addOnCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Selling Cost (AED)",
+  //     dataIndex: "sellingCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             min={0}
+  //             placeholder="Enter Selling Cost"
+  //             value={consumablesInputRow.sellingCost || ""}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setConsumablesInputRow((prev) => ({
+  //                 ...prev,
+  //                 sellingCost: value,
+  //               }));
+
+  //               clearTimeout(window.consumablesSellingDebounce);
+  //               window.consumablesSellingDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Selling Cost",
+  //                     description: "Selling cost must be greater than 0.",
+  //                   });
+  //                   setConsumablesInputRow((prev) => ({
+  //                     ...prev,
+  //                     sellingCost: "",
+  //                   }));
+  //                 }
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.sellingCost}>
+  //           <span>{record.sellingCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Quantity",
+  //     dataIndex: "quantity",
+  //     ellipsis: true,
+  //     width: 200,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter Quantity"
+  //             type="number"
+  //             disabled={consumablesUnitLoading}
+  //             value={consumablesInputRow.quantity}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setConsumablesInputRow((prev) => ({
+  //                 ...prev,
+  //                 quantity: value,
+  //               }));
+  //               setConsumablesFetching(true);
+
+  //               clearTimeout(window.consumablesQuantityDebounce);
+  //               window.consumablesQuantityDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: "Quantity must be greater than 0.",
+  //                   });
+  //                   setConsumablesInputRow((prev) => ({
+  //                     ...prev,
+  //                     quantity: "",
+  //                   }));
+  //                   setConsumablesFetching(false);
+  //                   return;
+  //                 }
+
+  //                 const unit = (consumablesInputRow.unit || "").toLowerCase();
+  //                 if (
+  //                   (unit === "set" || unit === "piece") &&
+  //                   !Number.isInteger(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: `Quantity for unit "${consumablesInputRow.unit}" must be a whole number.`,
+  //                   });
+  //                   setConsumablesInputRow((prev) => ({
+  //                     ...prev,
+  //                     quantity: "",
+  //                     unit: "",
+  //                   }));
+  //                   setConsumablesFetching(false);
+  //                   return;
+  //                 }
+
+  //                 const { totalPrice } = updateTotalPrice(
+  //                   consumablesInputRow.purchaseCost,
+  //                   consumablesInputRow.addOnCost,
+  //                   value
+  //                 );
+  //                 setConsumablesInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 setConsumablesFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.quantity}>
+  //           <span>{record.quantity}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Unit",
+  //     dataIndex: "unit",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Select
+  //           className="w-100"
+  //           value={consumablesInputRow.unit}
+  //           onChange={(selectedUnit) => {
+  //             clearTimeout(window.consumablesUnitDebounce);
+  //             window.consumablesUnitDebounce = setTimeout(() => {
+  //               const unitLower = (selectedUnit || "").toLowerCase();
+  //               const num = parseFloat(consumablesInputRow.quantity);
+
+  //               if (
+  //                 (unitLower === "set" || unitLower === "piece") &&
+  //                 !Number.isInteger(num)
+  //               ) {
+  //                 notification.error({
+  //                   message: "Invalid Quantity",
+  //                   description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+  //                 });
+  //                 setConsumablesInputRow((prev) => ({
+  //                   ...prev,
+  //                   unit: "",
+  //                   quantity: "",
+  //                 }));
+  //                 return;
+  //               }
+
+  //               setConsumablesInputRow((prev) => ({
+  //                 ...prev,
+  //                 unit: selectedUnit,
+  //               }));
+  //             }, 300);
+  //           }}
+  //           options={consumablesUnitOptions.map((u) => ({
+  //             value: u,
+  //             label: u,
+  //           }))}
+  //           loading={consumablesUnitLoading}
+  //           placeholder={
+  //             consumablesUnitLoading ? "Fetching unit..." : "Select Unit"
+  //           }
+  //           notFoundContent={
+  //             consumablesUnitLoading ? "Fetching unit..." : "No units found"
+  //           }
+  //         />
+  //       ) : (
+  //         record.unit || ""
+  //       ),
+  //   },
+  //   {
+  //     title: "Stock In Hand",
+  //     dataIndex: "stockInHand",
+  //     width: 200,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             readOnly
+  //             value={
+  //               consumablesInputRow.stockInHand
+  //                 ? `${consumablesInputRow.stockInHand} ${
+  //                     consumablesInputRow.stockUnit || ""
+  //                   }`
+  //                 : ""
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
+  //           <span>
+  //             {record.stockInHand
+  //               ? `${record.stockInHand} ${record.stockUnit || ""}`
+  //               : "-"}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Total Price In AED",
+  //     dataIndex: "totalPrice",
+  //     width: 200,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input value={consumablesInputRow.totalPrice || ""} readOnly />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.totalPrice}>
+  //           <span>{record.totalPrice || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Note",
+  //     dataIndex: "note",
+  //     ellipsis: true,
+  //     width: 300,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             rows={1}
+  //             placeholder="Enter note"
+  //             value={consumablesInputRow.note}
+  //             onChange={(e) =>
+  //               setConsumablesInputRow({
+  //                 ...consumablesInputRow,
+  //                 note: e.target.value,
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip
+  //           title={record.note}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           <span className="truncate-text">
+  //             {record.note?.length > 150
+  //               ? `${record.note.slice(0, 150)}...`
+  //               : record.note}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Action",
+  //     width: 120,
+  //     fixed: "right",
+  //     align: "center",
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Button
+  //           className="addButton ps-4 pe-4"
+  //           onClick={handleConsumablesAdd}
+  //           disabled={consumablesFetching}
+  //           loading={consumablesFetching}
+  //         >
+  //           {consumablesFetching ? "Loading" : "Add"}
+  //         </Button>
+  //       ) : (
+  //         <Button
+  //           className="deleteButton ps-3 pe-3"
+  //           onClick={() => handleConsumablesDelete(record.key)}
+  //         >
+  //           Delete
+  //         </Button>
+  //       ),
+  //   },
+  // ];
+
   const consumablesDisplayData = [
     { key: "input", isInput: true },
     ...consumablesDataSource,
@@ -3194,13 +5409,13 @@ const maxTableRows = 10;
   ];
 
   const handleAuxiliariesAdd = async () => {
-      if (auxiliariesDataSource.length >= maxTableRows) {
-    notification.error({
-      message: "Limit Reached",
-      description: `You can only add up to ${maxTableRows} rows.`,
-    });
-    return;
-  }
+    if (auxiliariesDataSource.length >= maxTableRows) {
+      notification.error({
+        message: "Limit Reached",
+        description: `You can only add up to ${maxTableRows} rows.`,
+      });
+      return;
+    }
     const {
       partNumber,
       description,
@@ -3280,42 +5495,84 @@ const maxTableRows = 10;
     );
   };
 
+  const isAuxiliariesEditing = (record) => record.key === auxiliariesEditingKey;
+
+  // ----- EDIT -----
+  const handleAuxiliariesEdit = (key) => {
+    const row = auxiliariesDataSource.find((item) => item.key === key);
+    setAuxiliariesEditingKey(key);
+    setAuxiliariesEditRow({ ...row });
+  };
+
+  // ----- SAVE -----
+  const handleAuxiliariesSave = () => {
+    if (!auxiliariesEditRow) return;
+
+    const {
+      partNumber,
+      description,
+      quantity,
+      unit,
+      purchaseCost,
+      addOnCost,
+      sellingCost,
+      totalPrice,
+      date,
+    } = auxiliariesEditRow;
+
+    if (
+      !partNumber ||
+      !description ||
+      !quantity ||
+      !unit ||
+      !purchaseCost ||
+      !addOnCost ||
+      !sellingCost ||
+      !totalPrice ||
+      !date
+    ) {
+      notification.error({
+        message: "Error",
+        description:
+          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+      });
+      return;
+    }
+
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
+
+    setAuxiliariesDataSource((prev) =>
+      prev.map((item) =>
+        item.key === auxiliariesEditingKey
+          ? { ...auxiliariesEditRow, key: auxiliariesEditingKey }
+          : item
+      )
+    );
+    setAuxiliariesEditingKey("");
+    setAuxiliariesEditRow(null);
+  };
+
+  // ----- CANCEL -----
+  const handleAuxiliariesCancel = () => {
+    setAuxiliariesEditingKey("");
+    setAuxiliariesEditRow(null);
+  };
+
   const auxiliariesColumns = [
     {
       title: "Date",
       dataIndex: "date",
       width: 220,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            {/* <DatePicker
-              format="DD-MM-YYYY"
-              style={{ width: "100%" }}
-              value={
-                auxiliariesInputRow.date &&
-                dayjs(auxiliariesInputRow.date, "DD-MM-YYYY").isValid()
-                  ? dayjs.tz(
-                      auxiliariesInputRow.date,
-                      "DD-MM-YYYY",
-                      "Asia/Dubai"
-                    )
-                  : null
-              }
-              onChange={(dateObj) => {
-                if (!dateObj) {
-                  setAuxiliariesInputRow({ ...auxiliariesInputRow, date: "" });
-                  return;
-                }
-                const formatted = dayjs(dateObj)
-                  .tz("Asia/Dubai")
-                  .format("DD-MM-YYYY");
-                setAuxiliariesInputRow({
-                  ...auxiliariesInputRow,
-                  date: formatted,
-                });
-              }}
-            /> */}
-
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input
               placeholder="DD-MM-YYYY"
               maxLength={10}
@@ -3324,7 +5581,6 @@ const maxTableRows = 10;
                 const value = e.target.value;
                 setAuxiliariesInputRow({ ...auxiliariesInputRow, date: value });
 
-                // validate only when full length is reached
                 if (value.length === 10) {
                   const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
                   if (!regex.test(value)) {
@@ -3340,21 +5596,45 @@ const maxTableRows = 10;
                 }
               }}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.date}>
-            <span>{record.date || "-"}</span>
-          </Tooltip>
-        ),
+          );
+        }
+
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={auxiliariesEditRow.date}
+              onChange={(e) => {
+                const value = e.target.value;
+                setAuxiliariesEditRow((prev) => ({ ...prev, date: value }));
+
+                if (value.length === 10) {
+                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+                  if (!regex.test(value)) {
+                    notification.error({
+                      message: "Invalid Date",
+                      description: "Enter date in DD-MM-YYYY format",
+                    });
+                    setAuxiliariesEditRow((prev) => ({ ...prev, date: "" }));
+                  }
+                }
+              }}
+            />
+          );
+        }
+
+        return <span>{record.date || "-"}</span>;
+      },
     },
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input
               placeholder="Enter part number"
               value={auxiliariesInputRow.partNumber}
@@ -3366,23 +5646,37 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.partNumber}>
-            <span>{record.partNumber}</span>
-          </Tooltip>
-        ),
+          );
+        }
+
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter part number"
+              value={auxiliariesEditRow.partNumber}
+              onChange={(e) =>
+                setAuxiliariesEditRow((prev) => ({
+                  ...prev,
+                  partNumber: e.target.value.toUpperCase(),
+                  quantity: "",
+                }))
+              }
+            />
+          );
+        }
+
+        return <span>{record.partNumber}</span>;
+      },
     },
     {
       title: "Description",
       dataIndex: "description",
       width: 500,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input.TextArea
-              // autoSize={{ minRows: 1, maxRows: 1 }}
               rows={1}
               placeholder="Enter description"
               value={auxiliariesInputRow.description}
@@ -3393,571 +5687,354 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip
-            title={record.description}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            {/* <span>{record.description}</span> */}
+          );
+        }
 
-            <span className="truncate-text">
-              {record.description?.length > 150
-                ? `${record.description.slice(0, 150)}...`
-                : record.description}
-            </span>
-          </Tooltip>
-        ),
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Input.TextArea
+              rows={1}
+              value={auxiliariesEditRow.description}
+              onChange={(e) =>
+                setAuxiliariesEditRow((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
+            />
+          );
+        }
+
+        return (
+          <span>
+            {record.description?.length > 150
+              ? `${record.description.slice(0, 150)}...`
+              : record.description}
+          </span>
+        );
+      },
     },
-
-    // {
-    //   title: "Purchase Cost In AED (per item)",
-    //   dataIndex: "purchaseCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           placeholder="Enter purchase cost"
-    //           type="number"
-    //           min={0}
-    //           value={auxiliariesInputRow.purchaseCost}
-    //           onChange={(e) => {
-    //             const purchaseCost = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               purchaseCost,
-    //               auxiliariesInputRow.addOnCost,
-    //               auxiliariesInputRow.quantity
-    //             );
-    //             setAuxiliariesInputRow((prev) => ({
-    //               ...prev,
-    //               purchaseCost,
-    //               sellingCost: sellingPrice,
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.purchaseCost}>
-    //         <span>{record.purchaseCost || "-"}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
       title: "Purchase Cost In AED (per item)",
       dataIndex: "purchaseCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              placeholder="Enter purchase cost"
-              type="number"
-              min={0}
-              value={auxiliariesInputRow.purchaseCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                // update immediately so user sees what they type
-                setAuxiliariesInputRow((prev) => ({
-                  ...prev,
-                  purchaseCost: value,
-                }));
-                setAuxiliariesFetching(true);
+      ellipsis: true,
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter purchase cost"
+            value={row.purchaseCost}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, purchaseCost: value }));
+              if (record.isInput) setAuxiliariesAddLoading(true);
+              else if (isAuxiliariesEditing(record))
+                setAuxiliariesSaveLoading(true);
 
-                // debounce validation
-                clearTimeout(window.auxPurchaseCostDebounce);
-                window.auxPurchaseCostDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-
-                  // if field non-empty and invalid zero-like or NaN -> show error
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Purchase Cost",
-                      description: "Purchase cost must be greater than 0.",
-                    });
-                    // you can either clear the invalid value or leave it; here we clear it
-                    setAuxiliariesInputRow((prev) => ({
-                      ...prev,
-                      purchaseCost: "",
-                    }));
-                    setAuxiliariesFetching(false);
-
-                    return;
-                  }
-
-                  // valid -> recalc total
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && (isNaN(num) || num <= 0)) {
+                  notification.error({
+                    message: "Invalid Purchase Cost",
+                    description: "Purchase cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, purchaseCost: "" }));
+                } else {
                   const { totalPrice } = updateTotalPrice(
                     value,
-                    auxiliariesInputRow.addOnCost,
-                    auxiliariesInputRow.quantity
+                    row.addOnCost,
+                    row.quantity
                   );
-                  setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
-                  setAuxiliariesFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.purchaseCost}>
-            <span>{record.purchaseCost || "-"}</span>
-          </Tooltip>
-        ),
+                  setRow((prev) => ({ ...prev, totalPrice }));
+                }
+                if (record.isInput) setAuxiliariesAddLoading(false);
+                else if (isAuxiliariesEditing(record))
+                  setAuxiliariesSaveLoading(false);
+              }, 3000);
+            }}
+          />
+        );
+
+        if (record.isInput)
+          return renderInput(
+            auxiliariesInputRow,
+            setAuxiliariesInputRow,
+            "auxiliariesPurchaseCostDebounce"
+          );
+        if (isAuxiliariesEditing(record))
+          return renderInput(
+            auxiliariesEditRow,
+            setAuxiliariesEditRow,
+            "auxiliariesEditPurchaseCostDebounce"
+          );
+        return <span>{record.purchaseCost || "-"}</span>;
+      },
     },
-
-    // {
-    //   title: "Add On Cost In AED",
-    //   dataIndex: "addOnCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           type="number"
-    //           min={0}
-    //           placeholder="Enter add on cost"
-    //           value={auxiliariesInputRow.addOnCost}
-    //           onChange={(e) => {
-    //             const addOnCost = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               auxiliariesInputRow.purchaseCost,
-    //               addOnCost,
-    //               auxiliariesInputRow.quantity
-    //             );
-    //             setAuxiliariesInputRow((prev) => ({
-    //               ...prev,
-    //               addOnCost,
-    //               sellingCost: sellingPrice,
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.addOnCost}>
-    //         <span>{record.addOnCost}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
       title: "Add On Cost In AED",
       dataIndex: "addOnCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Enter add on cost"
-              value={auxiliariesInputRow.addOnCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setAuxiliariesInputRow((prev) => ({
-                  ...prev,
-                  addOnCost: value,
-                }));
-                setAuxiliariesFetching(true);
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter add on cost"
+            value={row.addOnCost}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, addOnCost: value }));
+              if (record.isInput) setAuxiliariesAddLoading(true);
+              else if (isAuxiliariesEditing(record))
+                setAuxiliariesSaveLoading(true);
 
-                clearTimeout(window.auxAddOnCostDebounce);
-                window.auxAddOnCostDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Add On Cost",
-                      description: "Add on cost must be greater than 0.",
-                    });
-                    setAuxiliariesInputRow((prev) => ({
-                      ...prev,
-                      addOnCost: "",
-                    }));
-                    setAuxiliariesFetching(false);
-
-                    return;
-                  }
-
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && isNaN(num)) {
+                  notification.error({
+                    message: "Invalid Add On Cost",
+                    description: "Add on cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, addOnCost: "" }));
+                } else {
                   const { totalPrice } = updateTotalPrice(
-                    auxiliariesInputRow.purchaseCost,
+                    row.purchaseCost,
                     value,
-                    auxiliariesInputRow.quantity
+                    row.quantity
                   );
-                  setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
-                  setAuxiliariesFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.addOnCost}>
-            <span>{record.addOnCost}</span>
-          </Tooltip>
-        ),
-    },
+                  setRow((prev) => ({ ...prev, totalPrice }));
+                }
+                if (record.isInput) setAuxiliariesAddLoading(false);
+                else if (isAuxiliariesEditing(record))
+                  setAuxiliariesSaveLoading(false);
+              }, 3000);
+            }}
+          />
+        );
 
+        if (record.isInput)
+          return renderInput(
+            auxiliariesInputRow,
+            setAuxiliariesInputRow,
+            "auxiliariesAddOnCostDebounce"
+          );
+        if (isAuxiliariesEditing(record))
+          return renderInput(
+            auxiliariesEditRow,
+            setAuxiliariesEditRow,
+            "auxiliariesEditAddOnCostDebounce"
+          );
+        return <span>{record.addOnCost || "-"}</span>;
+      },
+    },
     {
       title: "Selling Cost (AED)",
       dataIndex: "sellingCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Enter Selling Cost"
-              value={auxiliariesInputRow.sellingCost || ""}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setAuxiliariesInputRow((prev) => ({
-                  ...prev,
-                  sellingCost: value,
-                }));
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            min={0}
+            placeholder="Enter Selling Cost"
+            value={row.sellingCost || ""}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, sellingCost: value }));
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && isNaN(num)) {
+                  notification.error({
+                    message: "Invalid Selling Cost",
+                    description: "Selling cost must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, sellingCost: "" }));
+                }
+              }, 3000);
+            }}
+          />
+        );
 
-                clearTimeout(window.auxSellingCostDebounce);
-                window.auxSellingCostDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Selling Cost",
-                      description: "Selling cost must be greater than 0.",
-                    });
-                    setAuxiliariesInputRow((prev) => ({
-                      ...prev,
-                      sellingCost: "",
-                    }));
-                    return;
-                  }
-                  // no total recalculation needed here unless you want to sync totalPrice
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.sellingCost}>
-            <span>{record.sellingCost}</span>
-          </Tooltip>
-        ),
+        if (record.isInput)
+          return renderInput(
+            auxiliariesInputRow,
+            setAuxiliariesInputRow,
+            "auxiliariesSellingCostDebounce"
+          );
+        if (isAuxiliariesEditing(record))
+          return renderInput(
+            auxiliariesEditRow,
+            setAuxiliariesEditRow,
+            "auxiliariesEditSellingCostDebounce"
+          );
+        return <span>{record.sellingCost || "-"}</span>;
+      },
     },
-
-    // {
-    //   title: "Quantity",
-    //   dataIndex: "quantity",
-    //   width: 200,
-    //   ellipsis: true,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           placeholder="Quantity"
-    //           type="number"
-    //           min={1}
-    //           value={auxiliariesInputRow.quantity}
-    //           onChange={(e) => {
-    //             const value = e.target.value.trim();
-    //             setAuxiliariesInputRow((prev) => ({
-    //               ...prev,
-    //               quantity: value,
-    //             }));
-
-    //             clearTimeout(window.auxQuantityDebounce);
-    //             window.auxQuantityDebounce = setTimeout(() => {
-    //               const num = parseFloat(value);
-    //               if (
-    //                 value !== "" &&
-    //                 (value === "0" ||
-    //                   value === "0.0" ||
-    //                   value === ".0" ||
-    //                   isNaN(num) ||
-    //                   num === 0)
-    //               ) {
-    //                 notification.error({
-    //                   message: "Invalid Quantity",
-    //                   description: "Quantity must be greater than 0.",
-    //                 });
-    //                 setAuxiliariesInputRow((prev) => ({
-    //                   ...prev,
-    //                   quantity: "",
-    //                 }));
-    //                 return;
-    //               }
-
-    //               const { totalPrice } = updateTotalPrice(
-    //                 auxiliariesInputRow.purchaseCost,
-    //                 auxiliariesInputRow.addOnCost,
-    //                 value
-    //               );
-    //               setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
-    //             }, 3000);
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.quantity}>
-    //         <span>{record.quantity}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
-    // {
-    //   title: "Unit",
-    //   dataIndex: "unit",
-    //   width: 250,
-    //   ellipsis: true,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Select
-    //         className="w-100"
-    //         value={auxiliariesInputRow.unit}
-    //         onChange={(value) =>
-    //           setAuxiliariesInputRow((prev) => ({ ...prev, unit: value }))
-    //         }
-    //         options={auxiliariesUnitOptions.map((u) => ({ value: u, label: u }))}
-    //         loading={auxiliariesUnitLoading}
-    //         placeholder={auxiliariesUnitLoading ? "Fetching unit..." : "Select Unit"}
-    //         notFoundContent={
-    //           auxiliariesUnitLoading ? "Fetching unit..." : "No units found"
-    //         }
-    //         // disabled={inputRow.sparePartsUnitFetched && userRole !== "Admin"}
-    //       />
-    //     ) : (
-    //       record.unit || ""
-    //     ),
-    // },
-
     {
       title: "Quantity",
       dataIndex: "quantity",
       width: 200,
-      ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              placeholder="Enter Quantity"
-              type="number"
-              // min={1}
-              disabled={auxiliariesUnitLoading}
-              value={auxiliariesInputRow.quantity}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-                setAuxiliariesInputRow((prev) => ({
-                  ...prev,
-                  quantity: value,
-                }));
-                setAuxiliariesFetching(true);
+      render: (_, record) => {
+        const renderInput = (row, setRow, debounceKey) => (
+          <Input
+            type="number"
+            placeholder="Enter Quantity"
+            value={row.quantity}
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              setRow((prev) => ({ ...prev, quantity: value }));
+              if (record.isInput) setAuxiliariesAddLoading(true);
+              else if (isAuxiliariesEditing(record))
+                setAuxiliariesSaveLoading(true);
 
-                clearTimeout(window.auxQuantityDebounce);
-                window.auxQuantityDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
+                const num = parseFloat(value);
+                if (value !== "" && (value === "0" || isNaN(num) || num <= 0)) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: "Quantity must be greater than 0.",
+                  });
+                  setRow((prev) => ({ ...prev, quantity: "" }));
+                  return;
+                }
+                const unit = (row.unit || "").toLowerCase();
+                if (
+                  (unit === "set" || unit === "piece") &&
+                  !Number.isInteger(num)
+                ) {
+                  notification.error({
+                    message: "Invalid Quantity",
+                    description: `Quantity for unit "${row.unit}" must be a whole number.`,
+                  });
+                  setRow((prev) => ({ ...prev, quantity: "", unit: "" }));
+                  return;
+                }
+                const { totalPrice } = updateTotalPrice(
+                  row.purchaseCost,
+                  row.addOnCost,
+                  value
+                );
+                setRow((prev) => ({ ...prev, totalPrice }));
+                if (record.isInput) setAuxiliariesAddLoading(false);
+                else if (isAuxiliariesEditing(record))
+                  setAuxiliariesSaveLoading(false);
+              }, 3000);
+            }}
+          />
+        );
 
-                  // Basic >0 check
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: "Quantity must be greater than 0.",
-                    });
-                    setAuxiliariesInputRow((prev) => ({
-                      ...prev,
-                      quantity: "",
-                    }));
-                    setAuxiliariesFetching(false);
-
-                    return;
-                  }
-
-                  // Whole number check for Set/Piece
-                  const unit = (auxiliariesInputRow.unit || "").toLowerCase();
-                  if (
-                    (unit === "set" || unit === "piece") &&
-                    !Number.isInteger(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: `Quantity for unit "${auxiliariesInputRow.unit}" must be a whole number.`,
-                    });
-                    setAuxiliariesInputRow((prev) => ({
-                      ...prev,
-                      quantity: "",
-                      unit: "",
-                    }));
-                    setAuxiliariesFetching(false);
-
-                    return;
-                  }
-
-                  // Update total price
-                  const { totalPrice } = updateTotalPrice(
-                    auxiliariesInputRow.purchaseCost,
-                    auxiliariesInputRow.addOnCost,
-                    value
-                  );
-                  setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
-                  setAuxiliariesFetching(false);
-                }, 3000);
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.quantity}>
-            <span>{record.quantity}</span>
-          </Tooltip>
-        ),
+        if (record.isInput)
+          return renderInput(
+            auxiliariesInputRow,
+            setAuxiliariesInputRow,
+            "auxiliariesQuantityDebounce"
+          );
+        if (isAuxiliariesEditing(record))
+          return renderInput(
+            auxiliariesEditRow,
+            setAuxiliariesEditRow,
+            "auxiliariesEditQuantityDebounce"
+          );
+        return <span>{record.quantity || "-"}</span>;
+      },
     },
     {
       title: "Unit",
       dataIndex: "unit",
       width: 250,
-      ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
+      render: (_, record) => {
+        const renderSelect = (row, setRow, debounceKey) => (
           <Select
             className="w-100"
-            value={auxiliariesInputRow.unit}
+            value={row.unit}
             onChange={(selectedUnit) => {
-              clearTimeout(window.auxUnitDebounce);
-              window.auxUnitDebounce = setTimeout(() => {
+              clearTimeout(window[debounceKey]);
+              window[debounceKey] = setTimeout(() => {
                 const unitLower = (selectedUnit || "").toLowerCase();
-                const num = parseFloat(auxiliariesInputRow.quantity);
-
-                // Whole number check for Set/Piece
+                const num = parseFloat(row.quantity);
                 if (
                   (unitLower === "set" || unitLower === "piece") &&
                   !Number.isInteger(num)
                 ) {
                   notification.error({
                     message: "Invalid Quantity",
-                    description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+                    description: `Quantity for unit "${selectedUnit}" must be a whole number.`,
                   });
-                  setAuxiliariesInputRow((prev) => ({
-                    ...prev,
-                    unit: "",
-                    quantity: "",
-                  }));
+                  setRow((prev) => ({ ...prev, unit: "", quantity: "" }));
                   return;
                 }
-
-                // If valid, update unit
-                setAuxiliariesInputRow((prev) => ({
-                  ...prev,
-                  unit: selectedUnit,
-                }));
+                setRow((prev) => ({ ...prev, unit: selectedUnit }));
               }, 300);
             }}
             options={auxiliariesUnitOptions.map((u) => ({
               value: u,
               label: u,
             }))}
-            loading={auxiliariesUnitLoading}
-            placeholder={
-              auxiliariesUnitLoading ? "Fetching unit..." : "Select Unit"
-            }
-            notFoundContent={
-              auxiliariesUnitLoading ? "Fetching unit..." : "No units found"
-            }
+            placeholder="Select Unit"
           />
-        ) : (
-          record.unit || ""
-        ),
-    },
+        );
 
+        if (record.isInput)
+          return renderSelect(
+            auxiliariesInputRow,
+            setAuxiliariesInputRow,
+            "auxiliariesUnitDebounce"
+          );
+        if (isAuxiliariesEditing(record))
+          return renderSelect(
+            auxiliariesEditRow,
+            setAuxiliariesEditRow,
+            "auxiliariesEditUnitDebounce"
+          );
+        return <span>{record.unit || "-"}</span>;
+      },
+    },
     {
       title: "Stock In Hand",
       dataIndex: "stockInHand",
       width: 200,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              readOnly
-              value={
-                auxiliariesInputRow.stockInHand
-                  ? `${auxiliariesInputRow.stockInHand} ${
-                      auxiliariesInputRow.stockUnit || ""
-                    }`
-                  : ""
-              }
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
-            <span>
-              {record.stockInHand
-                ? `${record.stockInHand} ${record.stockUnit || ""}`
-                : "-"}
-            </span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        if (record.isInput)
+          return (
+            <Input readOnly value={auxiliariesInputRow.stockInHand || ""} />
+          );
+        if (isAuxiliariesEditing(record))
+          return (
+            <Input readOnly value={auxiliariesEditRow.stockInHand || "0"} />
+          );
+        return <span>{record.stockInHand || "-"}</span>;
+      },
     },
-
     {
       title: "Total Price In AED",
       dataIndex: "totalPrice",
       width: 200,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput)
+          return (
             <Input value={auxiliariesInputRow.totalPrice || ""} readOnly />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.totalPrice}>
-            <span>{record.totalPrice || "-"}</span>
-          </Tooltip>
-        ),
+          );
+        if (isAuxiliariesEditing(record))
+          return <Input value={auxiliariesEditRow.totalPrice || ""} readOnly />;
+        return <span>{record.totalPrice || "-"}</span>;
+      },
     },
     {
       title: "Note",
       dataIndex: "note",
-      width: 500,
+      width: 300,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
             <Input.TextArea
-              // autoSize={{ minRows: 1, maxRows: 1 }}
               rows={1}
               placeholder="Enter note"
               value={auxiliariesInputRow.note}
@@ -3968,56 +6045,833 @@ const maxTableRows = 10;
                 })
               }
             />
-          </Tooltip>
-        ) : (
-          // <Tooltip title={record.note}>
-          //   <span>{record.note}</span>
-          // </Tooltip>
-          <Tooltip
-            title={record.note}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            {/* <span> {record.note}</span> */}
-            <span className="truncate-text">
-              {record.note?.length > 150
-                ? `${record.note.slice(0, 150)}...`
-                : record.note}
-            </span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Input.TextArea
+              rows={1}
+              value={auxiliariesEditRow.note}
+              onChange={(e) =>
+                setAuxiliariesEditRow((prev) => ({
+                  ...prev,
+                  note: e.target.value,
+                }))
+              }
+            />
+          );
+        }
+        return (
+          <span>
+            {record.note?.length > 150
+              ? `${record.note.slice(0, 150)}...`
+              : record.note}
+          </span>
+        );
+      },
     },
-
     {
       title: "Action",
-      width: 120,
+      width: 200,
       fixed: "right",
-      align: "center",
-      render: (_, record) =>
-        record.isInput ? (
-          <Button
-            className="addButton ps-4 pe-4 m-auto"
-            onClick={handleAuxiliariesAdd}
-            disabled={auxiliariesFetching}
-            loading={auxiliariesFetching}
-          >
-            {auxiliariesFetching ? "Loading" : "Add"}
-          </Button>
-        ) : (
-          <Button
-            className="deleteButton ps-3 pe-3"
-            onClick={() => handleAuxiliariesDelete(record.key)}
-          >
-            Delete
-          </Button>
-        ),
+      render: (_, record) => {
+        if (record.isInput) {
+          return (
+            <Button
+              className="addButton w-100"
+              onClick={handleAuxiliariesAdd}
+              loading={auxiliariesAddLoading}
+              style={{ minWidth: 90 }}
+            >
+              {auxiliariesAddLoading ? "Loading..." : "Add"}
+            </Button>
+          );
+        }
+
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                type="primary"
+                onClick={handleAuxiliariesSave}
+                loading={auxiliariesSaveLoading}
+                className="addButton"
+                style={{ minWidth: 90 }}
+              >
+                {auxiliariesSaveLoading ? "Loading..." : "Save"}
+              </Button>
+              <Button
+                onClick={handleAuxiliariesCancel}
+                className="deleteButton"
+                style={{ minWidth: 90 }}
+              >
+                Cancel
+              </Button>
+            </div>
+          );
+        }
+
+        return (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button
+              onClick={() => handleAuxiliariesEdit(record.key)}
+              className="addButton"
+              style={{ minWidth: 90 }}
+            >
+              Edit
+            </Button>
+            <Button
+              onClick={() => handleAuxiliariesDelete(record.key)}
+              className="deleteButton"
+              danger
+              style={{ minWidth: 90 }}
+            >
+              Delete
+            </Button>
+          </div>
+        );
+      },
     },
   ];
+
+  // const auxiliariesColumns = [
+  //   {
+  //     title: "Date",
+  //     dataIndex: "date",
+  //     width: 220,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           {/* <DatePicker
+  //             format="DD-MM-YYYY"
+  //             style={{ width: "100%" }}
+  //             value={
+  //               auxiliariesInputRow.date &&
+  //               dayjs(auxiliariesInputRow.date, "DD-MM-YYYY").isValid()
+  //                 ? dayjs.tz(
+  //                     auxiliariesInputRow.date,
+  //                     "DD-MM-YYYY",
+  //                     "Asia/Dubai"
+  //                   )
+  //                 : null
+  //             }
+  //             onChange={(dateObj) => {
+  //               if (!dateObj) {
+  //                 setAuxiliariesInputRow({ ...auxiliariesInputRow, date: "" });
+  //                 return;
+  //               }
+  //               const formatted = dayjs(dateObj)
+  //                 .tz("Asia/Dubai")
+  //                 .format("DD-MM-YYYY");
+  //               setAuxiliariesInputRow({
+  //                 ...auxiliariesInputRow,
+  //                 date: formatted,
+  //               });
+  //             }}
+  //           /> */}
+
+  //           <Input
+  //             placeholder="DD-MM-YYYY"
+  //             maxLength={10}
+  //             value={auxiliariesInputRow.date}
+  //             onChange={(e) => {
+  //               const value = e.target.value;
+  //               setAuxiliariesInputRow({ ...auxiliariesInputRow, date: value });
+
+  //               // validate only when full length is reached
+  //               if (value.length === 10) {
+  //                 const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  //                 if (!regex.test(value)) {
+  //                   notification.error({
+  //                     message: "Invalid Date",
+  //                     description: "Enter date in DD-MM-YYYY format",
+  //                   });
+  //                   setAuxiliariesInputRow({
+  //                     ...auxiliariesInputRow,
+  //                     date: "",
+  //                   });
+  //                 }
+  //               }
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.date}>
+  //           <span>{record.date || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Part Number",
+  //     dataIndex: "partNumber",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter part number"
+  //             value={auxiliariesInputRow.partNumber}
+  //             onChange={(e) =>
+  //               setAuxiliariesInputRow({
+  //                 ...auxiliariesInputRow,
+  //                 partNumber: e.target.value.toUpperCase(),
+  //                 quantity: "",
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.partNumber}>
+  //           <span>{record.partNumber}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Description",
+  //     dataIndex: "description",
+  //     width: 500,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             // autoSize={{ minRows: 1, maxRows: 1 }}
+  //             rows={1}
+  //             placeholder="Enter description"
+  //             value={auxiliariesInputRow.description}
+  //             onChange={(e) =>
+  //               setAuxiliariesInputRow({
+  //                 ...auxiliariesInputRow,
+  //                 description: e.target.value,
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip
+  //           title={record.description}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           {/* <span>{record.description}</span> */}
+
+  //           <span className="truncate-text">
+  //             {record.description?.length > 150
+  //               ? `${record.description.slice(0, 150)}...`
+  //               : record.description}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Purchase Cost In AED (per item)",
+  //   //   dataIndex: "purchaseCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           placeholder="Enter purchase cost"
+  //   //           type="number"
+  //   //           min={0}
+  //   //           value={auxiliariesInputRow.purchaseCost}
+  //   //           onChange={(e) => {
+  //   //             const purchaseCost = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               purchaseCost,
+  //   //               auxiliariesInputRow.addOnCost,
+  //   //               auxiliariesInputRow.quantity
+  //   //             );
+  //   //             setAuxiliariesInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               purchaseCost,
+  //   //               sellingCost: sellingPrice,
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.purchaseCost}>
+  //   //         <span>{record.purchaseCost || "-"}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Purchase Cost In AED (per item)",
+  //     dataIndex: "purchaseCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter purchase cost"
+  //             type="number"
+  //             min={0}
+  //             value={auxiliariesInputRow.purchaseCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               // update immediately so user sees what they type
+  //               setAuxiliariesInputRow((prev) => ({
+  //                 ...prev,
+  //                 purchaseCost: value,
+  //               }));
+  //               setAuxiliariesFetching(true);
+
+  //               // debounce validation
+  //               clearTimeout(window.auxPurchaseCostDebounce);
+  //               window.auxPurchaseCostDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+
+  //                 // if field non-empty and invalid zero-like or NaN -> show error
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Purchase Cost",
+  //                     description: "Purchase cost must be greater than 0.",
+  //                   });
+  //                   // you can either clear the invalid value or leave it; here we clear it
+  //                   setAuxiliariesInputRow((prev) => ({
+  //                     ...prev,
+  //                     purchaseCost: "",
+  //                   }));
+  //                   setAuxiliariesFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 // valid -> recalc total
+  //                 const { totalPrice } = updateTotalPrice(
+  //                   value,
+  //                   auxiliariesInputRow.addOnCost,
+  //                   auxiliariesInputRow.quantity
+  //                 );
+  //                 setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 setAuxiliariesFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.purchaseCost}>
+  //           <span>{record.purchaseCost || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Add On Cost In AED",
+  //   //   dataIndex: "addOnCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           type="number"
+  //   //           min={0}
+  //   //           placeholder="Enter add on cost"
+  //   //           value={auxiliariesInputRow.addOnCost}
+  //   //           onChange={(e) => {
+  //   //             const addOnCost = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               auxiliariesInputRow.purchaseCost,
+  //   //               addOnCost,
+  //   //               auxiliariesInputRow.quantity
+  //   //             );
+  //   //             setAuxiliariesInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               addOnCost,
+  //   //               sellingCost: sellingPrice,
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.addOnCost}>
+  //   //         <span>{record.addOnCost}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Add On Cost In AED",
+  //     dataIndex: "addOnCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             min={0}
+  //             placeholder="Enter add on cost"
+  //             value={auxiliariesInputRow.addOnCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setAuxiliariesInputRow((prev) => ({
+  //                 ...prev,
+  //                 addOnCost: value,
+  //               }));
+  //               setAuxiliariesFetching(true);
+
+  //               clearTimeout(window.auxAddOnCostDebounce);
+  //               window.auxAddOnCostDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Add On Cost",
+  //                     description: "Add on cost must be greater than 0.",
+  //                   });
+  //                   setAuxiliariesInputRow((prev) => ({
+  //                     ...prev,
+  //                     addOnCost: "",
+  //                   }));
+  //                   setAuxiliariesFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 const { totalPrice } = updateTotalPrice(
+  //                   auxiliariesInputRow.purchaseCost,
+  //                   value,
+  //                   auxiliariesInputRow.quantity
+  //                 );
+  //                 setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 setAuxiliariesFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.addOnCost}>
+  //           <span>{record.addOnCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Selling Cost (AED)",
+  //     dataIndex: "sellingCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             min={0}
+  //             placeholder="Enter Selling Cost"
+  //             value={auxiliariesInputRow.sellingCost || ""}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setAuxiliariesInputRow((prev) => ({
+  //                 ...prev,
+  //                 sellingCost: value,
+  //               }));
+
+  //               clearTimeout(window.auxSellingCostDebounce);
+  //               window.auxSellingCostDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Selling Cost",
+  //                     description: "Selling cost must be greater than 0.",
+  //                   });
+  //                   setAuxiliariesInputRow((prev) => ({
+  //                     ...prev,
+  //                     sellingCost: "",
+  //                   }));
+  //                   return;
+  //                 }
+  //                 // no total recalculation needed here unless you want to sync totalPrice
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.sellingCost}>
+  //           <span>{record.sellingCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Quantity",
+  //   //   dataIndex: "quantity",
+  //   //   width: 200,
+  //   //   ellipsis: true,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           placeholder="Quantity"
+  //   //           type="number"
+  //   //           min={1}
+  //   //           value={auxiliariesInputRow.quantity}
+  //   //           onChange={(e) => {
+  //   //             const value = e.target.value.trim();
+  //   //             setAuxiliariesInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               quantity: value,
+  //   //             }));
+
+  //   //             clearTimeout(window.auxQuantityDebounce);
+  //   //             window.auxQuantityDebounce = setTimeout(() => {
+  //   //               const num = parseFloat(value);
+  //   //               if (
+  //   //                 value !== "" &&
+  //   //                 (value === "0" ||
+  //   //                   value === "0.0" ||
+  //   //                   value === ".0" ||
+  //   //                   isNaN(num) ||
+  //   //                   num === 0)
+  //   //               ) {
+  //   //                 notification.error({
+  //   //                   message: "Invalid Quantity",
+  //   //                   description: "Quantity must be greater than 0.",
+  //   //                 });
+  //   //                 setAuxiliariesInputRow((prev) => ({
+  //   //                   ...prev,
+  //   //                   quantity: "",
+  //   //                 }));
+  //   //                 return;
+  //   //               }
+
+  //   //               const { totalPrice } = updateTotalPrice(
+  //   //                 auxiliariesInputRow.purchaseCost,
+  //   //                 auxiliariesInputRow.addOnCost,
+  //   //                 value
+  //   //               );
+  //   //               setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
+  //   //             }, 3000);
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.quantity}>
+  //   //         <span>{record.quantity}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   // {
+  //   //   title: "Unit",
+  //   //   dataIndex: "unit",
+  //   //   width: 250,
+  //   //   ellipsis: true,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Select
+  //   //         className="w-100"
+  //   //         value={auxiliariesInputRow.unit}
+  //   //         onChange={(value) =>
+  //   //           setAuxiliariesInputRow((prev) => ({ ...prev, unit: value }))
+  //   //         }
+  //   //         options={auxiliariesUnitOptions.map((u) => ({ value: u, label: u }))}
+  //   //         loading={auxiliariesUnitLoading}
+  //   //         placeholder={auxiliariesUnitLoading ? "Fetching unit..." : "Select Unit"}
+  //   //         notFoundContent={
+  //   //           auxiliariesUnitLoading ? "Fetching unit..." : "No units found"
+  //   //         }
+  //   //         // disabled={inputRow.sparePartsUnitFetched && userRole !== "Admin"}
+  //   //       />
+  //   //     ) : (
+  //   //       record.unit || ""
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Quantity",
+  //     dataIndex: "quantity",
+  //     width: 200,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter Quantity"
+  //             type="number"
+  //             // min={1}
+  //             disabled={auxiliariesUnitLoading}
+  //             value={auxiliariesInputRow.quantity}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+  //               setAuxiliariesInputRow((prev) => ({
+  //                 ...prev,
+  //                 quantity: value,
+  //               }));
+  //               setAuxiliariesFetching(true);
+
+  //               clearTimeout(window.auxQuantityDebounce);
+  //               window.auxQuantityDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+
+  //                 // Basic >0 check
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: "Quantity must be greater than 0.",
+  //                   });
+  //                   setAuxiliariesInputRow((prev) => ({
+  //                     ...prev,
+  //                     quantity: "",
+  //                   }));
+  //                   setAuxiliariesFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 // Whole number check for Set/Piece
+  //                 const unit = (auxiliariesInputRow.unit || "").toLowerCase();
+  //                 if (
+  //                   (unit === "set" || unit === "piece") &&
+  //                   !Number.isInteger(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: `Quantity for unit "${auxiliariesInputRow.unit}" must be a whole number.`,
+  //                   });
+  //                   setAuxiliariesInputRow((prev) => ({
+  //                     ...prev,
+  //                     quantity: "",
+  //                     unit: "",
+  //                   }));
+  //                   setAuxiliariesFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 // Update total price
+  //                 const { totalPrice } = updateTotalPrice(
+  //                   auxiliariesInputRow.purchaseCost,
+  //                   auxiliariesInputRow.addOnCost,
+  //                   value
+  //                 );
+  //                 setAuxiliariesInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 setAuxiliariesFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.quantity}>
+  //           <span>{record.quantity}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Unit",
+  //     dataIndex: "unit",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Select
+  //           className="w-100"
+  //           value={auxiliariesInputRow.unit}
+  //           onChange={(selectedUnit) => {
+  //             clearTimeout(window.auxUnitDebounce);
+  //             window.auxUnitDebounce = setTimeout(() => {
+  //               const unitLower = (selectedUnit || "").toLowerCase();
+  //               const num = parseFloat(auxiliariesInputRow.quantity);
+
+  //               // Whole number check for Set/Piece
+  //               if (
+  //                 (unitLower === "set" || unitLower === "piece") &&
+  //                 !Number.isInteger(num)
+  //               ) {
+  //                 notification.error({
+  //                   message: "Invalid Quantity",
+  //                   description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+  //                 });
+  //                 setAuxiliariesInputRow((prev) => ({
+  //                   ...prev,
+  //                   unit: "",
+  //                   quantity: "",
+  //                 }));
+  //                 return;
+  //               }
+
+  //               // If valid, update unit
+  //               setAuxiliariesInputRow((prev) => ({
+  //                 ...prev,
+  //                 unit: selectedUnit,
+  //               }));
+  //             }, 300);
+  //           }}
+  //           options={auxiliariesUnitOptions.map((u) => ({
+  //             value: u,
+  //             label: u,
+  //           }))}
+  //           loading={auxiliariesUnitLoading}
+  //           placeholder={
+  //             auxiliariesUnitLoading ? "Fetching unit..." : "Select Unit"
+  //           }
+  //           notFoundContent={
+  //             auxiliariesUnitLoading ? "Fetching unit..." : "No units found"
+  //           }
+  //         />
+  //       ) : (
+  //         record.unit || ""
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Stock In Hand",
+  //     dataIndex: "stockInHand",
+  //     width: 200,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             readOnly
+  //             value={
+  //               auxiliariesInputRow.stockInHand
+  //                 ? `${auxiliariesInputRow.stockInHand} ${
+  //                     auxiliariesInputRow.stockUnit || ""
+  //                   }`
+  //                 : ""
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
+  //           <span>
+  //             {record.stockInHand
+  //               ? `${record.stockInHand} ${record.stockUnit || ""}`
+  //               : "-"}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Total Price In AED",
+  //     dataIndex: "totalPrice",
+  //     width: 200,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input value={auxiliariesInputRow.totalPrice || ""} readOnly />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.totalPrice}>
+  //           <span>{record.totalPrice || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Note",
+  //     dataIndex: "note",
+  //     width: 500,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             // autoSize={{ minRows: 1, maxRows: 1 }}
+  //             rows={1}
+  //             placeholder="Enter note"
+  //             value={auxiliariesInputRow.note}
+  //             onChange={(e) =>
+  //               setAuxiliariesInputRow({
+  //                 ...auxiliariesInputRow,
+  //                 note: e.target.value,
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         // <Tooltip title={record.note}>
+  //         //   <span>{record.note}</span>
+  //         // </Tooltip>
+  //         <Tooltip
+  //           title={record.note}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           {/* <span> {record.note}</span> */}
+  //           <span className="truncate-text">
+  //             {record.note?.length > 150
+  //               ? `${record.note.slice(0, 150)}...`
+  //               : record.note}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Action",
+  //     width: 120,
+  //     fixed: "right",
+  //     align: "center",
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Button
+  //           className="addButton ps-4 pe-4 m-auto"
+  //           onClick={handleAuxiliariesAdd}
+  //           disabled={auxiliariesFetching}
+  //           loading={auxiliariesFetching}
+  //         >
+  //           {auxiliariesFetching ? "Loading" : "Add"}
+  //         </Button>
+  //       ) : (
+  //         <Button
+  //           className="deleteButton ps-3 pe-3"
+  //           onClick={() => handleAuxiliariesDelete(record.key)}
+  //         >
+  //           Delete
+  //         </Button>
+  //       ),
+  //   },
+  // ];
 
   // const displayAssetsData = [
   //   { key: "input", isInput: true },
@@ -4826,13 +7680,13 @@ const maxTableRows = 10;
   ];
 
   const handleMachineAdd = async () => {
-      if (machineDataSource.length >= maxTableRows) {
-    notification.error({
-      message: "Limit Reached",
-      description: `You can only add up to ${maxTableRows} rows.`,
-    });
-    return;
-  }
+    if (machineDataSource.length >= maxTableRows) {
+      notification.error({
+        message: "Limit Reached",
+        description: `You can only add up to ${maxTableRows} rows.`,
+      });
+      return;
+    }
     const {
       partNumber,
       description,
@@ -4898,790 +7752,1438 @@ const maxTableRows = 10;
   const handleMachineDelete = (key) => {
     setMachineDataSource(machineDataSource.filter((item) => item.key !== key));
   };
+  const isMachinesEditing = (record) => record.key === machinesEditingKey;
+
+  const handleMachinesEdit = (key) => {
+    const row = machineDataSource.find((item) => item.key === key);
+    setMachinesEditingKey(key);
+    setMachinesEditRow({ ...row });
+  };
+
+  const handleMachinesCancel = () => {
+    setMachinesEditingKey("");
+    setMachinesEditRow(null);
+  };
+
+  const handleMachinesSave = () => {
+    if (!machinesEditRow) return;
+
+    const {
+      partNumber,
+      description,
+      quantity,
+      unit,
+      purchaseCost,
+      addOnCost,
+      sellingCost,
+      totalPrice,
+      date,
+    } = machinesEditRow;
+
+    if (
+      !partNumber ||
+      !description ||
+      !quantity ||
+      !unit ||
+      !purchaseCost ||
+      !addOnCost ||
+      !sellingCost ||
+      !totalPrice ||
+      !date
+    ) {
+      notification.error({
+        message: "Error",
+        description:
+          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+      });
+      return;
+    }
+
+    const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+    if (!regex.test(date)) {
+      notification.error({
+        message: "Invalid Date",
+        description: "Enter date in DD-MM-YYYY format",
+      });
+      return;
+    }
+
+    setMachineDataSource((prev) =>
+      prev.map((item) =>
+        item.key === machinesEditingKey
+          ? { ...machinesEditRow, key: machinesEditingKey }
+          : item
+      )
+    );
+    setMachinesEditingKey("");
+    setMachinesEditRow(null);
+  };
 
   const machineColumns = [
     {
       title: "Date",
       dataIndex: "date",
       width: 220,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            {/* <DatePicker
-              format="DD-MM-YYYY"
-              style={{ width: "100%" }}
-              value={
-                machineinputRow.date &&
-                dayjs(machineinputRow.date, "DD-MM-YYYY").isValid()
-                  ? dayjs.tz(machineinputRow.date, "DD-MM-YYYY", "Asia/Dubai")
-                  : null
-              }
-              onChange={(dateObj) => {
-                if (!dateObj) {
-                  setMachineInputRow({ ...machineinputRow, date: "" });
-                  return;
-                }
-                const formatted = dayjs(dateObj)
-                  .tz("Asia/Dubai")
-                  .format("DD-MM-YYYY");
-                setMachineInputRow({ ...machineinputRow, date: formatted });
-              }}
-            /> */}
+      render: (_, record) => {
+        const handleChange = (value, setRow) => {
+          setRow((prev) => ({ ...prev, date: value }));
+          if (value.length === 10) {
+            const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+            if (!regex.test(value)) {
+              notification.error({
+                message: "Invalid Date",
+                description: "Enter date in DD-MM-YYYY format",
+              });
+              setRow((prev) => ({ ...prev, date: "" }));
+            }
+          }
+        };
 
+        if (record.isInput) {
+          return (
             <Input
               placeholder="DD-MM-YYYY"
               maxLength={10}
               value={machineinputRow.date}
-              onChange={(e) => {
-                const value = e.target.value;
-                setMachineInputRow({ ...machineinputRow, date: value });
-
-                // validate only when full length is reached
-                if (value.length === 10) {
-                  const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-                  if (!regex.test(value)) {
-                    notification.error({
-                      message: "Invalid Date",
-                      description: "Enter date in DD-MM-YYYY format",
-                    });
-                    setMachineInputRow({ ...machineinputRow, date: "" });
-                  }
-                }
-              }}
+              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.date}>
-            <span>{record.date || "-"}</span>
-          </Tooltip>
-        ),
+          );
+        }
+        if (isMachinesEditing(record)) {
+          return (
+            <Input
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              value={machinesEditRow.date}
+              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+            />
+          );
+        }
+        return <span>{record.date || "-"}</span>;
+      },
     },
-
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({
+            ...prev,
+            partNumber: value.toUpperCase(),
+            quantity: "",
+          }));
+
+        if (record.isInput)
+          return (
             <Input
               placeholder="Enter part number"
               value={machineinputRow.partNumber}
-              onChange={(e) =>
-                setMachineInputRow({
-                  ...machineinputRow,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                })
-              }
+              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.partNumber}>
-            <span>{record.partNumber}</span>
-          </Tooltip>
-        ),
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Input
+              placeholder="Enter part number"
+              value={machinesEditRow.partNumber}
+              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+            />
+          );
+        return <span>{record.partNumber}</span>;
+      },
     },
     {
       title: "Description",
       dataIndex: "description",
       width: 500,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, description: value }));
+
+        if (record.isInput)
+          return (
             <Input.TextArea
-              // autoSize={{ minRows: 2, maxRows: 2 }}
               rows={1}
               placeholder="Enter description"
               value={machineinputRow.description}
-              onChange={(e) =>
-                setMachineInputRow({
-                  ...machineinputRow,
-                  description: e.target.value,
-                })
-              }
+              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip
-            title={record.description}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            <span className="truncate-text">
-              {record.description?.length > 150
-                ? `${record.description.slice(0, 150)}...`
-                : record.description}
-            </span>
-          </Tooltip>
-        ),
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Input.TextArea
+              rows={1}
+              value={machinesEditRow.description}
+              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+            />
+          );
+        return (
+          <span>
+            {record.description?.length > 150
+              ? `${record.description.slice(0, 150)}...`
+              : record.description}
+          </span>
+        );
+      },
     },
-
-    // {
-    //   title: "Purchase Cost(per item)",
-    //   dataIndex: "purchaseCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           placeholder="Enter purchase cost"
-    //           type="number"
-    //           min={0}
-    //           value={machineinputRow.purchaseCost}
-    //           onChange={(e) => {
-    //             const purchaseCost = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               purchaseCost,
-    //               machineinputRow.addOnCost,
-    //               machineinputRow.quantity
-    //             );
-    //             setMachineInputRow((prev) => ({
-    //               ...prev,
-    //               purchaseCost,
-    //               sellingCost: sellingPrice,
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.purchaseCost}>
-    //         <span>{record.purchaseCost || "-"}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
-      title: "Purchase Cost(per item)",
+      title: "Purchase Cost In AED (per item)",
       dataIndex: "purchaseCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (
+          value,
+          row,
+          setRow,
+          loadingSetter,
+          debounceKey
+        ) => {
+          setRow((prev) => ({ ...prev, purchaseCost: value }));
+          loadingSetter(true);
+          clearTimeout(window[debounceKey]);
+          window[debounceKey] = setTimeout(() => {
+            const num = parseFloat(value);
+            if (value !== "" && (isNaN(num) || num <= 0)) {
+              notification.error({
+                message: "Invalid Purchase Cost",
+                description: "Purchase cost must be greater than 0.",
+              });
+              setRow((prev) => ({ ...prev, purchaseCost: "" }));
+            } else {
+              const { totalPrice } = updateTotalPrice(
+                value,
+                row.addOnCost,
+                row.quantity
+              );
+              setRow((prev) => ({ ...prev, totalPrice }));
+            }
+            loadingSetter(false);
+          }, 3000);
+        };
+        if (record.isInput)
+          return (
             <Input
-              placeholder="Enter purchase cost"
               type="number"
               min={0}
+              placeholder="Enter purchase cost"
               value={machineinputRow.purchaseCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-
-                setMachineInputRow((prev) => ({
-                  ...prev,
-                  purchaseCost: value,
-                }));
-                setMachineFetching(true);
-
-                clearTimeout(window.machinePurchaseDebounce);
-                window.machinePurchaseDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Purchase Cost",
-                      description: "Purchase cost must be greater than 0.",
-                    });
-                    setMachineInputRow((prev) => ({
-                      ...prev,
-                      purchaseCost: "",
-                    }));
-                  } else {
-                    const { totalPrice } = updateTotalPrice(
-                      value,
-                      machineinputRow.addOnCost,
-                      machineinputRow.quantity
-                    );
-                    setMachineInputRow((prev) => ({
-                      ...prev,
-                      totalPrice,
-                    }));
-                  }
-                  setMachineFetching(false);
-                }, 3000);
-              }}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machineinputRow,
+                  setMachineInputRow,
+                  setMachinesAddLoading,
+                  "machinesPurchaseCostDebounce"
+                )
+              }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.purchaseCost}>
-            <span>{record.purchaseCost || "-"}</span>
-          </Tooltip>
-        ),
-    },
-
-    // {
-    //   title: "Add On Cost",
-    //   dataIndex: "addOnCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           type="number"
-    //           min={0}
-    //           placeholder="Enter add on cost"
-    //           value={machineinputRow.addOnCost}
-    //           onChange={(e) => {
-    //             const addOnCost = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               machineinputRow.purchaseCost,
-    //               addOnCost,
-    //               machineinputRow.quantity
-    //             );
-    //             setMachineInputRow((prev) => ({
-    //               ...prev,
-    //               addOnCost,
-    //               sellingCost: sellingPrice,
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.addOnCost}>
-    //         <span>{record.addOnCost}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-    {
-      title: "Add On Cost",
-      dataIndex: "addOnCost",
-      ellipsis: true,
-      width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+          );
+        if (isMachinesEditing(record))
+          return (
             <Input
               type="number"
-              // min={0}
+              min={0}
+              placeholder="Enter purchase cost"
+              value={machinesEditRow.purchaseCost}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machinesEditRow,
+                  setMachinesEditRow,
+                  setMachinesSaveLoading,
+                  "machinesEditPurchaseCostDebounce"
+                )
+              }
+            />
+          );
+        return <span>{record.purchaseCost || "-"}</span>;
+      },
+    },
+    {
+      title: "Add On Cost In AED",
+      dataIndex: "addOnCost",
+      width: 250,
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (
+          value,
+          row,
+          setRow,
+          loadingSetter,
+          debounceKey
+        ) => {
+          setRow((prev) => ({ ...prev, addOnCost: value }));
+          loadingSetter(true);
+          clearTimeout(window[debounceKey]);
+          window[debounceKey] = setTimeout(() => {
+            const num = parseFloat(value);
+            if (value !== "" && isNaN(num)) {
+              notification.error({
+                message: "Invalid Add On Cost",
+                description: "Add on cost must be a number.",
+              });
+              setRow((prev) => ({ ...prev, addOnCost: "" }));
+            } else {
+              const { totalPrice } = updateTotalPrice(
+                row.purchaseCost,
+                value,
+                row.quantity
+              );
+              setRow((prev) => ({ ...prev, totalPrice }));
+            }
+            loadingSetter(false);
+          }, 3000);
+        };
+
+        if (record.isInput)
+          return (
+            <Input
+              type="number"
               placeholder="Enter add on cost"
               value={machineinputRow.addOnCost}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-
-                setMachineInputRow((prev) => ({
-                  ...prev,
-                  addOnCost: value,
-                }));
-                setMachineFetching(true);
-
-                clearTimeout(window.machineAddOnDebounce);
-                window.machineAddOnDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Add On Cost",
-                      description: "Add on cost must be greater than 0.",
-                    });
-                    setMachineInputRow((prev) => ({
-                      ...prev,
-                      addOnCost: "",
-                    }));
-                  } else {
-                    const { totalPrice } = updateTotalPrice(
-                      machineinputRow.purchaseCost,
-                      value,
-                      machineinputRow.quantity
-                    );
-                    setMachineInputRow((prev) => ({
-                      ...prev,
-                      totalPrice,
-                    }));
-                  }
-                  setMachineFetching(false);
-                }, 3000);
-              }}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machineinputRow,
+                  setMachineInputRow,
+                  setMachinesAddLoading,
+                  "machinesAddOnCostDebounce"
+                )
+              }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.addOnCost}>
-            <span>{record.addOnCost}</span>
-          </Tooltip>
-        ),
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Input
+              type="number"
+              placeholder="Enter add on cost"
+              value={machinesEditRow.addOnCost}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machinesEditRow,
+                  setMachinesEditRow,
+                  setMachinesSaveLoading,
+                  "machinesEditAddOnCostDebounce"
+                )
+              }
+            />
+          );
+        return <span>{record.addOnCost || "-"}</span>;
+      },
     },
-
-    // {
-    //   title: "Selling Cost (AED)",
-    //   dataIndex: "sellingCost",
-    //   ellipsis: true,
-    //   width: 250,
-    //   render: (_, record, index) =>
-    //     record.isInput ? (
-    //       <Tooltip title="Enter Selling Cost">
-    //         <Input
-    //           type="number"
-    //           min={0}
-    //           placeholder="Enter Selling Cost"
-    //           value={machineinputRow.sellingCost || ""}
-    //           onChange={(e) => {
-    //             const value = e.target.value.trim();
-    //             const num = parseFloat(value);
-
-    //             // Reject values: "0", "0.0", ".0", 0
-    //             if (
-    //               value === "0" ||
-    //               value === "0.0" ||
-    //               value === ".0" ||
-    //               isNaN(num) ||
-    //               num === 0
-    //             ) {
-    //               notification.error({
-    //                 message: "Invalid Selling Cost",
-    //                 description: "Selling cost must be greater than 0.",
-    //               });
-    //               return;
-    //             }
-
-    //             setMachineInputRow((prev) => ({
-    //               ...prev,
-    //               sellingCost: value,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.sellingCost}>
-    //         <span>{record.sellingCost}</span>
-    //       </Tooltip>
-    //     ),
-    // },
-
     {
       title: "Selling Cost (AED)",
       dataIndex: "sellingCost",
-      ellipsis: true,
       width: 250,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (value, row, setRow, debounceKey) => {
+          setRow((prev) => ({ ...prev, sellingCost: value }));
+          clearTimeout(window[debounceKey]);
+          window[debounceKey] = setTimeout(() => {
+            if (value !== "" && isNaN(parseFloat(value))) {
+              notification.error({
+                message: "Invalid Selling Cost",
+                description: "Selling cost must be a number.",
+              });
+              setRow((prev) => ({ ...prev, sellingCost: "" }));
+            }
+          }, 3000);
+        };
+
+        if (record.isInput)
+          return (
             <Input
               type="number"
-              // min={0}
               placeholder="Enter Selling Cost"
               value={machineinputRow.sellingCost || ""}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-
-                setMachineInputRow((prev) => ({
-                  ...prev,
-                  sellingCost: value,
-                }));
-
-                clearTimeout(window.machineSellingDebounce);
-                window.machineSellingDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  if (
-                    value !== "" &&
-                    // (value === "0" ||
-                    //   value === "0.0" ||
-                    //   value === ".0" ||
-                    //   isNaN(num) ||
-                    //   num <= 0)
-                    isNaN(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Selling Cost",
-                      description: "Selling cost must be greater than 0.",
-                    });
-                    setMachineInputRow((prev) => ({
-                      ...prev,
-                      sellingCost: "",
-                    }));
-                  }
-                }, 3000);
-              }}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machineinputRow,
+                  setMachineInputRow,
+                  "machinesSellingCostDebounce"
+                )
+              }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.sellingCost}>
-            <span>{record.sellingCost}</span>
-          </Tooltip>
-        ),
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Input
+              type="number"
+              placeholder="Enter Selling Cost"
+              value={machinesEditRow.sellingCost || ""}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machinesEditRow,
+                  setMachinesEditRow,
+                  "machinesEditSellingCostDebounce"
+                )
+              }
+            />
+          );
+        return <span>{record.sellingCost || "-"}</span>;
+      },
     },
-
-    // {
-    //   title: "Quantity",
-    //   dataIndex: "quantity",
-    //   width: 200,
-    //   ellipsis: true,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip>
-    //         <Input
-    //           placeholder="Enter quantity"
-    //           type="number"
-    //           min={1}
-    //           value={machineinputRow.quantity}
-    //           onChange={(e) => {
-    //             const quantity = e.target.value;
-    //             const { sellingPrice, totalPrice } = updateTotalPrice(
-    //               machineinputRow.purchaseCost,
-    //               machineinputRow.addOnCost,
-    //               quantity
-    //             );
-    //             setMachineInputRow((prev) => ({
-    //               ...prev,
-    //               quantity,
-    //               sellingCost: sellingPrice, // still needed in case it's blank initially
-    //               totalPrice,
-    //             }));
-    //           }}
-    //         />
-    //       </Tooltip>
-    //     ) : (
-    //       <Tooltip title={record.quantity}>
-    //         <span>{record.quantity}</span>
-    //       </Tooltip>
-    //     ),
-    // },
     {
       title: "Quantity",
       dataIndex: "quantity",
       width: 200,
-      ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        const handleChange = (
+          value,
+          row,
+          setRow,
+          loadingSetter,
+          debounceKey
+        ) => {
+          setRow((prev) => ({ ...prev, quantity: value }));
+          loadingSetter(true);
+          clearTimeout(window[debounceKey]);
+          window[debounceKey] = setTimeout(() => {
+            const num = parseFloat(value);
+            if (value !== "" && (value === "0" || isNaN(num) || num <= 0)) {
+              notification.error({
+                message: "Invalid Quantity",
+                description: "Quantity must be greater than 0.",
+              });
+              setRow((prev) => ({ ...prev, quantity: "" }));
+              loadingSetter(false);
+              return;
+            }
+
+            const unit = (row.unit || "").toLowerCase();
+            if (
+              (unit === "set" || unit === "piece") &&
+              !Number.isInteger(num)
+            ) {
+              notification.error({
+                message: "Invalid Quantity",
+                description: `Quantity for unit "${row.unit}" must be a whole number.`,
+              });
+              setRow((prev) => ({ ...prev, quantity: "", unit: "" }));
+              loadingSetter(false);
+              return;
+            }
+
+            const { totalPrice } = updateTotalPrice(
+              row.purchaseCost,
+              row.addOnCost,
+              value
+            );
+            setRow((prev) => ({ ...prev, totalPrice }));
+            loadingSetter(false);
+          }, 3000);
+        };
+
+        if (record.isInput)
+          return (
             <Input
-              placeholder="Enter Quantity"
               type="number"
-              // min={1}
+              placeholder="Enter Quantity"
               value={machineinputRow.quantity}
-              disabled={machineUnitLoading}
-              onChange={(e) => {
-                const value = e.target.value.trim();
-
-                setMachineInputRow((prev) => ({
-                  ...prev,
-                  quantity: value,
-                }));
-                setMachineFetching(true);
-
-                clearTimeout(window.machineQuantityDebounce);
-                window.machineQuantityDebounce = setTimeout(() => {
-                  const num = parseFloat(value);
-                  // if (
-                  //   value !== "" &&
-                  //   (value === "0" ||
-                  //     value === "0.0" ||
-                  //     value === ".0" ||
-                  //     isNaN(num) ||
-                  //     num === 0)
-                  // ) {
-                  //   notification.error({
-                  //     message: "Invalid Quantity",
-                  //     description: "Quantity must be greater than 0.",
-                  //   });
-                  //   setMachineInputRow((prev) => ({
-                  //     ...prev,
-                  //     quantity: "",
-                  //   }));
-                  // } else {
-                  //   const { totalPrice } = updateTotalPrice(
-                  //     machineinputRow.purchaseCost,
-                  //     machineinputRow.addOnCost,
-                  //     value
-                  //   );
-                  //   setMachineInputRow((prev) => ({
-                  //     ...prev,
-                  //     totalPrice,
-                  //   }));
-                  // }
-
-                  // Basic invalid checks
-                  if (
-                    value !== "" &&
-                    (value === "0" ||
-                      value === "0.0" ||
-                      value === ".0" ||
-                      isNaN(num) ||
-                      num <= 0)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: "Quantity must be greater than 0.",
-                    });
-                    setMachineInputRow((prev) => ({ ...prev, quantity: "" }));
-                    setMachineFetching(false);
-
-                    return;
-                  }
-
-                  // Extra check for Set / Piece units
-                  const unit = (machineinputRow.unit || "").toLowerCase();
-                  if (
-                    (unit === "set" || unit === "piece") &&
-                    !Number.isInteger(num)
-                  ) {
-                    notification.error({
-                      message: "Invalid Quantity",
-                      description: `Quantity for unit "${machineinputRow.unit}" must be a whole number.`,
-                    });
-                    setMachineInputRow((prev) => ({
-                      ...prev,
-                      quantity: "",
-                      unit: "",
-                    }));
-                    setMachineFetching(false);
-                    return;
-                  }
-
-                  // Update total price if all checks pass
-                  const { totalPrice } = updateTotalPrice(
-                    machineinputRow.purchaseCost,
-                    machineinputRow.addOnCost,
-                    value
-                  );
-                  setMachineInputRow((prev) => ({ ...prev, totalPrice }));
-                  setMachineFetching(false);
-                }, 3000);
-              }}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machineinputRow,
+                  setMachineInputRow,
+                  setMachinesAddLoading,
+                  "machinesQuantityDebounce"
+                )
+              }
             />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.quantity}>
-            <span>{record.quantity}</span>
-          </Tooltip>
-        ),
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Input
+              type="number"
+              placeholder="Enter Quantity"
+              value={machinesEditRow.quantity}
+              onChange={(e) =>
+                handleChange(
+                  e.target.value,
+                  machinesEditRow,
+                  setMachinesEditRow,
+                  setMachinesSaveLoading,
+                  "machinesEditQuantityDebounce"
+                )
+              }
+            />
+          );
+        return <span>{record.quantity || "-"}</span>;
+      },
     },
-
-    // {
-    //   title: "Unit",
-    //   dataIndex: "unit",
-    //   width: 250,
-    //   ellipsis: true,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Tooltip title="">
-    //         <Select
-    //           placeholder="Select unit"
-    //           className="w-100"
-    //           value={machineinputRow.unit}
-    //           onChange={(value) => {
-    //             setMachineInputRow({ ...machineinputRow, unit: value });
-    //           }}
-    //         >
-    //           <Select.Option value="Set">Set</Select.Option>
-    //           <Select.Option value="Piece">Piece</Select.Option>
-    //           <Select.Option value="Number">Number</Select.Option>
-    //           <Select.Option value="Metre">Metre</Select.Option>
-    //           <Select.Option value="Litre">Litre</Select.Option>
-    //         </Select>
-    //       </Tooltip>
-    //     ) : (
-    //       record.unit || ""
-    //     ),
-    // },
-    // {
-    //   title: "Unit",
-    //   dataIndex: "unit",
-    //   width: 250,
-    //   ellipsis: true,
-    //   render: (_, record) =>
-    //     record.isInput ? (
-    //       <Select
-    //         className="w-100"
-    //         value={machineinputRow.unit}
-    //         onChange={(value) =>
-    //           setMachineInputRow((prev) => ({ ...prev, unit: value }))
-    //         }
-    //         options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
-    //         loading={machineUnitLoading}
-    //         placeholder={machineUnitLoading ? "Fetching unit..." : "Select Unit"}
-    //         notFoundContent={
-    //           machineUnitLoading ? "Fetching unit..." : "No units found"
-    //         }
-    //         // disabled={inputRow.sparePartsUnitFetched && userRole !== "Admin"}
-    //       />
-    //     ) : (
-    //       record.unit || ""
-    //     ),
-    // },
-
     {
       title: "Unit",
       dataIndex: "unit",
       width: 250,
-      ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Select
-            className="w-100"
-            value={machineinputRow.unit}
-            onChange={(selectedUnit) => {
-              clearTimeout(window.machineUnitDebounce);
-              window.machineUnitDebounce = setTimeout(() => {
-                const unitLower = (selectedUnit || "").toLowerCase();
-                const num = parseFloat(machineinputRow.quantity);
-
-                // Check if quantity must be whole number
-                if (
-                  (unitLower === "set" || unitLower === "piece") &&
-                  !Number.isInteger(num)
-                ) {
-                  notification.error({
-                    message: "Invalid Quantity",
-                    description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
-                  });
-                  setMachineInputRow((prev) => ({
-                    ...prev,
-                    unit: "",
-                    quantity: "",
-                  }));
-                  return;
-                }
-
-                // If valid, update the unit
-                setMachineInputRow((prev) => ({ ...prev, unit: selectedUnit }));
-              }, 300);
-            }}
-            options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
-            loading={machineUnitLoading}
-            placeholder={
-              machineUnitLoading ? "Fetching unit..." : "Select Unit"
+      render: (_, record) => {
+        const handleChange = (selectedUnit, row, setRow, debounceKey) => {
+          clearTimeout(window[debounceKey]);
+          window[debounceKey] = setTimeout(() => {
+            const num = parseFloat(row.quantity);
+            if (
+              (selectedUnit.toLowerCase() === "set" ||
+                selectedUnit.toLowerCase() === "piece") &&
+              !Number.isInteger(num)
+            ) {
+              notification.error({
+                message: "Invalid Quantity",
+                description: `Quantity for unit "${selectedUnit}" must be a whole number.`,
+              });
+              setRow((prev) => ({ ...prev, unit: "", quantity: "" }));
+              return;
             }
-            notFoundContent={
-              machineUnitLoading ? "Fetching unit..." : "No units found"
-            }
-          />
-        ) : (
-          record.unit || ""
-        ),
+            setRow((prev) => ({ ...prev, unit: selectedUnit }));
+          }, 300);
+        };
+
+        if (record.isInput)
+          return (
+            <Select
+              className="w-100"
+              value={machineinputRow.unit}
+              onChange={(value) =>
+                handleChange(
+                  value,
+                  machineinputRow,
+                  setMachineInputRow,
+                  "machinesUnitDebounce"
+                )
+              }
+              options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
+              placeholder="Select Unit"
+            />
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Select
+              className="w-100"
+              value={machinesEditRow.unit}
+              onChange={(value) =>
+                handleChange(
+                  value,
+                  machinesEditRow,
+                  setMachinesEditRow,
+                  "machinesEditUnitDebounce"
+                )
+              }
+              options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
+              placeholder="Select Unit"
+            />
+          );
+        return <span>{record.unit || "-"}</span>;
+      },
     },
-
     {
       title: "Stock In Hand",
       dataIndex: "stockInHand",
       width: 200,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input
-              readOnly
-              value={
-                machineinputRow.stockInHand
-                  ? `${machineinputRow.stockInHand} ${
-                      machineinputRow.stockUnit || ""
-                    }`
-                  : ""
-              }
-            />
-          </Tooltip>
-        ) : (
-          <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
-            <span>
-              {record.stockInHand
-                ? `${record.stockInHand} ${record.stockUnit || ""}`
-                : "-"}
-            </span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        if (record.isInput)
+          return <Input readOnly value={machineinputRow.stockInHand || ""} />;
+        if (isMachinesEditing(record))
+          return <Input readOnly value={machinesEditRow.stockInHand || "0"} />;
+        return <span>{record.stockInHand || "-"}</span>;
+      },
     },
-
     {
       title: "Total Price In AED",
       dataIndex: "totalPrice",
       width: 200,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Input value={machineinputRow.totalPrice || ""} readOnly />
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.totalPrice}>
-            <span>{record.totalPrice || "-"}</span>
-          </Tooltip>
-        ),
+      render: (_, record) => {
+        if (record.isInput)
+          return <Input readOnly value={machineinputRow.totalPrice || ""} />;
+        if (isMachinesEditing(record))
+          return <Input readOnly value={machinesEditRow.totalPrice || ""} />;
+        return <span>{record.totalPrice || "-"}</span>;
+      },
     },
     {
       title: "Note",
       dataIndex: "note",
+      width: 300,
       ellipsis: true,
-      width: 500,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, note: value }));
+
+        if (record.isInput)
+          return (
             <Input.TextArea
-              // autoSize={{ minRows: 2, maxRows: 2}}
               rows={1}
               placeholder="Enter note"
               value={machineinputRow.note}
-              onChange={(e) =>
-                setMachineInputRow({ ...machineinputRow, note: e.target.value })
-              }
+              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
-          </Tooltip>
-        ) : (
-          <Tooltip
-            title={record.note}
-            styles={{
-              root: {
-                maxWidth: 1000,
-                wordWrap: "break-word",
-                whiteSpace: "normal",
-              },
-            }}
-          >
-            {/* <span> {record.note}</span> */}
-            <span className="truncate-text">
-              {record.note?.length > 150
-                ? `${record.note.slice(0, 150)}...`
-                : record.note}
-            </span>
-          </Tooltip>
-        ),
+          );
+        if (isMachinesEditing(record))
+          return (
+            <Input.TextArea
+              rows={1}
+              value={machinesEditRow.note}
+              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+            />
+          );
+        return (
+          <span>
+            {record.note?.length > 150
+              ? `${record.note.slice(0, 150)}...`
+              : record.note}
+          </span>
+        );
+      },
     },
-
     {
       title: "Action",
-      width: 120,
+      width: 200,
       fixed: "right",
-      align: "center",
-      render: (_, record) =>
-        record.isInput ? (
-          <Button
-            className="addButton ps-4 pe-4"
-            onClick={handleMachineAdd}
-            disabled={machineFetching}
-            loading={machineFetching}
-          >
-            {machineFetching ? "Loading" : "Add"}
-          </Button>
-        ) : (
-          <Button
-            className="deleteButton ps-3 pe-3"
-            onClick={() => handleMachineDelete(record.key)}
-          >
-            Delete
-          </Button>
-        ),
+      render: (_, record) => {
+        if (record.isInput)
+          return (
+            <Button
+              className="addButton w-100"
+              onClick={handleMachineAdd}
+              loading={machinesAddLoading}
+              style={{ minWidth: 90 }}
+            >
+              {machinesAddLoading ? "Loading..." : "Add"}
+            </Button>
+          );
+        if (isMachinesEditing(record))
+          return (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                type="primary"
+                onClick={handleMachinesSave}
+                loading={machinesSaveLoading}
+                className="addButton"
+                style={{ minWidth: 90 }}
+              >
+                {machinesSaveLoading ? "Loading..." : "Save"}
+              </Button>
+              <Button
+                onClick={handleMachinesCancel}
+                className="deleteButton"
+                style={{ minWidth: 90 }}
+              >
+                Cancel
+              </Button>
+            </div>
+          );
+        return (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button
+              onClick={() => handleMachinesEdit(record.key)}
+              className="addButton"
+              style={{ minWidth: 90 }}
+            >
+              Edit
+            </Button>
+            <Button
+              onClick={() => handleMachineDelete(record.key)}
+              className="deleteButton"
+              danger
+              style={{ minWidth: 90 }}
+            >
+              Delete
+            </Button>
+          </div>
+        );
+      },
     },
   ];
+
+  // const machineColumns = [
+  //   {
+  //     title: "Date",
+  //     dataIndex: "date",
+  //     width: 220,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           {/* <DatePicker
+  //             format="DD-MM-YYYY"
+  //             style={{ width: "100%" }}
+  //             value={
+  //               machineinputRow.date &&
+  //               dayjs(machineinputRow.date, "DD-MM-YYYY").isValid()
+  //                 ? dayjs.tz(machineinputRow.date, "DD-MM-YYYY", "Asia/Dubai")
+  //                 : null
+  //             }
+  //             onChange={(dateObj) => {
+  //               if (!dateObj) {
+  //                 setMachineInputRow({ ...machineinputRow, date: "" });
+  //                 return;
+  //               }
+  //               const formatted = dayjs(dateObj)
+  //                 .tz("Asia/Dubai")
+  //                 .format("DD-MM-YYYY");
+  //               setMachineInputRow({ ...machineinputRow, date: formatted });
+  //             }}
+  //           /> */}
+
+  //           <Input
+  //             placeholder="DD-MM-YYYY"
+  //             maxLength={10}
+  //             value={machineinputRow.date}
+  //             onChange={(e) => {
+  //               const value = e.target.value;
+  //               setMachineInputRow({ ...machineinputRow, date: value });
+
+  //               // validate only when full length is reached
+  //               if (value.length === 10) {
+  //                 const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
+  //                 if (!regex.test(value)) {
+  //                   notification.error({
+  //                     message: "Invalid Date",
+  //                     description: "Enter date in DD-MM-YYYY format",
+  //                   });
+  //                   setMachineInputRow({ ...machineinputRow, date: "" });
+  //                 }
+  //               }
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.date}>
+  //           <span>{record.date || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Part Number",
+  //     dataIndex: "partNumber",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter part number"
+  //             value={machineinputRow.partNumber}
+  //             onChange={(e) =>
+  //               setMachineInputRow({
+  //                 ...machineinputRow,
+  //                 partNumber: e.target.value.toUpperCase(),
+  //                 quantity: "",
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.partNumber}>
+  //           <span>{record.partNumber}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Description",
+  //     dataIndex: "description",
+  //     width: 500,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             // autoSize={{ minRows: 2, maxRows: 2 }}
+  //             rows={1}
+  //             placeholder="Enter description"
+  //             value={machineinputRow.description}
+  //             onChange={(e) =>
+  //               setMachineInputRow({
+  //                 ...machineinputRow,
+  //                 description: e.target.value,
+  //               })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip
+  //           title={record.description}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           <span className="truncate-text">
+  //             {record.description?.length > 150
+  //               ? `${record.description.slice(0, 150)}...`
+  //               : record.description}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Purchase Cost(per item)",
+  //   //   dataIndex: "purchaseCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           placeholder="Enter purchase cost"
+  //   //           type="number"
+  //   //           min={0}
+  //   //           value={machineinputRow.purchaseCost}
+  //   //           onChange={(e) => {
+  //   //             const purchaseCost = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               purchaseCost,
+  //   //               machineinputRow.addOnCost,
+  //   //               machineinputRow.quantity
+  //   //             );
+  //   //             setMachineInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               purchaseCost,
+  //   //               sellingCost: sellingPrice,
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.purchaseCost}>
+  //   //         <span>{record.purchaseCost || "-"}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Purchase Cost(per item)",
+  //     dataIndex: "purchaseCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter purchase cost"
+  //             type="number"
+  //             min={0}
+  //             value={machineinputRow.purchaseCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+
+  //               setMachineInputRow((prev) => ({
+  //                 ...prev,
+  //                 purchaseCost: value,
+  //               }));
+  //               setMachineFetching(true);
+
+  //               clearTimeout(window.machinePurchaseDebounce);
+  //               window.machinePurchaseDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Purchase Cost",
+  //                     description: "Purchase cost must be greater than 0.",
+  //                   });
+  //                   setMachineInputRow((prev) => ({
+  //                     ...prev,
+  //                     purchaseCost: "",
+  //                   }));
+  //                 } else {
+  //                   const { totalPrice } = updateTotalPrice(
+  //                     value,
+  //                     machineinputRow.addOnCost,
+  //                     machineinputRow.quantity
+  //                   );
+  //                   setMachineInputRow((prev) => ({
+  //                     ...prev,
+  //                     totalPrice,
+  //                   }));
+  //                 }
+  //                 setMachineFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.purchaseCost}>
+  //           <span>{record.purchaseCost || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Add On Cost",
+  //   //   dataIndex: "addOnCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           type="number"
+  //   //           min={0}
+  //   //           placeholder="Enter add on cost"
+  //   //           value={machineinputRow.addOnCost}
+  //   //           onChange={(e) => {
+  //   //             const addOnCost = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               machineinputRow.purchaseCost,
+  //   //               addOnCost,
+  //   //               machineinputRow.quantity
+  //   //             );
+  //   //             setMachineInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               addOnCost,
+  //   //               sellingCost: sellingPrice,
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.addOnCost}>
+  //   //         <span>{record.addOnCost}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+  //   {
+  //     title: "Add On Cost",
+  //     dataIndex: "addOnCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             // min={0}
+  //             placeholder="Enter add on cost"
+  //             value={machineinputRow.addOnCost}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+
+  //               setMachineInputRow((prev) => ({
+  //                 ...prev,
+  //                 addOnCost: value,
+  //               }));
+  //               setMachineFetching(true);
+
+  //               clearTimeout(window.machineAddOnDebounce);
+  //               window.machineAddOnDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Add On Cost",
+  //                     description: "Add on cost must be greater than 0.",
+  //                   });
+  //                   setMachineInputRow((prev) => ({
+  //                     ...prev,
+  //                     addOnCost: "",
+  //                   }));
+  //                 } else {
+  //                   const { totalPrice } = updateTotalPrice(
+  //                     machineinputRow.purchaseCost,
+  //                     value,
+  //                     machineinputRow.quantity
+  //                   );
+  //                   setMachineInputRow((prev) => ({
+  //                     ...prev,
+  //                     totalPrice,
+  //                   }));
+  //                 }
+  //                 setMachineFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.addOnCost}>
+  //           <span>{record.addOnCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Selling Cost (AED)",
+  //   //   dataIndex: "sellingCost",
+  //   //   ellipsis: true,
+  //   //   width: 250,
+  //   //   render: (_, record, index) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip title="Enter Selling Cost">
+  //   //         <Input
+  //   //           type="number"
+  //   //           min={0}
+  //   //           placeholder="Enter Selling Cost"
+  //   //           value={machineinputRow.sellingCost || ""}
+  //   //           onChange={(e) => {
+  //   //             const value = e.target.value.trim();
+  //   //             const num = parseFloat(value);
+
+  //   //             // Reject values: "0", "0.0", ".0", 0
+  //   //             if (
+  //   //               value === "0" ||
+  //   //               value === "0.0" ||
+  //   //               value === ".0" ||
+  //   //               isNaN(num) ||
+  //   //               num === 0
+  //   //             ) {
+  //   //               notification.error({
+  //   //                 message: "Invalid Selling Cost",
+  //   //                 description: "Selling cost must be greater than 0.",
+  //   //               });
+  //   //               return;
+  //   //             }
+
+  //   //             setMachineInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               sellingCost: value,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.sellingCost}>
+  //   //         <span>{record.sellingCost}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Selling Cost (AED)",
+  //     dataIndex: "sellingCost",
+  //     ellipsis: true,
+  //     width: 250,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             type="number"
+  //             // min={0}
+  //             placeholder="Enter Selling Cost"
+  //             value={machineinputRow.sellingCost || ""}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+
+  //               setMachineInputRow((prev) => ({
+  //                 ...prev,
+  //                 sellingCost: value,
+  //               }));
+
+  //               clearTimeout(window.machineSellingDebounce);
+  //               window.machineSellingDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 if (
+  //                   value !== "" &&
+  //                   // (value === "0" ||
+  //                   //   value === "0.0" ||
+  //                   //   value === ".0" ||
+  //                   //   isNaN(num) ||
+  //                   //   num <= 0)
+  //                   isNaN(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Selling Cost",
+  //                     description: "Selling cost must be greater than 0.",
+  //                   });
+  //                   setMachineInputRow((prev) => ({
+  //                     ...prev,
+  //                     sellingCost: "",
+  //                   }));
+  //                 }
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.sellingCost}>
+  //           <span>{record.sellingCost}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Quantity",
+  //   //   dataIndex: "quantity",
+  //   //   width: 200,
+  //   //   ellipsis: true,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip>
+  //   //         <Input
+  //   //           placeholder="Enter quantity"
+  //   //           type="number"
+  //   //           min={1}
+  //   //           value={machineinputRow.quantity}
+  //   //           onChange={(e) => {
+  //   //             const quantity = e.target.value;
+  //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
+  //   //               machineinputRow.purchaseCost,
+  //   //               machineinputRow.addOnCost,
+  //   //               quantity
+  //   //             );
+  //   //             setMachineInputRow((prev) => ({
+  //   //               ...prev,
+  //   //               quantity,
+  //   //               sellingCost: sellingPrice, // still needed in case it's blank initially
+  //   //               totalPrice,
+  //   //             }));
+  //   //           }}
+  //   //         />
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       <Tooltip title={record.quantity}>
+  //   //         <span>{record.quantity}</span>
+  //   //       </Tooltip>
+  //   //     ),
+  //   // },
+  //   {
+  //     title: "Quantity",
+  //     dataIndex: "quantity",
+  //     width: 200,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             placeholder="Enter Quantity"
+  //             type="number"
+  //             // min={1}
+  //             value={machineinputRow.quantity}
+  //             disabled={machineUnitLoading}
+  //             onChange={(e) => {
+  //               const value = e.target.value.trim();
+
+  //               setMachineInputRow((prev) => ({
+  //                 ...prev,
+  //                 quantity: value,
+  //               }));
+  //               setMachineFetching(true);
+
+  //               clearTimeout(window.machineQuantityDebounce);
+  //               window.machineQuantityDebounce = setTimeout(() => {
+  //                 const num = parseFloat(value);
+  //                 // if (
+  //                 //   value !== "" &&
+  //                 //   (value === "0" ||
+  //                 //     value === "0.0" ||
+  //                 //     value === ".0" ||
+  //                 //     isNaN(num) ||
+  //                 //     num === 0)
+  //                 // ) {
+  //                 //   notification.error({
+  //                 //     message: "Invalid Quantity",
+  //                 //     description: "Quantity must be greater than 0.",
+  //                 //   });
+  //                 //   setMachineInputRow((prev) => ({
+  //                 //     ...prev,
+  //                 //     quantity: "",
+  //                 //   }));
+  //                 // } else {
+  //                 //   const { totalPrice } = updateTotalPrice(
+  //                 //     machineinputRow.purchaseCost,
+  //                 //     machineinputRow.addOnCost,
+  //                 //     value
+  //                 //   );
+  //                 //   setMachineInputRow((prev) => ({
+  //                 //     ...prev,
+  //                 //     totalPrice,
+  //                 //   }));
+  //                 // }
+
+  //                 // Basic invalid checks
+  //                 if (
+  //                   value !== "" &&
+  //                   (value === "0" ||
+  //                     value === "0.0" ||
+  //                     value === ".0" ||
+  //                     isNaN(num) ||
+  //                     num <= 0)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: "Quantity must be greater than 0.",
+  //                   });
+  //                   setMachineInputRow((prev) => ({ ...prev, quantity: "" }));
+  //                   setMachineFetching(false);
+
+  //                   return;
+  //                 }
+
+  //                 // Extra check for Set / Piece units
+  //                 const unit = (machineinputRow.unit || "").toLowerCase();
+  //                 if (
+  //                   (unit === "set" || unit === "piece") &&
+  //                   !Number.isInteger(num)
+  //                 ) {
+  //                   notification.error({
+  //                     message: "Invalid Quantity",
+  //                     description: `Quantity for unit "${machineinputRow.unit}" must be a whole number.`,
+  //                   });
+  //                   setMachineInputRow((prev) => ({
+  //                     ...prev,
+  //                     quantity: "",
+  //                     unit: "",
+  //                   }));
+  //                   setMachineFetching(false);
+  //                   return;
+  //                 }
+
+  //                 // Update total price if all checks pass
+  //                 const { totalPrice } = updateTotalPrice(
+  //                   machineinputRow.purchaseCost,
+  //                   machineinputRow.addOnCost,
+  //                   value
+  //                 );
+  //                 setMachineInputRow((prev) => ({ ...prev, totalPrice }));
+  //                 setMachineFetching(false);
+  //               }, 3000);
+  //             }}
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.quantity}>
+  //           <span>{record.quantity}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   // {
+  //   //   title: "Unit",
+  //   //   dataIndex: "unit",
+  //   //   width: 250,
+  //   //   ellipsis: true,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Tooltip title="">
+  //   //         <Select
+  //   //           placeholder="Select unit"
+  //   //           className="w-100"
+  //   //           value={machineinputRow.unit}
+  //   //           onChange={(value) => {
+  //   //             setMachineInputRow({ ...machineinputRow, unit: value });
+  //   //           }}
+  //   //         >
+  //   //           <Select.Option value="Set">Set</Select.Option>
+  //   //           <Select.Option value="Piece">Piece</Select.Option>
+  //   //           <Select.Option value="Number">Number</Select.Option>
+  //   //           <Select.Option value="Metre">Metre</Select.Option>
+  //   //           <Select.Option value="Litre">Litre</Select.Option>
+  //   //         </Select>
+  //   //       </Tooltip>
+  //   //     ) : (
+  //   //       record.unit || ""
+  //   //     ),
+  //   // },
+  //   // {
+  //   //   title: "Unit",
+  //   //   dataIndex: "unit",
+  //   //   width: 250,
+  //   //   ellipsis: true,
+  //   //   render: (_, record) =>
+  //   //     record.isInput ? (
+  //   //       <Select
+  //   //         className="w-100"
+  //   //         value={machineinputRow.unit}
+  //   //         onChange={(value) =>
+  //   //           setMachineInputRow((prev) => ({ ...prev, unit: value }))
+  //   //         }
+  //   //         options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
+  //   //         loading={machineUnitLoading}
+  //   //         placeholder={machineUnitLoading ? "Fetching unit..." : "Select Unit"}
+  //   //         notFoundContent={
+  //   //           machineUnitLoading ? "Fetching unit..." : "No units found"
+  //   //         }
+  //   //         // disabled={inputRow.sparePartsUnitFetched && userRole !== "Admin"}
+  //   //       />
+  //   //     ) : (
+  //   //       record.unit || ""
+  //   //     ),
+  //   // },
+
+  //   {
+  //     title: "Unit",
+  //     dataIndex: "unit",
+  //     width: 250,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Select
+  //           className="w-100"
+  //           value={machineinputRow.unit}
+  //           onChange={(selectedUnit) => {
+  //             clearTimeout(window.machineUnitDebounce);
+  //             window.machineUnitDebounce = setTimeout(() => {
+  //               const unitLower = (selectedUnit || "").toLowerCase();
+  //               const num = parseFloat(machineinputRow.quantity);
+
+  //               // Check if quantity must be whole number
+  //               if (
+  //                 (unitLower === "set" || unitLower === "piece") &&
+  //                 !Number.isInteger(num)
+  //               ) {
+  //                 notification.error({
+  //                   message: "Invalid Quantity",
+  //                   description: `Quantity for unit "${selectedUnit}" must be a whole number and should not be empty.`,
+  //                 });
+  //                 setMachineInputRow((prev) => ({
+  //                   ...prev,
+  //                   unit: "",
+  //                   quantity: "",
+  //                 }));
+  //                 return;
+  //               }
+
+  //               // If valid, update the unit
+  //               setMachineInputRow((prev) => ({ ...prev, unit: selectedUnit }));
+  //             }, 300);
+  //           }}
+  //           options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
+  //           loading={machineUnitLoading}
+  //           placeholder={
+  //             machineUnitLoading ? "Fetching unit..." : "Select Unit"
+  //           }
+  //           notFoundContent={
+  //             machineUnitLoading ? "Fetching unit..." : "No units found"
+  //           }
+  //         />
+  //       ) : (
+  //         record.unit || ""
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Stock In Hand",
+  //     dataIndex: "stockInHand",
+  //     width: 200,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input
+  //             readOnly
+  //             value={
+  //               machineinputRow.stockInHand
+  //                 ? `${machineinputRow.stockInHand} ${
+  //                     machineinputRow.stockUnit || ""
+  //                   }`
+  //                 : ""
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={`${record.stockInHand} ${record.stockUnit || ""}`}>
+  //           <span>
+  //             {record.stockInHand
+  //               ? `${record.stockInHand} ${record.stockUnit || ""}`
+  //               : "-"}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Total Price In AED",
+  //     dataIndex: "totalPrice",
+  //     width: 200,
+  //     ellipsis: true,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input value={machineinputRow.totalPrice || ""} readOnly />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip title={record.totalPrice}>
+  //           <span>{record.totalPrice || "-"}</span>
+  //         </Tooltip>
+  //       ),
+  //   },
+  //   {
+  //     title: "Note",
+  //     dataIndex: "note",
+  //     ellipsis: true,
+  //     width: 500,
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Tooltip>
+  //           <Input.TextArea
+  //             // autoSize={{ minRows: 2, maxRows: 2}}
+  //             rows={1}
+  //             placeholder="Enter note"
+  //             value={machineinputRow.note}
+  //             onChange={(e) =>
+  //               setMachineInputRow({ ...machineinputRow, note: e.target.value })
+  //             }
+  //           />
+  //         </Tooltip>
+  //       ) : (
+  //         <Tooltip
+  //           title={record.note}
+  //           styles={{
+  //             root: {
+  //               maxWidth: 1000,
+  //               wordWrap: "break-word",
+  //               whiteSpace: "normal",
+  //             },
+  //           }}
+  //         >
+  //           {/* <span> {record.note}</span> */}
+  //           <span className="truncate-text">
+  //             {record.note?.length > 150
+  //               ? `${record.note.slice(0, 150)}...`
+  //               : record.note}
+  //           </span>
+  //         </Tooltip>
+  //       ),
+  //   },
+
+  //   {
+  //     title: "Action",
+  //     width: 120,
+  //     fixed: "right",
+  //     align: "center",
+  //     render: (_, record) =>
+  //       record.isInput ? (
+  //         <Button
+  //           className="addButton ps-4 pe-4"
+  //           onClick={handleMachineAdd}
+  //           disabled={machineFetching}
+  //           loading={machineFetching}
+  //         >
+  //           {machineFetching ? "Loading" : "Add"}
+  //         </Button>
+  //       ) : (
+  //         <Button
+  //           className="deleteButton ps-3 pe-3"
+  //           onClick={() => handleMachineDelete(record.key)}
+  //         >
+  //           Delete
+  //         </Button>
+  //       ),
+  //   },
+  // ];
 
   const styl = `.ant-form-item .ant-form-item-explain-error {
     color: #ff4d4f;
@@ -5889,7 +9391,8 @@ const maxTableRows = 10;
                             setMachineDataSource([]);
                             setAuxiliariesDataSource([]);
                             // setAssetsDataSource([]);
-                            setDataSource([]);
+                            // setDataSource([]);
+                            setSparePartsDataSource([]);
                             form.setFieldsValue({
                               machines: undefined,
                               immSeries: undefined,
@@ -5909,9 +9412,16 @@ const maxTableRows = 10;
                           <Select.Option value="Machines">
                             Machines
                           </Select.Option>
-                          <Select.Option value="Consumables">
+                          {/* <Select.Option value="Consumables">
                             Consumables
-                          </Select.Option>
+                          </Select.Option> */}
+                          {user?.email
+                            ?.toLowerCase()
+                            .endsWith("@haitianme.com") && (
+                            <Select.Option value="Consumables">
+                              Consumables
+                            </Select.Option>
+                          )}
                           {/* <Select.Option value="Tools">Tools</Select.Option> */}
                           <Select.Option value="Auxiliaries">
                             Auxiliaries
@@ -5952,7 +9462,7 @@ const maxTableRows = 10;
                             }}
                           >
                             <Select.Option value="IMM">IMM</Select.Option>
-                            <Select.Option value="BMM">BMM</Select.Option>
+                            {/* <Select.Option value="BMM">BMM</Select.Option> */}
                             {/* <Select.Option value="EBM">EBM</Select.Option>
                             <Select.Option value="SBM">SBM</Select.Option> */}
                           </Select>
@@ -5997,7 +9507,7 @@ const maxTableRows = 10;
                               </Select>
                             </Form.Item>
 
-                            {selectedIMMSeries === "MA" && (
+                            {/* {selectedIMMSeries === "MA" && (
                               <Form.Item
                                 label="MA Series"
                                 name="maSeries"
@@ -6126,6 +9636,117 @@ const maxTableRows = 10;
                                   ))}
                                 </Select>
                               </Form.Item>
+                            )} */}
+
+                            {/* {selectedIMMSeries && (
+                              <Form.Item
+                                label={`${selectedIMMSeries} Series`}
+                                name={`${selectedIMMSeries.toLowerCase()}Series`}
+                                className="fw-bold"
+                                rules={[
+                                  {
+                                    required: true,
+                                    message: `Please enter ${selectedIMMSeries} series`,
+                                  },
+                                ]}
+                              >
+                                <Input
+                                  placeholder={`Enter ${selectedIMMSeries} series `}
+                                  onChange={(e) => {
+                                    const key = `${selectedIMMSeries.toLowerCase()}Series`;
+                                    form.setFieldsValue({
+                                      [key]: e.target.value,
+                                    });
+                                  }}
+                                />
+                              </Form.Item>
+                            )} */}
+                            {selectedIMMSeries && (
+                              <Form.Item
+                                label={`${selectedIMMSeries} Series`}
+                                name={`${selectedIMMSeries.toLowerCase()}Series`}
+                                className="fw-bold"
+                                rules={[
+                                  {
+                                    required: true,
+                                    message: `Please enter or select ${selectedIMMSeries} series`,
+                                  },
+                                ]}
+                              >
+                                <AutoComplete
+                                  allowClear
+                                  showSearch
+                                  placeholder={
+                                    seriesLoading
+                                      ? "Loading series..."
+                                      : `Enter or select ${selectedIMMSeries} series`
+                                  }
+                                  loading={seriesLoading}
+                                  disabled={seriesLoading}
+                                  value={
+                                    form.getFieldValue(
+                                      `${selectedIMMSeries.toLowerCase()}Series`
+                                    ) || ""
+                                  }
+                                  // options={seriesModels.map((m) => ({
+                                  //   label: m,
+                                  //   value: m,
+                                  // }))}
+
+                                  options={
+                                    seriesLoading
+                                      ? [
+                                          {
+                                            label: "Loading...",
+                                            value: "",
+                                            disabled: true,
+                                          },
+                                        ]
+                                      : seriesModels.map((m) => ({
+                                          label: m,
+                                          value: m,
+                                        }))
+                                  }
+                                  onSearch={(value) => {
+                                    // Filter dropdown while typing (case-insensitive)
+                                    const filtered = seriesModels.filter(
+                                      (model) =>
+                                        model
+                                          .toLowerCase()
+                                          .includes(value.toLowerCase())
+                                    );
+                                    setSeriesModels(
+                                      filtered.length ? filtered : seriesModels
+                                    );
+                                    form.setFieldsValue({
+                                      [`${selectedIMMSeries.toLowerCase()}Series`]:
+                                        value,
+                                    });
+                                  }}
+                                  onChange={(value) => {
+                                    const key = `${selectedIMMSeries.toLowerCase()}Series`;
+                                    form.setFieldsValue({ [key]: value });
+                                    setMachineInputRow((prev) => ({
+                                      ...prev,
+                                      [key]: value,
+                                    }));
+                                  }}
+                                  onBlur={() => {
+                                    const key = `${selectedIMMSeries.toLowerCase()}Series`;
+                                    const val = form.getFieldValue(key);
+                                    if (val && !seriesModels.includes(val)) {
+                                      setSeriesModels((prev) => [
+                                        ...new Set([...prev, val]),
+                                      ]);
+                                    }
+                                  }}
+                                  filterOption={(inputValue, option) =>
+                                    option?.value
+                                      ?.toLowerCase()
+                                      .includes(inputValue.toLowerCase())
+                                  }
+                                />
+                              </Form.Item>
                             )}
                           </>
                         )}
@@ -6193,7 +9814,8 @@ const maxTableRows = 10;
                       </div>
                     )} */}
 
-                    {selectedCategory === "Auxiliaries" && (
+                    {/* Working code */}
+                    {/* {selectedCategory === "Auxiliaries" && (
                       <div className=" rounded-2 p-1 ">
                         <Form.Item
                           label="Auxiliaries"
@@ -6216,6 +9838,110 @@ const maxTableRows = 10;
                                 form.setFieldsValue({ auxiliaries: value });
                                 setSelectedAuxiliaries(value);
                               }}
+                            />
+                          </div>
+                        </Form.Item>
+                        {selectedAuxiliaries && (
+                          <div className="col-12">
+                            <h6
+                              className="haitianColor ms-1 text-decoration-underline"
+                              style={{ fontWeight: "600" }}
+                            >
+                              Auxiliaries Details
+                            </h6>
+                            <div>
+                              <Table
+                                bordered
+                                columns={auxiliariesColumns}
+                                dataSource={displayAuxiliariesData}
+                                pagination={{
+                                  pageSize: 10,
+                                }}
+                                rowKey="key"
+                                scroll={{ x: "max-content" }}
+                                size="middle"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )} */}
+
+                    {selectedCategory === "Auxiliaries" && (
+                      <div className=" rounded-2 p-1 ">
+                        <Form.Item
+                          label="Auxiliaries"
+                          name="auxiliaries"
+                          className="fw-bold"
+                          rules={[
+                            {
+                              required: true,
+                              message: "Please select auxiliaries",
+                            },
+                          ]}
+                        >
+                          <div style={{ width: "100%" }}>
+                            {/* <Cascader
+                              options={auxiliariesOptions}
+                              placeholder="Select auxiliaries"
+                              style={{ width: "100%" }}
+                              value={form.getFieldValue("auxiliaries")}
+                              onChange={(value) => {
+                                form.setFieldsValue({ auxiliaries: value });
+                                setSelectedAuxiliaries(value);
+                              }}
+                            /> */}
+
+                            <Cascader
+                              style={{ width: "100%" }}
+                              options={options}
+                              placeholder={
+                                auxOptionLoading
+                                  ? "Loading auxiliaries..."
+                                  : "Select or add new"
+                              }
+                              disabled={auxOptionLoading}
+                              value={selectedPath}
+                              onChange={handleAuxiliariesChange}
+                              // showSearch
+                              changeOnSelect
+                              popupRender={(menus) => (
+                                <div>
+                                  {menus}
+                                  <Divider style={{ margin: "8px 0" }} />
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      padding: "4px 8px",
+                                    }}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                  >
+                                    <Input
+                                      placeholder="Enter new item"
+                                      value={newItem}
+                                      onChange={(e) =>
+                                        setNewItem(e.target.value)
+                                      }
+                                      // onPressEnter={addNewItem}
+                                      onKeyDown={(e) => e.stopPropagation()}
+                                    />
+                                    <Button
+                                      type="text"
+                                      // onClick={addNewItem}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        addNewItem();
+                                      }}
+                                      className="addButton"
+                                      style={{ minWidth: 90 }}
+                                    >
+                                      Add
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             />
                           </div>
                         </Form.Item>
@@ -6360,7 +10086,8 @@ const maxTableRows = 10;
                               machineDataSource.length === 0 &&
                               auxiliariesDataSource.length === 0 &&
                               // assetsDataSource.length === 0 &&
-                              dataSource.length === 0 &&
+                              // dataSource.length === 0 &&
+                              setSparePartsDataSource.length === 0 &&
                               isObjectEmpty(inputRow) &&
                               isObjectEmpty(machineinputRow) &&
                               isObjectEmpty(auxiliariesInputRow);
@@ -6422,8 +10149,8 @@ const maxTableRows = 10;
                             setMachineDataSource([]);
                             setAuxiliariesDataSource([]);
                             // setAssetsDataSource([]);
-                            setDataSource([]);
-
+                            // setDataSource([]);
+                            setSparePartsDataSource([]);
                             notification.success({
                               message: "Success",
                               description: "Form cleared successfully!",

@@ -1019,6 +1019,7 @@ import AddUser from "./Pages/AddUser";
 import CustomerDetails from "./Pages/CustomerDetails";
 import DeliveryNote from "./Pages/DeliveryNote";
 import { notification } from "antd";
+import Dashboard from "./Pages/Dashboard";
 
 // 🔔 Configure notifications
 notification.config({
@@ -1030,20 +1031,20 @@ notification.config({
 });
 
 // ✅ Proper small components (instead of inline functions)
-function Dashboard() {
-  return (
-    <h2 style={{ padding: 20, textAlign: "center" }}>
-      Dashboard Page (Yet to work)
-    </h2>
-  );
-}
-function Reports() {
-  return (
-    <h2 style={{ padding: 20, textAlign: "center" }}>
-      Reports Page (Yet to work)
-    </h2>
-  );
-}
+// function Dashboard() {
+//   return (
+//     <h2 style={{ padding: 20, textAlign: "center" }}>
+//       Dashboard Page (Yet to work)
+//     </h2>
+//   );
+// }
+// function Reports() {
+//   return (
+//     <h2 style={{ padding: 20, textAlign: "center" }}>
+//       Reports Page (Yet to work)
+//     </h2>
+//   );
+// }
 
 // ✅ Centralized menu config
 const menuItems = [
@@ -1053,7 +1054,8 @@ const menuItems = [
   { key: "/customerDetails", label: "Customer Details", access: "Customer Details", component: CustomerDetails },
   { key: "/deliveryNote", label: "Delivery Note", access: "Delivery Note", component: DeliveryNote },
   { key: "/addUser", label: "Add New User", access: "Add User", component: AddUser },
-  { key: "/reports", label: "Reports", access: "Reports", component: Reports },
+
+  // { key: "/reports", label: "Reports", access: "Reports", component: Reports },
 ];
 
 function AppRoutes({ isLoggedIn, handleLoginSuccess, user }) {

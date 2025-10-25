@@ -563,7 +563,7 @@ export default function SideNavBar({ onLogout, user }) {
     { key: "/customerDetails", label: "Customer Details", icon: <IdcardOutlined />, access: "Customer Details" },
     { key: "/deliveryNote", label: "Delivery Note", icon: <FileDoneOutlined />, access: "Delivery Note" },
     { key: "/addUser", label: "Add New User", icon: <UserAddOutlined />, access: "Add User" },
-    { key: "/reports", label: "Reports", icon: <BarChartOutlined />, access: "Reports" },
+    // { key: "/reports", label: "Reports", icon: <BarChartOutlined />, access: "Reports" },
   ];
 
   // show only items where access is not "No Access"

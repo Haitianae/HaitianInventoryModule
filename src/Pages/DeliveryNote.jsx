@@ -74,6 +74,15 @@ function parseToDayjs(value) {
   return d.isValid() ? d : null;
 }
 
+function safeToString(value) {
+  if (value === null || value === undefined) return "0";
+  try {
+    return value.toString();
+  } catch {
+    return "0";
+  }
+}
+
 export default function DeliveryNote({ user }) {
   const [form] = Form.useForm();
   const [viewForm] = Form.useForm();
@@ -107,13 +116,13 @@ export default function DeliveryNote({ user }) {
     stockUnit: "",
   });
   const [downloading, setDownloading] = useState(false);
-
+  const [isStockLoading, setIsStockLoading] = useState(false);
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
   const [customerList, setCustomerList] = useState([]);
   const access = user?.access?.["Delivery Note"] || "No Access";
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyi2f_I52eWi5HR0MAuZUCW47Y74cVypnneRYqYN9fi6drT3YfrsboOZRELFF1fJsjWYA/exec";
+    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -314,7 +323,8 @@ export default function DeliveryNote({ user }) {
           if (result.success) {
             setInputRow((prev) => ({
               ...prev,
-              stockInHand: result.stockInHand?.toString() || "0",
+              // stockInHand: result.stockInHand?.toString() || "0",
+              stockInHand: safeToString(result.stockInHand),
               stockUnit: result.unit || "",
             }));
           } else {
@@ -407,7 +417,8 @@ export default function DeliveryNote({ user }) {
                   itemDescription:
                     selected?.description || prev.itemDescription,
                   unit: cachedStock.unit,
-                  stockInHand: cachedStock.stockInHand.toString(),
+                  // stockInHand: cachedStock.stockInHand.toString(),
+                  stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: cachedStock.unit,
                 }));
 
@@ -416,6 +427,7 @@ export default function DeliveryNote({ user }) {
 
                 // 🔄 Background fetch
                 (async () => {
+                  setStockLoading(true);
                   try {
                     const res = await fetch(GAS_URL, {
                       method: "POST",
@@ -436,7 +448,9 @@ export default function DeliveryNote({ user }) {
                       }
                       return {
                         ...prev,
-                        stockInHand: result.stockInHand?.toString() || "0",
+                        // stockInHand: result.stockInHand?.toString() || "0",
+                        stockInHand: safeToString(result.stockInHand),
+
                         stockUnit: result.unit || "",
                         unit: result.unit || prev.unit,
                       };
@@ -451,6 +465,8 @@ export default function DeliveryNote({ user }) {
                     }));
                   } catch (err) {
                     // console.error("Live stock fetch failed", err);
+                  } finally {
+                    setStockLoading(false); // stop loading
                   }
                 })();
               }}
@@ -526,7 +542,8 @@ export default function DeliveryNote({ user }) {
                   itemDescription: value,
                   partNumber,
                   unit: cachedStock.unit,
-                  stockInHand: cachedStock.stockInHand.toString(),
+                  // stockInHand: cachedStock.stockInHand.toString(),
+                  stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: cachedStock.unit,
                 }));
 
@@ -535,6 +552,7 @@ export default function DeliveryNote({ user }) {
 
                 // 🔄 Background live fetch
                 (async () => {
+                  setStockLoading(true);
                   try {
                     const res = await fetch(GAS_URL, {
                       method: "POST",
@@ -553,7 +571,8 @@ export default function DeliveryNote({ user }) {
                       if (prev.partNumber !== currentPart) return prev; // ignore outdated
                       return {
                         ...prev,
-                        stockInHand: result.stockInHand?.toString() || "0",
+                        // stockInHand: result.stockInHand?.toString() || "0",
+                        stockInHand: safeToString(result.stockInHand),
                         stockUnit: result.unit || "",
                         unit: result.unit || prev.unit,
                       };
@@ -568,6 +587,8 @@ export default function DeliveryNote({ user }) {
                     }));
                   } catch (err) {
                     // console.error("Live stock fetch failed (description)", err);
+                  } finally {
+                    setStockLoading(false);
                   }
                 })();
               }}
@@ -797,10 +818,11 @@ export default function DeliveryNote({ user }) {
           <Button
             className="addButton ps-4 pe-4"
             onClick={handleAdd}
-            disabled={fetchingData}
-            loading={fetchingData}
+            disabled={fetchingData || stockLoading}
+            // loading={fetchingData || stockLoading}
           >
-            {fetchingData ? "Fetching" : "Add"}
+            {/* {(fetchingData || stockLoading) ? "Loading..." : "Add"} */}
+            Add
           </Button>
         ) : (
           <Button
@@ -842,26 +864,36 @@ export default function DeliveryNote({ user }) {
     },
   ];
 
+  // useEffect(() => {
+  //   // const nowUTC = new Date();
+  //   // const dubaiOffset = 4 * 60;
+  //   // const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
+
+  //   // const dubaiDayjs = dayjs(dubaiTime);
+  //   // const formatted = dubaiDayjs.format("DD-MM-YYYY");
+  //   const formatted = dayjs().format("DD-MM-YYYY HH:mm:ss");
+
+  //   setDeliveryDate(formatted);
+  //   form.setFieldsValue({ date: formatted });
+
+  //   // if (username === "Admin") {
+  //   //   // Admin gets dayjs object for DatePicker
+  //   //   form.setFieldsValue({ date: dubaiDayjs });
+  //   // } else {
+  //   //   // Non-admin gets formatted string for Input field
+  //   //   form.setFieldsValue({ date: formatted });
+  //   // }
+
+  //   // console.log("Non-admin deliveryDate:", formatted);
+  // }, []);
+
   useEffect(() => {
-    const nowUTC = new Date();
-    const dubaiOffset = 4 * 60;
-    const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
+    const now = dayjs();
+    const fullDateTime = now.format("DD-MM-YYYY HH:mm:ss");
+    const displayDate = now.format("DD-MM-YYYY");
 
-    const dubaiDayjs = dayjs(dubaiTime);
-    const formatted = dubaiDayjs.format("DD-MM-YYYY");
-
-    setDeliveryDate(formatted);
-    form.setFieldsValue({ date: formatted });
-
-    // if (username === "Admin") {
-    //   // Admin gets dayjs object for DatePicker
-    //   form.setFieldsValue({ date: dubaiDayjs });
-    // } else {
-    //   // Non-admin gets formatted string for Input field
-    //   form.setFieldsValue({ date: formatted });
-    // }
-
-    // console.log("Non-admin deliveryDate:", formatted);
+    setDeliveryDate(fullDateTime);
+    form.setFieldsValue({ date: displayDate });
   }, []);
 
   const handleAdd = () => {
@@ -1582,14 +1614,15 @@ export default function DeliveryNote({ user }) {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           action: "addDeliveryNote",
-          date: formattedDate,
+          // date: formattedDate,
+          date: deliveryDate,
           customername: values.customername,
           address: values.address,
           modeOfDelivery: values.modeOfDelivery,
           reference: values.reference,
           items: JSON.stringify(dataSource),
           // userName: user || "-",
-          userName: user?.email || ""
+          userName: user?.email || "",
         }),
       });
 
@@ -1611,8 +1644,7 @@ export default function DeliveryNote({ user }) {
           dataSource,
           false
         );
-          doc.save(`DeliveryNote_${confirmedDeliveryNumber}.pdf`);
-
+        doc.save(`DeliveryNote_${confirmedDeliveryNumber}.pdf`);
       } catch (pdfErr) {
         // console.error("PDF generation failed:", pdfErr);
         throw new Error("Form saved, but PDF generation failed.");
@@ -1685,7 +1717,10 @@ export default function DeliveryNote({ user }) {
       });
 
       // Fetch new delivery number etc.
-      await fetchInitialData();
+      // await fetchInitialData();
+      setTimeout(() => {
+        fetchInitialData(); // Refresh customers, delivery number, items, etc.
+      }, 500);
     } catch (err) {
       // console.error("Submit error:", err);
       notification.error({
@@ -1696,6 +1731,7 @@ export default function DeliveryNote({ user }) {
       setLoading(false);
     }
   };
+
   if (access === "No Access") {
     return (
       <h2 style={{ padding: 20 }}>
@@ -1922,15 +1958,14 @@ export default function DeliveryNote({ user }) {
   });
 
   const handleExport = () => {
-
     if (!groupedData || groupedData.length === 0) {
-    notification.warning({
-      message: "Export Failed",
-      description: "No data available to export.",
-      placement: "bottomRight",
-    });
-    return;
-  }
+      notification.warning({
+        message: "Export Failed",
+        description: "No data available to export.",
+        placement: "bottomRight",
+      });
+      return;
+    }
 
     const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
     const fileName = `Delivery_Note_Report_${now}.xlsx`;

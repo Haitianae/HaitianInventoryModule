@@ -61,7 +61,7 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyi2f_I52eWi5HR0MAuZUCW47Y74cVypnneRYqYN9fi6drT3YfrsboOZRELFF1fJsjWYA/exec";
+    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
   const fetchUsers = async () => {
     setFetching(true);
     try {
@@ -476,7 +476,8 @@ const columns = [
   //     setLoading(false);
   //   }
   // };
-
+const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+console.log(userLocalDateTime);
   const handleSubmit = async (values) => {
     // Ensure at least one module has access selected
     const access = values.access || {};
@@ -510,6 +511,7 @@ const columns = [
           password: values.password,
           access: JSON.stringify(values.access),
           modifiedBy: user?.email || "Unknown",
+          modifiedDateTime: userLocalDateTime,
         }),
       });
 
@@ -520,6 +522,7 @@ const columns = [
           description: result.message,
         });
         form.resetFields();
+        fetchUsers();
       } else {
         notification.error({
           message: "Error",
