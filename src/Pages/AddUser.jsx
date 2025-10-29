@@ -40,7 +40,8 @@ const modules = [
   "Product Categories",
   "Customer Details",
   "Delivery Note",
-  "Reports",
+  "Purchase Request",
+  // "Reports",
   "Add User",
 ];
 const accessLevels = ["No Access", "Read", "Read/Write", "Full Control"];
@@ -61,7 +62,7 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
+    "https://script.google.com/macros/s/AKfycbxSM8n-aFVQHK91VrvYy7AwhUjmtC2JqCQ1k4T_QzCCunjT8M0zb2Dn5pZAYgKb-zyR/exec";
   const fetchUsers = async () => {
     setFetching(true);
     try {

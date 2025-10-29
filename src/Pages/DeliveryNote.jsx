@@ -27,6 +27,7 @@ import {
   Modal,
   Row,
   Col,
+  Popconfirm,
 } from "antd";
 import "../App.css";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -86,6 +87,7 @@ function safeToString(value) {
 export default function DeliveryNote({ user }) {
   const [form] = Form.useForm();
   const [viewForm] = Form.useForm();
+  const [purchaseViewForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState([]);
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -104,6 +106,8 @@ export default function DeliveryNote({ user }) {
   const [endDate, setEndDate] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
+  const [purchaseSelectedRow, setPurchaseSelectedRow] = useState(null);
+
   const [paymentTerms, setPaymentTerms] = useState("");
   const [stockMap, setStockMap] = useState({});
   const [inputRow, setInputRow] = useState({
@@ -120,9 +124,16 @@ export default function DeliveryNote({ user }) {
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
   const [customerList, setCustomerList] = useState([]);
   const access = user?.access?.["Delivery Note"] || "No Access";
+  const [PurchaseLoadingFetchedData, setPurchaseLoadingFetchedData] =
+    useState(false);
+  const [purchaseFetchedData, setPurchaseFetchedData] = useState([]);
+  const [purchaseSearchText, setPurchaseSearchText] = useState("");
+  const [purchaseStartDate, setPurchaseStartDate] = useState(null);
+  const [purchaseEndDate, setPurchaseEndDate] = useState(null);
+  const [isPurchaseModalVisible, setIsPurchaseModalVisible] = useState(false);
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
+    "https://script.google.com/macros/s/AKfycbxSM8n-aFVQHK91VrvYy7AwhUjmtC2JqCQ1k4T_QzCCunjT8M0zb2Dn5pZAYgKb-zyR/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -229,6 +240,7 @@ export default function DeliveryNote({ user }) {
 
       // ✅ Fetch delivery notes separately (doesn’t need retry)
       await fetchDeliveryNotesData();
+      await fetchPurchaseRequestData();
     } catch (err) {
       // console.error("Error fetching initial data:", err);
       notification.error({
@@ -299,6 +311,38 @@ export default function DeliveryNote({ user }) {
     };
     fetchStock();
   }, []);
+
+  const fetchPurchaseRequestData = async () => {
+    try {
+      setPurchaseLoadingFetchedData(true);
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ action: "getPurchaseRequests" }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        const cleaned = result.data.map((row) => {
+          const newRow = {};
+          Object.keys(row).forEach((key) => {
+            newRow[key.trim()] = row[key];
+          });
+          return newRow;
+        });
+        setPurchaseFetchedData(cleaned);
+      }
+    } catch (err) {
+      notification.error({
+        message: "Error",
+        description: "Failed to fetch purchase request",
+        placement: "bottomRight",
+      });
+    } finally {
+      setPurchaseLoadingFetchedData(false);
+    }
+  };
 
   useEffect(() => {
     if (!inputRow.partNumber) return;
@@ -863,6 +907,233 @@ export default function DeliveryNote({ user }) {
       render: (text) => <span>{text}</span>,
     },
   ];
+
+  const purchaseRequestModalColumns = [
+    {
+      title: "Serial Number",
+      dataIndex: "Serial Number", // must match your actual key
+      render: (text) => <span>{text}</span>,
+    },
+    {
+      title: "Part Number",
+      dataIndex: "Part Number",
+      render: (text) => <span>{text}</span>,
+    },
+    {
+      title: "Item Description",
+      dataIndex: "Item Description",
+      render: (text) => <span>{text}</span>,
+    },
+    {
+      title: "Quantity",
+      dataIndex: "Quantity",
+      render: (text) => <span>{text}</span>,
+    },
+    { title: "Unit", dataIndex: "Unit", render: (text) => <span>{text}</span> },
+    {
+      title: "Stock In Hand",
+      dataIndex: "Stock In Hand",
+      render: (text) => <span>{text}</span>,
+    },
+  ];
+
+  const fetchedPurchaseRequestTablecolumns = [
+    {
+      title: "Purchase Request No.",
+      dataIndex: "Purchase Request Number",
+      width: 200,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Date",
+      dataIndex: "Date",
+      width: 120,
+      render: (date) => {
+        const d = parseToDayjs(date);
+        const formatted = d ? d.format("DD-MM-YYYY") : "";
+        return (
+          <Tooltip title={formatted || ""}>
+            <span>{formatted || ""}</span>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Customer Name",
+      dataIndex: "Customer Name",
+      width: 250,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Address",
+      dataIndex: "Address",
+      width: 300,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "S.No.",
+      dataIndex: "Serial Number",
+      width: 130,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Part Number",
+      dataIndex: "Part Number",
+      width: 130,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Item Description",
+      dataIndex: "Item Description",
+      width: 300,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Quantity",
+      dataIndex: "Quantity",
+      width: 100,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Unit",
+      dataIndex: "Unit",
+      width: 100,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Stock In Hand",
+      dataIndex: "Stock In Hand",
+      width: 130,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Modified User",
+      dataIndex: "Modified User",
+      width: 200,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Modified Date & Time",
+      dataIndex: "Modified Date & Time",
+      width: 180,
+      render: (date) => {
+        const d = parseToDayjs(date);
+        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "";
+        return (
+          <Tooltip title={formatted || "-"}>
+            <span>{formatted || "-"}</span>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Action",
+      width: 110,
+      fixed: "right",
+      align: "center",
+      render: (_, record) => (
+        <Button
+          className="addButton"
+          onClick={() => {
+            // Fill form
+            purchaseViewForm.setFieldsValue(record);
+
+            // Keep the full partsUsed array from groupedData
+            setPurchaseSelectedRow(record);
+
+            setIsPurchaseModalVisible(true);
+          }}
+        >
+          View
+        </Button>
+      ),
+    },
+  ];
+
+  const purchaseFilteredData = purchaseFetchedData.filter((item) => {
+    const matchesSearch =
+      purchaseSearchText === "" ||
+      Object.values(item).some((val) =>
+        String(val).toLowerCase().includes(purchaseSearchText.toLowerCase())
+      );
+
+    const itemDate = parseToDayjs(item.Date);
+    const matchesStart =
+      !purchaseStartDate ||
+      (itemDate && itemDate.isSameOrAfter(purchaseStartDate, "day"));
+    const matchesEnd =
+      !purchaseEndDate ||
+      (itemDate && itemDate.isSameOrBefore(purchaseEndDate, "day"));
+
+    return matchesSearch && matchesStart && matchesEnd;
+  });
+
+  const purchaseGroupedData = Object.values(
+    purchaseFilteredData.reduce((acc, item) => {
+      const purchaseNo = item["Purchase Request Number"];
+      if (!acc[purchaseNo]) {
+        acc[purchaseNo] = {
+          ...item,
+          partsUsed: [],
+        };
+      }
+      acc[purchaseNo].partsUsed.push({
+        "Serial Number": item["Serial Number"],
+        "Part Number": item["Part Number"],
+        "Item Description": item["Item Description"],
+        Quantity: item["Quantity"],
+        Unit: item["Unit"],
+        "Stock In Hand": item["Stock In Hand"],
+      });
+      return acc;
+    }, {})
+  );
+
+  const purchaseSortedData = [...purchaseGroupedData].sort((a, b) => {
+    const numA = parseInt(a["Purchase Request Number"].replace(/\D/g, ""), 10);
+    const numB = parseInt(b["Purchase Request Number"].replace(/\D/g, ""), 10);
+    return numB - numA;
+  });
 
   // useEffect(() => {
   //   // const nowUTC = new Date();
@@ -1606,9 +1877,11 @@ export default function DeliveryNote({ user }) {
     try {
       // const formattedDate =
       //   username === "Admin" ? dayjs(values.date).format("DD-MM-YYYY") : deliveryDate;
-      const formattedDate = form.getFieldValue("date") || deliveryDate;
+      // const formattedDate = form.getFieldValue("date") || deliveryDate;
+      const fullDateTime = deliveryDate;
+      const formattedDate =
+        form.getFieldValue("date") || fullDateTime.split(" ")[0];
 
-      // 1️⃣ Save form data only
       const response = await fetch(GAS_URL, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -1632,7 +1905,6 @@ export default function DeliveryNote({ user }) {
 
       const confirmedDeliveryNumber = result.deliveryNumber;
 
-      // 2️⃣ Generate PDF with confirmed delivery number
       let doc;
       try {
         doc = generateDeliveryNotePDF(
@@ -1684,6 +1956,33 @@ export default function DeliveryNote({ user }) {
         description: `Delivery Note ${confirmedDeliveryNumber} saved and PDF uploaded.`,
       });
 
+      // ✅ Update Purchase Request status to Approved (if reference exists)
+      if (values.reference) {
+        try {
+          const updateStatusRes = await fetch(GAS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              action: "updatePurchaseRequestStatus",
+              purchaseRequestNumber: values.reference,
+              userName: user?.email || "",
+          dateTime: deliveryDate,
+              status: "Approved",
+            }),
+          });
+
+          const updateResult = await updateStatusRes.json();
+
+          if (updateResult.success) {
+            console.log("Purchase Request marked as Approved.");
+          } else {
+            console.warn("Failed to update status:", updateResult.message);
+          }
+        } catch (err) {
+          console.error("Error updating status:", err);
+        }
+      }
+
       // 4️⃣ Reset form (same as before)
       // 4️⃣ Reset form fields + table
       setDataSource([]);
@@ -1699,17 +1998,23 @@ export default function DeliveryNote({ user }) {
       form.resetFields();
 
       // Reset delivery date
-      const nowUTC = new Date();
-      const dubaiOffset = 4 * 60; // UTC+4
-      const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
-      const dubaiDayjs = dayjs(dubaiTime);
-      const todayFormatted = dubaiDayjs.format("DD-MM-YYYY");
-      setDeliveryDate(todayFormatted);
+      // const nowUTC = new Date();
+      // const dubaiOffset = 4 * 60; // UTC+4
+      // const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
+      // const dubaiDayjs = dayjs(dubaiTime);
+      // const todayFormatted = dubaiDayjs.format("DD-MM-YYYY");
+      // setDeliveryDate(todayFormatted);
+
+      const now = dayjs();
+      const fullDateAndTime = now.format("DD-MM-YYYY HH:mm:ss");
+      const displayDate = now.format("DD-MM-YYYY");
+
+      setDeliveryDate(fullDateAndTime);
 
       // Admin vs Non-Admin reset
       form.setFieldsValue({
         // date: username === "Admin" ? dubaiDayjs : todayFormatted,
-        date: todayFormatted,
+        date: displayDate,
         customername: undefined,
         address: undefined,
         modeOfDelivery: undefined,
@@ -3347,6 +3652,119 @@ export default function DeliveryNote({ user }) {
   const readOnly = access === "Read";
   const canWrite = access === "Read/Write" || access === "Full Control";
   const isFullControl = access === "Full Control";
+
+  const handleUsePurchaseRequest = async () => {
+    if (!purchaseSelectedRow) return;
+
+    setIsPurchaseModalVisible(false);
+    notification.info({
+      message: "Fetching Live Stock",
+      description: "Please wait while we update stock information...",
+      duration: 2,
+    });
+
+    // Fill the delivery form
+    form.setFieldsValue({
+      customername: purchaseSelectedRow["Customer Name"] || "",
+      address: purchaseSelectedRow["Address"] || "",
+      reference: purchaseSelectedRow["Purchase Request Number"] || "",
+    });
+
+    // Get parts list from the purchase request
+    const parts = purchaseSelectedRow.partsUsed || [];
+
+    // --- Fetch live stock from backend ---
+    let liveStock = {};
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ action: "getAllStockData" }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        liveStock = json.data; // { partNumber: { stockInHand, unit } }
+      }
+    } catch (err) {
+      console.error("Failed to fetch live stock:", err);
+    }
+
+    // --- Match each part with its live stock ---
+    const items = parts.map((part, idx) => {
+      const partNo = part["Part Number"];
+      const stockInfo = liveStock[partNo] || {
+        stockInHand: 0,
+        unit: part["Unit"],
+      };
+
+      return {
+        key: Date.now() + idx,
+        serialNumber: idx + 1,
+        partNumber: partNo,
+        itemDescription: part["Item Description"] || "",
+        quantity: part["Quantity"] || "",
+        unit: stockInfo.unit || part["Unit"] || "",
+        stockInHand: stockInfo.stockInHand?.toString() || "0",
+        stockUnit: stockInfo.unit || part["Unit"] || "",
+      };
+    });
+
+    // --- Update the Delivery Note table ---
+    setDataSource(items);
+    setStockMap(liveStock);
+
+    notification.success({
+      message: "Purchase Request Loaded",
+      description: "Live stock updated successfully.",
+    });
+  };
+
+  const handleRejectPurchaseRequest = async (purchaseRequestNumber) => {
+    if (!purchaseRequestNumber) {
+      notification.error({
+        message: "Error",
+        description: "Purchase Request Number not found.",
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "updatePurchaseRequestStatus",
+          purchaseRequestNumber,
+           userName: user?.email || "",
+          dateTime: deliveryDate,
+          status: "Denied",
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        notification.success({
+          message: "Rejected",
+          description: `Purchase Request ${purchaseRequestNumber} marked as Denied.`,
+        });
+        setIsPurchaseModalVisible(false);
+        await fetchPurchaseRequestData(); // refresh table
+      } else {
+        notification.error({
+          message: "Error",
+          description: result.message || "Failed to update request.",
+        });
+      }
+    } catch (err) {
+      console.error("Reject error:", err);
+      notification.error({
+        message: "Network Error",
+        description: "Failed to reject the request. Please try again.",
+      });
+    }
+  };
+
   return (
     <>
       <style>{styl}</style>
@@ -3859,9 +4277,324 @@ export default function DeliveryNote({ user }) {
                   />
                 </div>
 
+                <div
+                  className={`d-flex align-items-center gap-2 ${
+                    readOnly ? "mb-1" : "mb-1 mt-4 pt-2"
+                  }`}
+                >
+                  {" "}
+                  <div
+                    className="d-flex align-items-center justify-content-center"
+                    style={{
+                      backgroundColor: "#e8f0fe",
+                      borderRadius: "12px",
+                      width: "40px",
+                      height: "40px",
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTable}
+                      size="lg"
+                      style={{ color: "#0D3884" }}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      className="fw-bold m-0 p-0"
+                      style={{ fontSize: "20px", color: "#0D3884" }}
+                    >
+                      Purchase request table
+                    </div>
+                    <div
+                      className="m-0 p-0"
+                      style={{ fontSize: "14px", color: "#0D3884" }}
+                    >
+                      Search or filter data and view purchase request
+                      information
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-1"></div>
+                <div className="mt-3">
+                  <div className="mb-3 d-flex gap-1">
+                    <Input
+                      placeholder="Please provide search input"
+                      value={purchaseSearchText}
+                      onChange={(e) => setPurchaseSearchText(e.target.value)}
+                      style={{ width: 1300 }}
+                      suffix={<SearchOutlined />}
+                    />
+
+                    <DatePicker
+                      placeholder="Start Date"
+                      value={purchaseStartDate}
+                      style={{ width: 400 }}
+                      className="ms-3"
+                      onChange={(date) => {
+                        if (
+                          purchaseEndDate &&
+                          date &&
+                          date.isAfter(purchaseEndDate, "day")
+                        ) {
+                          notification.error({
+                            message: "Invalid Date Range",
+                            description:
+                              "Start date cannot be after the end date.",
+                            placement: "bottomRight",
+                          });
+                          return;
+                        }
+                        setPurchaseStartDate(date);
+                      }}
+                      format="DD-MM-YYYY"
+                      allowClear
+                    />
+
+                    <DatePicker
+                      placeholder="End Date"
+                      value={purchaseEndDate}
+                      style={{ width: 400 }}
+                      onChange={(date) => {
+                        if (
+                          purchaseStartDate &&
+                          date &&
+                          date.isBefore(purchaseStartDate, "day")
+                        ) {
+                          notification.error({
+                            message: "Invalid Date Range",
+                            description:
+                              "End date cannot be before the start date.",
+                            placement: "bottomRight",
+                          });
+                          return;
+                        }
+                        setPurchaseEndDate(date);
+                      }}
+                      format="DD-MM-YYYY"
+                      allowClear
+                    />
+
+                    <Button
+                      icon={<ReloadOutlined />}
+                      onClick={() => {
+                        setPurchaseSearchText("");
+                        setPurchaseStartDate(null);
+                        setPurchaseEndDate(null);
+                        fetchPurchaseRequestData();
+                        notification.info({
+                          message: "Filters Reset",
+                          description: "Data has been refreshed.",
+                          placement: "bottomRight",
+                        });
+                      }}
+                      size="large"
+                      className="resetButton ms-2"
+                    >
+                      Reset
+                    </Button>
+                    {isFullControl && (
+                      <Button
+                        icon={<ExportOutlined />}
+                        onClick={handleExport}
+                        size="large"
+                        className="exportButton"
+                      >
+                        Export
+                      </Button>
+                    )}
+                  </div>
+                  <Modal
+                    open={isModalVisible}
+                    onCancel={() => setIsModalVisible(false)}
+                    footer={null}
+                    width={1200}
+                    style={{ top: "5px" }}
+                  >
+                    <div className="col-12 col-lg-8 text-center m-auto">
+                      <img
+                        src={HaitianLogo}
+                        alt="HaitianLogo"
+                        className=" m-0 p-0"
+                        style={{ width: "30%" }}
+                      />
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <div
+                        className="d-flex align-items-center justify-content-center"
+                        style={{
+                          backgroundColor: "#e8f0fe",
+                          borderRadius: "12px",
+                          width: "40px",
+                          height: "40px",
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={faEye}
+                          size="lg"
+                          style={{ color: "#0D3884" }}
+                        />
+                      </div>
+                      <div>
+                        <div
+                          className="fw-bold m-0 p-0"
+                          style={{ fontSize: "20px", color: "#0D3884" }}
+                        >
+                          View delivery note information
+                        </div>
+                        <div
+                          className="m-0 p-0"
+                          style={{ fontSize: "14px", color: "#0D3884" }}
+                        >
+                          Details about delivery note for the selected record
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border border-1"></div>
+
+                    <Form form={viewForm} layout="vertical" className="mt-3">
+                      <div className="container-fluid">
+                        {/* Delivery Number & Date */}
+                        <div className="row">
+                          <div className="col-md-6">
+                            <Form.Item
+                              name="Delivery Number"
+                              label="Delivery Number"
+                            >
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                          <div className="col-md-6">
+                            <Form.Item name="Date" label="Date">
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                        </div>
+
+                        {/* Customer Name */}
+                        <div className="row">
+                          <div className="col-md-12">
+                            <Form.Item
+                              name="Customer Name"
+                              label="Customer Name"
+                            >
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                        </div>
+
+                        {/* Address */}
+                        <div className="row">
+                          <div className="col-md-12">
+                            <Form.Item name="Address" label="Address">
+                              <Input.TextArea
+                                readOnly
+                                autoSize={{ minRows: 2, maxRows: 4 }}
+                              />
+                            </Form.Item>
+                          </div>
+                        </div>
+
+                        {/* Mode of delivery & Reference */}
+                        <div className="row">
+                          <div className="col-md-6">
+                            <Form.Item
+                              name="Mode of delivery"
+                              label="Mode of Delivery"
+                            >
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                          <div className="col-md-6">
+                            <Form.Item name="Reference" label="Reference">
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                        </div>
+
+                        <div className="row">
+                          <div className="col-md-6">
+                            <Form.Item
+                              name="Modified User"
+                              label="Modified User"
+                            >
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                          <div className="col-md-6">
+                            <Form.Item
+                              name="Modified Date & Time"
+                              label="Modified Date & Time"
+                            >
+                              <Input readOnly />
+                            </Form.Item>
+                          </div>
+                        </div>
+
+                        {/* Parts Used Table */}
+                        <div className="row">
+                          <div className="col-md-12">
+                            <Table
+                              columns={modalColumns}
+                              dataSource={(selectedRow?.partsUsed || []).map(
+                                (part, idx) => ({
+                                  key: idx,
+                                  ...part,
+                                })
+                              )}
+                              rowKey="key"
+                              pagination={false}
+                              bordered
+                              scroll={{ x: "max-content" }}
+                              size="middle"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-5 mb-5 col-7 m-auto">
+                          <Button
+                            className="closeModalButton"
+                            size="large"
+                            onClick={() => {
+                              setIsModalVisible(false);
+                            }}
+                          >
+                            Close Form
+                          </Button>
+
+                          <Button
+                            key="download"
+                            className="submitButton ms-3"
+                            size="large"
+                            loading={downloading}
+                            disabled={downloading}
+                            onClick={() =>
+                              handleDownloadPDF(selectedRow["Delivery Number"])
+                            }
+                          >
+                            {downloading ? "Downloading PDF" : "Download PDF"}
+                          </Button>
+                        </div>
+                      </div>
+                    </Form>
+                  </Modal>
+
+                  <Table
+                    columns={fetchedPurchaseRequestTablecolumns}
+                    dataSource={purchaseSortedData.map((item, index) => ({
+                      key: index,
+                      ...item,
+                    }))}
+                    loading={PurchaseLoadingFetchedData}
+                    pagination={{ pageSize: 10 }}
+                    scroll={{ x: "max-content" }}
+                    bordered
+                  />
+                </div>
                 <Modal
-                  open={isModalVisible}
-                  onCancel={() => setIsModalVisible(false)}
+                  open={isPurchaseModalVisible}
+                  onCancel={() => setIsPurchaseModalVisible(false)}
                   footer={null}
                   width={1200}
                   style={{ top: "5px" }}
@@ -3896,27 +4629,30 @@ export default function DeliveryNote({ user }) {
                         className="fw-bold m-0 p-0"
                         style={{ fontSize: "20px", color: "#0D3884" }}
                       >
-                        View delivery note information
+                        View purchase request information
                       </div>
                       <div
                         className="m-0 p-0"
                         style={{ fontSize: "14px", color: "#0D3884" }}
                       >
-                        Details about delivery note for the selected record
+                        Details about purchase request for the selected record
                       </div>
                     </div>
                   </div>
 
                   <div className="border border-1"></div>
 
-                  <Form form={viewForm} layout="vertical" className="mt-3">
+                  <Form
+                    form={purchaseViewForm}
+                    layout="vertical"
+                    className="mt-3"
+                  >
                     <div className="container-fluid">
-                      {/* Delivery Number & Date */}
                       <div className="row">
                         <div className="col-md-6">
                           <Form.Item
-                            name="Delivery Number"
-                            label="Delivery Number"
+                            name="Purchase Request Number"
+                            label="Purchase Request Number"
                           >
                             <Input readOnly />
                           </Form.Item>
@@ -3949,23 +4685,6 @@ export default function DeliveryNote({ user }) {
                         </div>
                       </div>
 
-                      {/* Mode of delivery & Reference */}
-                      <div className="row">
-                        <div className="col-md-6">
-                          <Form.Item
-                            name="Mode of delivery"
-                            label="Mode of Delivery"
-                          >
-                            <Input readOnly />
-                          </Form.Item>
-                        </div>
-                        <div className="col-md-6">
-                          <Form.Item name="Reference" label="Reference">
-                            <Input readOnly />
-                          </Form.Item>
-                        </div>
-                      </div>
-
                       <div className="row">
                         <div className="col-md-6">
                           <Form.Item name="Modified User" label="Modified User">
@@ -3986,13 +4705,13 @@ export default function DeliveryNote({ user }) {
                       <div className="row">
                         <div className="col-md-12">
                           <Table
-                            columns={modalColumns}
-                            dataSource={(selectedRow?.partsUsed || []).map(
-                              (part, idx) => ({
-                                key: idx,
-                                ...part,
-                              })
-                            )}
+                            columns={purchaseRequestModalColumns}
+                            dataSource={(
+                              purchaseSelectedRow?.partsUsed || []
+                            ).map((part, idx) => ({
+                              key: idx,
+                              ...part,
+                            }))}
                             rowKey="key"
                             pagination={false}
                             bordered
@@ -4001,29 +4720,91 @@ export default function DeliveryNote({ user }) {
                           />
                         </div>
                       </div>
-                      <div className="mt-5 mb-5 col-7 m-auto">
-                        <Button
-                          className="closeModalButton"
-                          size="large"
-                          onClick={() => {
-                            setIsModalVisible(false);
-                          }}
-                        >
-                          Close Form
-                        </Button>
+                      <div className="row">
+                        {/* <div className="mt-5 mb-5 d-flex align-items-center justify-content-center">
+                          <Button
+                            className="closeModalButton"
+                            size="large"
+                            onClick={() => {
+                              setIsPurchaseModalVisible(false);
+                            }}
+                          >
+                            Close Form
+                          </Button>
+                          <Button
+                           
+                            className="submitButton "
+                            onClick={() => handleUsePurchaseRequest()}
+                          >
+                            Use This Purchase Request
+                          </Button>
+                        </div> */}
 
-                        <Button
-                          key="download"
-                          className="submitButton ms-3"
-                          size="large"
-                          loading={downloading}
-                          disabled={downloading}
-                          onClick={() =>
-                            handleDownloadPDF(selectedRow["Delivery Number"])
-                          }
-                        >
-                          {downloading ? "Downloading PDF" : "Download PDF"}
-                        </Button>
+                        <div className="mt-5 mb-4 d-flex justify-content-center gap-3">
+                          {/* Close */}
+                          <Button
+                            className="closeModalButton"
+                            size="large"
+                            onClick={() => setIsPurchaseModalVisible(false)}
+                          >
+                            Close
+                          </Button>
+
+                          {/* Create Delivery Note */}
+                          <Tooltip
+                            title={
+                              purchaseSelectedRow?.Status === "Approved"
+                                ? "Already approved — cannot create again"
+                                : ""
+                            }
+                          >
+                            <Button
+                              className="submitButton"
+                              size="large"
+                              onClick={() => handleUsePurchaseRequest()}
+                              // ❗ Disable only if status = Approved
+                              disabled={
+                                purchaseSelectedRow?.Status === "Approved"
+                              }
+                            >
+                              Create Delivery Note
+                            </Button>
+                          </Tooltip>
+
+                          {/* Reject */}
+                          <Popconfirm
+                            title="Reject this Purchase Request?"
+                            description="Are you sure you want to reject this request?"
+                            okText="Yes"
+                            cancelText="No"
+                            onConfirm={() =>
+                              handleRejectPurchaseRequest(
+                                purchaseSelectedRow?.["Purchase Request Number"]
+                              )
+                            }
+                          >
+                            <Tooltip
+                              title={
+                                purchaseSelectedRow?.Status === "Denied"
+                                  ? "Already denied — cannot reject again"
+                                  :  purchaseSelectedRow?.Status === "Approved"
+                                ? "Already approved — cannot reject request"
+                                : ""
+                              }
+                            >
+                              <Button
+                                className="closeModalButton"
+                                size="large"
+                                // ❗ Disable only if status = Denied
+                                disabled={
+                                  purchaseSelectedRow?.Status === "Denied" || "Approved"
+                                }
+                              >
+                                Reject Purchase Request
+                              </Button>
+                            </Tooltip>
+                          </Popconfirm>
+                        </div>
                       </div>
                     </div>
                   </Form>

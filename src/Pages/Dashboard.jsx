@@ -58,7 +58,7 @@ export default function Dashboard({ user }) {
     outOfStock: 0,
   });
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbz9x0MdiH51ceduwVW97s1sNiTGA2fm4keihVDDTDERh7bUGQ9bIWivEVfaVm6Nl_Fseg/exec";
+    "https://script.google.com/macros/s/AKfycbxSM8n-aFVQHK91VrvYy7AwhUjmtC2JqCQ1k4T_QzCCunjT8M0zb2Dn5pZAYgKb-zyR/exec";
   const baseColumns = [
     {
       title: "Serial Number",

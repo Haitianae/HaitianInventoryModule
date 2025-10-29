@@ -310,7 +310,7 @@
 //   duration: 3,
 //   pauseOnHover: false,
 //   showProgress: true,
-  
+
 // });
 
 // function AppRoutes({ isLoggedIn, handleLoginSuccess, username }) {
@@ -330,7 +330,6 @@
 //     // const shouldSkipAnimation = nextPath === "/" || prevPath === "/";
 //     // const shouldSkipAnimation = false;
 //     const shouldSkipAnimation = location.pathname === "/";
-
 
 //     if (nextPath !== prevPath) {
 //       if (shouldSkipAnimation) {
@@ -675,7 +674,7 @@
 
 // export default App;
 
-// import React from "react"; 
+// import React from "react";
 // import "./App.css";
 // import "bootstrap/dist/css/bootstrap.min.css";
 // import {
@@ -846,7 +845,6 @@
 
 // export default App;
 
-
 // App.js - RECOMMENDED replacement
 // import React from "react";
 // import "./App.css";
@@ -998,7 +996,6 @@
 
 // export default App;
 
-
 // App.js
 import React from "react";
 import "./App.css";
@@ -1020,6 +1017,7 @@ import CustomerDetails from "./Pages/CustomerDetails";
 import DeliveryNote from "./Pages/DeliveryNote";
 import { notification } from "antd";
 import Dashboard from "./Pages/Dashboard";
+import purchaseRequest from "./Pages/PurchaseRequest";
 
 // 🔔 Configure notifications
 notification.config({
@@ -1048,12 +1046,48 @@ notification.config({
 
 // ✅ Centralized menu config
 const menuItems = [
-  { key: "/dashboard", label: "Dashboard", access: "Dashboard", component: Dashboard },
-  { key: "/inventory", label: "Inventory", access: "Inventory", component: Inventory },
-  { key: "/productCategories", label: "Product Categories", access: "Product Categories", component: ProductCategories },
-  { key: "/customerDetails", label: "Customer Details", access: "Customer Details", component: CustomerDetails },
-  { key: "/deliveryNote", label: "Delivery Note", access: "Delivery Note", component: DeliveryNote },
-  { key: "/addUser", label: "Add New User", access: "Add User", component: AddUser },
+  {
+    key: "/dashboard",
+    label: "Dashboard",
+    access: "Dashboard",
+    component: Dashboard,
+  },
+  {
+    key: "/inventory",
+    label: "Inventory",
+    access: "Inventory",
+    component: Inventory,
+  },
+  {
+    key: "/productCategories",
+    label: "Product Categories",
+    access: "Product Categories",
+    component: ProductCategories,
+  },
+  {
+    key: "/customerDetails",
+    label: "Customer Details",
+    access: "Customer Details",
+    component: CustomerDetails,
+  },
+  {
+    key: "/deliveryNote",
+    label: "Delivery Note",
+    access: "Delivery Note",
+    component: DeliveryNote,
+  },
+  {
+    key: "/addUser",
+    label: "Add New User",
+    access: "Add User",
+    component: AddUser,
+  },
+  {
+    key: "/purchaseRequest",
+    label: "Purchase Request",
+    access: "Purchase Request",
+    component: purchaseRequest,
+  },
 
   // { key: "/reports", label: "Reports", access: "Reports", component: Reports },
 ];
@@ -1099,7 +1133,11 @@ function AppRoutes({ isLoggedIn, handleLoginSuccess, user }) {
   };
 
   return (
-    <div className={`page-container ${location.pathname === "/" ? "" : animationClass}`}>
+    <div
+      className={`page-container ${
+        location.pathname === "/" ? "" : animationClass
+      }`}
+    >
       <Routes location={displayLocation}>
         <Route
           path="/"
@@ -1129,7 +1167,10 @@ function AppRoutes({ isLoggedIn, handleLoginSuccess, user }) {
           );
         })}
 
-        <Route path="*" element={<h2 style={{ padding: 20 }}>Page Not Found</h2>} />
+        <Route
+          path="*"
+          element={<h2 style={{ padding: 20 }}>Page Not Found</h2>}
+        />
       </Routes>
     </div>
   );
@@ -1161,11 +1202,24 @@ function App() {
 
   return (
     <Router>
-      <div className={`fade-container ${isFadingOut ? "fade-out" : ""}`} style={{ display: "flex" }}>
+      <div
+        className={`fade-container ${isFadingOut ? "fade-out" : ""}`}
+        style={{ display: "flex" }}
+      >
         {isLoggedIn && <SideNavBar onLogout={handleLogout} user={user} />}
 
-        <div style={{ marginLeft: isLoggedIn ? 280 : 0, flex: 1, overflowX: "hidden" }}>
-          <AppRoutes isLoggedIn={isLoggedIn} handleLoginSuccess={handleLoginSuccess} user={user} />
+        <div
+          style={{
+            marginLeft: isLoggedIn ? 280 : 0,
+            flex: 1,
+            overflowX: "hidden",
+          }}
+        >
+          <AppRoutes
+            isLoggedIn={isLoggedIn}
+            handleLoginSuccess={handleLoginSuccess}
+            user={user}
+          />
         </div>
       </div>
     </Router>
@@ -1173,4 +1227,3 @@ function App() {
 }
 
 export default App;
-
