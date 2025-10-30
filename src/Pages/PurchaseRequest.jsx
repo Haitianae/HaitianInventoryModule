@@ -5,6 +5,11 @@ import {
   ExportOutlined,
   ReloadOutlined,
   SearchOutlined,
+  FileTextOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import HaitianLogo from "../Images/Haitian.png";
 import dayjs from "dayjs";
@@ -27,6 +32,8 @@ import {
   Modal,
   Row,
   Col,
+  Tag,
+  Steps,
 } from "antd";
 import "../App.css";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -89,7 +96,8 @@ export default function PurchaseRequest({ user }) {
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState([]);
   const [purchaseDate, setPurchaseDate] = useState("");
-  const [loadingPurchaseRequestNumber, setLoadingPurchaseRequestNumber] = useState(true);
+  const [loadingPurchaseRequestNumber, setLoadingPurchaseRequestNumber] =
+    useState(true);
   const [loadingCustomerName, setLoadingCustomerName] = useState(true);
   const [loadingDescription, setLoadingDescription] = useState(true);
   const [loadingPartNumber, setLoadingPartNumber] = useState(true);
@@ -122,7 +130,7 @@ export default function PurchaseRequest({ user }) {
   const access = user?.access?.["Purchase Request"] || "No Access";
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxSM8n-aFVQHK91VrvYy7AwhUjmtC2JqCQ1k4T_QzCCunjT8M0zb2Dn5pZAYgKb-zyR/exec";
+    "https://script.google.com/macros/s/AKfycbyDyD05DHTruR35-VOztQm1bFuilGTnoEGsR1tX41r_truYKIc7__0Xh6QNaJJEGI5DDw/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -797,8 +805,9 @@ export default function PurchaseRequest({ user }) {
       //   username === "Admin" ? dayjs(values.date).format("DD-MM-YYYY") : deliveryDate;
       // const formattedDate = form.getFieldValue("date") || purchaseDate;
 
-      const fullDateTime = purchaseDate; 
-    const formattedDate = form.getFieldValue("date") || fullDateTime.split(" ")[0];
+      const fullDateTime = purchaseDate;
+      const formattedDate =
+        form.getFieldValue("date") || fullDateTime.split(" ")[0];
 
       // 1️⃣ Save form data only
       const response = await fetch(GAS_URL, {
@@ -841,8 +850,8 @@ export default function PurchaseRequest({ user }) {
       const now = dayjs();
       const fullDateAndTime = now.format("DD-MM-YYYY HH:mm:ss");
       const displayDate = now.format("DD-MM-YYYY");
-      
-      setPurchaseDate(fullDateAndTime); 
+
+      setPurchaseDate(fullDateAndTime);
 
       form.setFieldsValue({
         // date: username === "Admin" ? dubaiDayjs : todayFormatted,
@@ -979,27 +988,68 @@ export default function PurchaseRequest({ user }) {
         </Tooltip>
       ),
     },
+
     {
-      title: "Modified User",
-      dataIndex: "Modified User",
+      title: "Request Created By",
+      dataIndex: "Request Created By",
       width: 200,
       render: (text) => (
-        <Tooltip title={text || ""}>
-          <span>{text || ""}</span>
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
         </Tooltip>
       ),
     },
     {
-      title: "Modified Date & Time",
-      dataIndex: "Modified Date & Time",
+      title: "Requested Date & Time",
+      dataIndex: "Requested Date & Time",
       width: 180,
       render: (date) => {
         const d = parseToDayjs(date);
-        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "";
+        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "-";
         return (
-          <Tooltip title={formatted || "-"}>
-            <span>{formatted || "-"}</span>
+          <Tooltip title={formatted}>
+            <span>{formatted}</span>
           </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Approved/Denied By",
+      dataIndex: "Approved/Denied By",
+      width: 200,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Approved/Denied Date & Time",
+      dataIndex: "Approved/Denied Date & Time",
+      width: 180,
+      render: (date) => {
+        const d = parseToDayjs(date);
+        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "-";
+        return (
+          <Tooltip title={formatted}>
+            <span>{formatted}</span>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Status",
+      dataIndex: "Status",
+      width: 120,
+      render: (status) => {
+        let color = "orange";
+        if (status === "Approved") color = "green";
+        else if (status === "Denied") color = "red";
+
+        return (
+          <Tag color={color} style={{ fontWeight: "bold" }}>
+            {status || "Pending"}
+          </Tag>
         );
       },
     },
@@ -1249,6 +1299,7 @@ export default function PurchaseRequest({ user }) {
     margin: 0;
     font-size: 14px;
         font-weight: 700;
+}
   `;
 
   if (access === "No Access") {
@@ -1751,6 +1802,98 @@ export default function PurchaseRequest({ user }) {
                   </div>
 
                   <div className="border border-1"></div>
+                  <Steps
+                    className="mt-2 custom-steps"
+                    current={
+                      selectedRow?.Status === "Approved"
+                        ? 3
+                        : selectedRow?.Status === "Denied"
+                        ? 3
+                        : 1
+                    }
+                    status={
+                      selectedRow?.Status === "Denied"
+                        ? "error"
+                        : selectedRow?.Status === "Approved"
+                        ? "finish"
+                        : "process"
+                    }
+                    items={[
+                      {
+                        title: "Requested",
+                        description: (
+                          <div style={{ whiteSpace: "nowrap" }}>
+                            <div>Purchase request created</div>
+                            <div style={{ color: "#555" }}>
+                              by{" "}
+                              <span style={{ color: "#0D3884" }}>
+                                {selectedRow?.["Request Created By"] || "-"}
+                              </span>
+                            </div>
+                          </div>
+                        ),
+                        icon: <FileTextOutlined style={{ color: "#0D3884" }} />,
+                      },
+                      {
+                        title: "Processed",
+                        description: (
+                          <div style={{ whiteSpace: "nowrap" }}>
+                            <div>Processed by approver</div>
+                            <div style={{ color: "#555" }}>
+                              by
+                              <span style={{ color: "#0D3884" }}>
+                                {selectedRow?.["Approved/Denied By"]
+                                  ? ` ${selectedRow?.["Approved/Denied By"]}`
+                                  : "-"}
+                              </span>
+                            </div>
+                          </div>
+                        ),
+                        icon: (
+                          <ClockCircleOutlined style={{ color: "#0D3884" }} />
+                        ),
+                      },
+                      {
+                        title:
+                          selectedRow?.Status === "Approved"
+                            ? "Approved"
+                            : selectedRow?.Status === "Denied"
+                            ? "Denied"
+                            : "Pending",
+                        description: (
+                          <div style={{ whiteSpace: "nowrap" }}>
+                            <div>
+                              {selectedRow?.Status === "Approved"
+                                ? "Approved by approver"
+                                : selectedRow?.Status === "Denied"
+                                ? "Denied by approver"
+                                : "Waiting for approval"}
+                            </div>
+                            <div style={{ color: "#555" }}>
+                              <span style={{ color: "#0D3884" }}>
+                                by
+                                {/* {selectedRow?.["Approved/Denied Date & Time"] ||
+                                  "-"} */}
+                                {selectedRow?.["Approved/Denied By"]
+                                  ? ` ${selectedRow?.["Approved/Denied By"]}`
+                                  : "-"}
+                              </span>
+                            </div>
+                          </div>
+                        ),
+                        icon:
+                          selectedRow?.Status === "Approved" ? (
+                            <CheckCircleOutlined style={{ color: "green" }} />
+                          ) : selectedRow?.Status === "Denied" ? (
+                            <CloseCircleOutlined style={{ color: "red" }} />
+                          ) : (
+                            <ExclamationCircleOutlined
+                              style={{ color: "orange" }}
+                            />
+                          ),
+                      },
+                    ]}
+                  />
 
                   <Form form={viewForm} layout="vertical" className="mt-3">
                     <div className="container-fluid">
@@ -1790,19 +1933,59 @@ export default function PurchaseRequest({ user }) {
                           </Form.Item>
                         </div>
                       </div>
-
                       <div className="row">
                         <div className="col-md-6">
-                          <Form.Item name="Modified User" label="Modified User">
+                          <Form.Item
+                            name="Request Created By"
+                            label="Request Created By"
+                          >
                             <Input readOnly />
                           </Form.Item>
                         </div>
                         <div className="col-md-6">
                           <Form.Item
-                            name="Modified Date & Time"
-                            label="Modified Date & Time"
+                            name="Requested Date & Time"
+                            label="Requested Date & Time"
                           >
                             <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Form.Item name="Status" label="Status">
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Approved/Denied By"
+                            label="Approved/Denied By"
+                          >
+                            <Input
+                              readOnly
+                              value={
+                                selectedRow?.["Approved/Denied By"]?.trim() ||
+                                "-"
+                              }
+                            />
+                          </Form.Item>
+                        </div>
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Approved/Denied Date & Time"
+                            label="Approved/Denied Date & Time"
+                          >
+                            <Input
+                              readOnly
+                              value={
+                                selectedRow?.[
+                                  "Approved/Denied Date & Time"
+                                ]?.trim() || "-"
+                              }
+                            />
                           </Form.Item>
                         </div>
                       </div>

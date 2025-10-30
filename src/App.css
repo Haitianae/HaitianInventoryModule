@@ -531,3 +531,19 @@ body, input, textarea, select, button, label, h1, h2, h3, h4, h5, h6, p, span, d
   background: linear-gradient(135deg, #fab1a0, #e17055);
   color: #fff;
 }
+
+/* Reduce connector line thickness */
+.custom-steps .ant-steps-item-tail::after {
+  height: 2px !important;
+}
+
+/* Prevent step descriptions from wrapping */
+.custom-steps .ant-steps-item-description {
+  white-space: nowrap !important;
+}
+
+/* Adjust spacing between step items */
+.custom-steps .ant-steps-item {
+  flex: 1 1 auto !important;
+  min-width: 0;
+}

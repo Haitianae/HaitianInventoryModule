@@ -28,6 +28,8 @@ import {
   Row,
   Col,
   Popconfirm,
+  Tag,
+  Tabs,
 } from "antd";
 import "../App.css";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -131,9 +133,10 @@ export default function DeliveryNote({ user }) {
   const [purchaseStartDate, setPurchaseStartDate] = useState(null);
   const [purchaseEndDate, setPurchaseEndDate] = useState(null);
   const [isPurchaseModalVisible, setIsPurchaseModalVisible] = useState(false);
+  const [rejectionNote, setRejectionNote] = useState("");
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxSM8n-aFVQHK91VrvYy7AwhUjmtC2JqCQ1k4T_QzCCunjT8M0zb2Dn5pZAYgKb-zyR/exec";
+    "https://script.google.com/macros/s/AKfycbyDyD05DHTruR35-VOztQm1bFuilGTnoEGsR1tX41r_truYKIc7__0Xh6QNaJJEGI5DDw/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -331,6 +334,7 @@ export default function DeliveryNote({ user }) {
           });
           return newRow;
         });
+        console.log("✅ Cleaned Purchase Request Data:", cleaned);
         setPurchaseFetchedData(cleaned);
       }
     } catch (err) {
@@ -1043,26 +1047,66 @@ export default function DeliveryNote({ user }) {
       ),
     },
     {
-      title: "Modified User",
-      dataIndex: "Modified User",
+      title: "Request Created By",
+      dataIndex: "Request Created By",
       width: 200,
       render: (text) => (
-        <Tooltip title={text || ""}>
-          <span>{text || ""}</span>
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
         </Tooltip>
       ),
     },
     {
-      title: "Modified Date & Time",
-      dataIndex: "Modified Date & Time",
+      title: "Requested Date & Time",
+      dataIndex: "Requested Date & Time",
       width: 180,
       render: (date) => {
         const d = parseToDayjs(date);
-        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "";
+        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "-";
         return (
-          <Tooltip title={formatted || "-"}>
-            <span>{formatted || "-"}</span>
+          <Tooltip title={formatted}>
+            <span>{formatted}</span>
           </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Approved/Denied By",
+      dataIndex: "Approved/Denied By",
+      width: 200,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Approved/Denied Date & Time",
+      dataIndex: "Approved/Denied Date & Time",
+      width: 180,
+      render: (date) => {
+        const d = parseToDayjs(date);
+        const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "-";
+        return (
+          <Tooltip title={formatted}>
+            <span>{formatted}</span>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "Status",
+      dataIndex: "Status",
+      width: 120,
+      render: (status) => {
+        let color = "orange";
+        if (status === "Approved") color = "green";
+        else if (status === "Denied") color = "red";
+
+        return (
+          <Tag color={color} style={{ fontWeight: "bold" }}>
+            {status || "Pending"}
+          </Tag>
         );
       },
     },
@@ -1075,12 +1119,8 @@ export default function DeliveryNote({ user }) {
         <Button
           className="addButton"
           onClick={() => {
-            // Fill form
             purchaseViewForm.setFieldsValue(record);
-
-            // Keep the full partsUsed array from groupedData
             setPurchaseSelectedRow(record);
-
             setIsPurchaseModalVisible(true);
           }}
         >
@@ -1966,7 +2006,7 @@ export default function DeliveryNote({ user }) {
               action: "updatePurchaseRequestStatus",
               purchaseRequestNumber: values.reference,
               userName: user?.email || "",
-          dateTime: deliveryDate,
+              dateTime: deliveryDate,
               status: "Approved",
             }),
           });
@@ -3639,8 +3679,21 @@ export default function DeliveryNote({ user }) {
     margin: 0;
     font-size: 14px;
         font-weight: 700;
+}
+        
+.ant-tabs-card >.ant-tabs-nav .ant-tabs-tab, :where(.css-dev-only-do-not-override-mc1tut).ant-tabs-card >div>.ant-tabs-nav .ant-tabs-tab {
+    margin: 0;
+    padding: 8px 16px;
+    background: white;
+    border: 1px solid #f0f0f0;
+    transition: all 0.3s 
+cubic-bezier(0.645, 0.045, 0.355, 1);
+}
 
-  
+.ant-tabs-card >.ant-tabs-nav .ant-tabs-tab-active, :where(.css-dev-only-do-not-override-mc1tut).ant-tabs-card >div>.ant-tabs-nav .ant-tabs-tab-active {
+    color: #1677ff;
+    background: #E8F0FE;
+}
   `;
 
   if (access === "No Access") {
@@ -3735,9 +3788,10 @@ export default function DeliveryNote({ user }) {
         body: new URLSearchParams({
           action: "updatePurchaseRequestStatus",
           purchaseRequestNumber,
-           userName: user?.email || "",
+          userName: user?.email || "",
           dateTime: deliveryDate,
           status: "Denied",
+          note: rejectionNote || "-",
         }),
       });
 
@@ -4128,7 +4182,7 @@ export default function DeliveryNote({ user }) {
                   </>
                 )}
 
-                <div
+                {/* <div
                   className={`d-flex align-items-center gap-2 ${
                     readOnly ? "mb-1" : "mb-1 mt-5 pt-2"
                   }`}
@@ -4163,11 +4217,11 @@ export default function DeliveryNote({ user }) {
                       Search or filter data and view delivery note information
                     </div>
                   </div>
-                </div>
+                </div> */}
 
-                <div className="border border-1"></div>
+                {/* <div className="border border-1"></div> */}
 
-                <div className="mt-3">
+                {/* <div className="mt-3">
                   <div className="mb-3 d-flex gap-1">
                     <Input
                       placeholder="Please provide search input"
@@ -4252,17 +4306,7 @@ export default function DeliveryNote({ user }) {
                     )}
                   </div>
 
-                  {/* <Table
-                    columns={fetchedTablecolumns}
-                    dataSource={groupedData.map((item, index) => ({
-                      key: index,
-                      ...item,
-                    }))}
-                    loading={loadingFetchedData}
-                    pagination={{ pageSize: 10 }}
-                    scroll={{ x: "max-content" }}
-                    bordered
-                  /> */}
+            
 
                   <Table
                     columns={fetchedTablecolumns}
@@ -4275,9 +4319,179 @@ export default function DeliveryNote({ user }) {
                     scroll={{ x: "max-content" }}
                     bordered
                   />
-                </div>
+                </div> */}
 
-                <div
+                <Modal
+                  open={isModalVisible}
+                  onCancel={() => setIsModalVisible(false)}
+                  footer={null}
+                  width={1200}
+                  style={{ top: "5px" }}
+                >
+                  <div className="col-12 col-lg-8 text-center m-auto">
+                    <img
+                      src={HaitianLogo}
+                      alt="HaitianLogo"
+                      className=" m-0 p-0"
+                      style={{ width: "30%" }}
+                    />
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2 mb-1">
+                    <div
+                      className="d-flex align-items-center justify-content-center"
+                      style={{
+                        backgroundColor: "#e8f0fe",
+                        borderRadius: "12px",
+                        width: "40px",
+                        height: "40px",
+                      }}
+                    >
+                      <FontAwesomeIcon
+                        icon={faEye}
+                        size="lg"
+                        style={{ color: "#0D3884" }}
+                      />
+                    </div>
+                    <div>
+                      <div
+                        className="fw-bold m-0 p-0"
+                        style={{ fontSize: "20px", color: "#0D3884" }}
+                      >
+                        View delivery note information
+                      </div>
+                      <div
+                        className="m-0 p-0"
+                        style={{ fontSize: "14px", color: "#0D3884" }}
+                      >
+                        Details about delivery note for the selected record
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-1"></div>
+
+                  <Form form={viewForm} layout="vertical" className="mt-3">
+                    <div className="container-fluid">
+                      {/* Delivery Number & Date */}
+                      <div className="row">
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Delivery Number"
+                            label="Delivery Number"
+                          >
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                        <div className="col-md-6">
+                          <Form.Item name="Date" label="Date">
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      {/* Customer Name */}
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Form.Item name="Customer Name" label="Customer Name">
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      {/* Address */}
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Form.Item name="Address" label="Address">
+                            <Input.TextArea
+                              readOnly
+                              autoSize={{ minRows: 2, maxRows: 4 }}
+                            />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      {/* Mode of delivery & Reference */}
+                      <div className="row">
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Mode of delivery"
+                            label="Mode of Delivery"
+                          >
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                        <div className="col-md-6">
+                          <Form.Item name="Reference" label="Reference">
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      <div className="row">
+                        <div className="col-md-6">
+                          <Form.Item name="Modified User" label="Modified User">
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Modified Date & Time"
+                            label="Modified Date & Time"
+                          >
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      {/* Parts Used Table */}
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Table
+                            columns={modalColumns}
+                            dataSource={(selectedRow?.partsUsed || []).map(
+                              (part, idx) => ({
+                                key: idx,
+                                ...part,
+                              })
+                            )}
+                            rowKey="key"
+                            pagination={false}
+                            bordered
+                            scroll={{ x: "max-content" }}
+                            size="middle"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-5 mb-5 col-7 m-auto">
+                        <Button
+                          className="closeModalButton"
+                          size="large"
+                          onClick={() => {
+                            setIsModalVisible(false);
+                          }}
+                        >
+                          Close Form
+                        </Button>
+
+                        <Button
+                          key="download"
+                          className="submitButton ms-3"
+                          size="large"
+                          loading={downloading}
+                          disabled={downloading}
+                          onClick={() =>
+                            handleDownloadPDF(selectedRow["Delivery Number"])
+                          }
+                        >
+                          {downloading ? "Downloading PDF" : "Download PDF"}
+                        </Button>
+                      </div>
+                    </div>
+                  </Form>
+                </Modal>
+
+                {/* <div
                   className={`d-flex align-items-center gap-2 ${
                     readOnly ? "mb-1" : "mb-1 mt-4 pt-2"
                   }`}
@@ -4309,8 +4523,7 @@ export default function DeliveryNote({ user }) {
                       className="m-0 p-0"
                       style={{ fontSize: "14px", color: "#0D3884" }}
                     >
-                      Search or filter data and view purchase request
-                      information
+                      View, approve or deny purchase requests
                     </div>
                   </div>
                 </div>
@@ -4404,181 +4617,6 @@ export default function DeliveryNote({ user }) {
                       </Button>
                     )}
                   </div>
-                  <Modal
-                    open={isModalVisible}
-                    onCancel={() => setIsModalVisible(false)}
-                    footer={null}
-                    width={1200}
-                    style={{ top: "5px" }}
-                  >
-                    <div className="col-12 col-lg-8 text-center m-auto">
-                      <img
-                        src={HaitianLogo}
-                        alt="HaitianLogo"
-                        className=" m-0 p-0"
-                        style={{ width: "30%" }}
-                      />
-                    </div>
-
-                    <div className="d-flex align-items-center gap-2 mb-1">
-                      <div
-                        className="d-flex align-items-center justify-content-center"
-                        style={{
-                          backgroundColor: "#e8f0fe",
-                          borderRadius: "12px",
-                          width: "40px",
-                          height: "40px",
-                        }}
-                      >
-                        <FontAwesomeIcon
-                          icon={faEye}
-                          size="lg"
-                          style={{ color: "#0D3884" }}
-                        />
-                      </div>
-                      <div>
-                        <div
-                          className="fw-bold m-0 p-0"
-                          style={{ fontSize: "20px", color: "#0D3884" }}
-                        >
-                          View delivery note information
-                        </div>
-                        <div
-                          className="m-0 p-0"
-                          style={{ fontSize: "14px", color: "#0D3884" }}
-                        >
-                          Details about delivery note for the selected record
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border border-1"></div>
-
-                    <Form form={viewForm} layout="vertical" className="mt-3">
-                      <div className="container-fluid">
-                        {/* Delivery Number & Date */}
-                        <div className="row">
-                          <div className="col-md-6">
-                            <Form.Item
-                              name="Delivery Number"
-                              label="Delivery Number"
-                            >
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                          <div className="col-md-6">
-                            <Form.Item name="Date" label="Date">
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                        </div>
-
-                        {/* Customer Name */}
-                        <div className="row">
-                          <div className="col-md-12">
-                            <Form.Item
-                              name="Customer Name"
-                              label="Customer Name"
-                            >
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                        </div>
-
-                        {/* Address */}
-                        <div className="row">
-                          <div className="col-md-12">
-                            <Form.Item name="Address" label="Address">
-                              <Input.TextArea
-                                readOnly
-                                autoSize={{ minRows: 2, maxRows: 4 }}
-                              />
-                            </Form.Item>
-                          </div>
-                        </div>
-
-                        {/* Mode of delivery & Reference */}
-                        <div className="row">
-                          <div className="col-md-6">
-                            <Form.Item
-                              name="Mode of delivery"
-                              label="Mode of Delivery"
-                            >
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                          <div className="col-md-6">
-                            <Form.Item name="Reference" label="Reference">
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                        </div>
-
-                        <div className="row">
-                          <div className="col-md-6">
-                            <Form.Item
-                              name="Modified User"
-                              label="Modified User"
-                            >
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                          <div className="col-md-6">
-                            <Form.Item
-                              name="Modified Date & Time"
-                              label="Modified Date & Time"
-                            >
-                              <Input readOnly />
-                            </Form.Item>
-                          </div>
-                        </div>
-
-                        {/* Parts Used Table */}
-                        <div className="row">
-                          <div className="col-md-12">
-                            <Table
-                              columns={modalColumns}
-                              dataSource={(selectedRow?.partsUsed || []).map(
-                                (part, idx) => ({
-                                  key: idx,
-                                  ...part,
-                                })
-                              )}
-                              rowKey="key"
-                              pagination={false}
-                              bordered
-                              scroll={{ x: "max-content" }}
-                              size="middle"
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-5 mb-5 col-7 m-auto">
-                          <Button
-                            className="closeModalButton"
-                            size="large"
-                            onClick={() => {
-                              setIsModalVisible(false);
-                            }}
-                          >
-                            Close Form
-                          </Button>
-
-                          <Button
-                            key="download"
-                            className="submitButton ms-3"
-                            size="large"
-                            loading={downloading}
-                            disabled={downloading}
-                            onClick={() =>
-                              handleDownloadPDF(selectedRow["Delivery Number"])
-                            }
-                          >
-                            {downloading ? "Downloading PDF" : "Download PDF"}
-                          </Button>
-                        </div>
-                      </div>
-                    </Form>
-                  </Modal>
 
                   <Table
                     columns={fetchedPurchaseRequestTablecolumns}
@@ -4591,7 +4629,7 @@ export default function DeliveryNote({ user }) {
                     scroll={{ x: "max-content" }}
                     bordered
                   />
-                </div>
+                </div> */}
                 <Modal
                   open={isPurchaseModalVisible}
                   onCancel={() => setIsPurchaseModalVisible(false)}
@@ -4687,16 +4725,75 @@ export default function DeliveryNote({ user }) {
 
                       <div className="row">
                         <div className="col-md-6">
-                          <Form.Item name="Modified User" label="Modified User">
+                          <Form.Item
+                            name="Request Created By"
+                            label="Request Created By"
+                          >
                             <Input readOnly />
                           </Form.Item>
                         </div>
                         <div className="col-md-6">
                           <Form.Item
-                            name="Modified Date & Time"
-                            label="Modified Date & Time"
+                            name="Requested Date & Time"
+                            label="Requested Date & Time"
                           >
                             <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Form.Item name="Status" label="Status">
+                            <Input readOnly />
+                          </Form.Item>
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Approved/Denied By"
+                            label="Approved/Denied By"
+                          >
+                            <Input
+                              readOnly
+                              value={
+                                purchaseSelectedRow?.[
+                                  "Approved/Denied By"
+                                ]?.trim() || "-"
+                              }
+                            />
+                          </Form.Item>
+                        </div>
+                        <div className="col-md-6">
+                          <Form.Item
+                            name="Approved/Denied Date & Time"
+                            label="Approved/Denied Date & Time"
+                          >
+                            <Input
+                              readOnly
+                              value={
+                                purchaseSelectedRow?.[
+                                  "Approved/Denied Date & Time"
+                                ]?.trim() || "-"
+                              }
+                            />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Form.Item label="Rejection Note">
+                            <Input.TextArea
+                              value={rejectionNote}
+                              onChange={(e) => setRejectionNote(e.target.value)}
+                              placeholder="Enter reason for rejection"
+                              autoSize={{ minRows: 2, maxRows: 4 }}
+                              disabled={
+                                purchaseSelectedRow?.Status === "Denied" ||
+                                purchaseSelectedRow?.Status === "Approved"
+                              }
+                            />
                           </Form.Item>
                         </div>
                       </div>
@@ -4721,34 +4818,41 @@ export default function DeliveryNote({ user }) {
                         </div>
                       </div>
                       <div className="row">
-                        {/* <div className="mt-5 mb-5 d-flex align-items-center justify-content-center">
-                          <Button
-                            className="closeModalButton"
-                            size="large"
-                            onClick={() => {
-                              setIsPurchaseModalVisible(false);
-                            }}
-                          >
-                            Close Form
-                          </Button>
-                          <Button
-                           
-                            className="submitButton "
-                            onClick={() => handleUsePurchaseRequest()}
-                          >
-                            Use This Purchase Request
-                          </Button>
-                        </div> */}
-
                         <div className="mt-5 mb-4 d-flex justify-content-center gap-3">
-                          {/* Close */}
-                          <Button
-                            className="closeModalButton"
-                            size="large"
-                            onClick={() => setIsPurchaseModalVisible(false)}
+                          {/* Reject */}
+                          <Popconfirm
+                            title="Reject this Purchase Request?"
+                            description="Are you sure you want to reject this request?"
+                            okText="Yes"
+                            cancelText="No"
+                            onConfirm={() =>
+                              handleRejectPurchaseRequest(
+                                purchaseSelectedRow?.["Purchase Request Number"]
+                              )
+                            }
                           >
-                            Close
-                          </Button>
+                            <Tooltip
+                              title={
+                                purchaseSelectedRow?.Status === "Denied"
+                                  ? "Already denied — cannot reject again"
+                                  : purchaseSelectedRow?.Status === "Approved"
+                                  ? "Already approved — cannot reject request"
+                                  : ""
+                              }
+                            >
+                              <Button
+                                className="closeModalButton"
+                                size="large"
+                                // ❗ Disable only if status = Denied
+                                disabled={
+                                  purchaseSelectedRow?.Status === "Denied" ||
+                                  purchaseSelectedRow?.Status === "Approved"
+                                }
+                              >
+                                Reject Purchase Request
+                              </Button>
+                            </Tooltip>
+                          </Popconfirm>
 
                           {/* Create Delivery Note */}
                           <Tooltip
@@ -4771,44 +4875,314 @@ export default function DeliveryNote({ user }) {
                             </Button>
                           </Tooltip>
 
-                          {/* Reject */}
-                          <Popconfirm
-                            title="Reject this Purchase Request?"
-                            description="Are you sure you want to reject this request?"
-                            okText="Yes"
-                            cancelText="No"
-                            onConfirm={() =>
-                              handleRejectPurchaseRequest(
-                                purchaseSelectedRow?.["Purchase Request Number"]
-                              )
-                            }
+                          {/* Close */}
+
+                          <Button
+                            className="closeModalButton"
+                            size="large"
+                            onClick={() => setIsPurchaseModalVisible(false)}
                           >
-                            <Tooltip
-                              title={
-                                purchaseSelectedRow?.Status === "Denied"
-                                  ? "Already denied — cannot reject again"
-                                  :  purchaseSelectedRow?.Status === "Approved"
-                                ? "Already approved — cannot reject request"
-                                : ""
-                              }
-                            >
-                              <Button
-                                className="closeModalButton"
-                                size="large"
-                                // ❗ Disable only if status = Denied
-                                disabled={
-                                  purchaseSelectedRow?.Status === "Denied" || "Approved"
-                                }
-                              >
-                                Reject Purchase Request
-                              </Button>
-                            </Tooltip>
-                          </Popconfirm>
+                            Close Form
+                          </Button>
                         </div>
                       </div>
                     </div>
                   </Form>
                 </Modal>
+
+                <Tabs
+                  defaultActiveKey="delivery"
+                  className="haitianColor mt-5 pt-3"
+                  type="card"
+                  items={[
+                    {
+                      key: "delivery",
+                      label: (
+                        <div>
+                          <div
+                            className="fw-bold m-0 p-0"
+                            style={{ fontSize: "20px", color: "#0D3884" }}
+                          >
+                            Delivery note table
+                          </div>
+                          <div
+                            className="m-0 p-0"
+                            style={{ fontSize: "14px", color: "#0D3884" }}
+                          >
+                            Search or filter data and view delivery note
+                            information
+                          </div>
+                        </div>
+                      ),
+                      children: (
+                        <>
+                          {/* <div>
+                            <div
+                              className="fw-bold m-0 p-0"
+                              style={{ fontSize: "20px", color: "#0D3884" }}
+                            >
+                              Delivery note table
+                            </div>
+                            <div
+                              className="m-0 p-0"
+                              style={{ fontSize: "14px", color: "#0D3884" }}
+                            >
+                              Search or filter data and view delivery note
+                              information
+                            </div>
+                          </div>
+
+                          <div className="border border-1"></div> */}
+
+                          <div className="mt-3">
+                            <div className="mb-3 d-flex gap-1">
+                              <Input
+                                placeholder="Please provide search input"
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                style={{ width: 1300 }}
+                                suffix={<SearchOutlined />}
+                              />
+
+                              <DatePicker
+                                placeholder="Start Date"
+                                value={startDate}
+                                style={{ width: 400 }}
+                                className="ms-3"
+                                onChange={(date) => {
+                                  if (
+                                    endDate &&
+                                    date &&
+                                    date.isAfter(endDate, "day")
+                                  ) {
+                                    notification.error({
+                                      message: "Invalid Date Range",
+                                      description:
+                                        "Start date cannot be after end date.",
+                                    });
+                                    return;
+                                  }
+                                  setStartDate(date);
+                                }}
+                                format="DD-MM-YYYY"
+                                allowClear
+                              />
+
+                              <DatePicker
+                                placeholder="End Date"
+                                value={endDate}
+                                style={{ width: 400 }}
+                                onChange={(date) => {
+                                  if (
+                                    startDate &&
+                                    date &&
+                                    date.isBefore(startDate, "day")
+                                  ) {
+                                    notification.error({
+                                      message: "Invalid Date Range",
+                                      description:
+                                        "End date cannot be before start date.",
+                                    });
+                                    return;
+                                  }
+                                  setEndDate(date);
+                                }}
+                                format="DD-MM-YYYY"
+                                allowClear
+                              />
+
+                              <Button
+                                icon={<ReloadOutlined />}
+                                onClick={() => {
+                                  setSearchText("");
+                                  setStartDate(null);
+                                  setEndDate(null);
+                                  fetchDeliveryNotesData();
+                                  notification.info({
+                                    message: "Filters Reset",
+                                    description: "Data has been refreshed.",
+                                  });
+                                }}
+                                size="large"
+                                className="resetButton ms-2"
+                              >
+                                Reset
+                              </Button>
+
+                              {isFullControl && (
+                                <Button
+                                  icon={<ExportOutlined />}
+                                  onClick={handleExport}
+                                  size="large"
+                                  className="exportButton"
+                                >
+                                  Export
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Delivery Notes Table */}
+                            <Table
+                              columns={fetchedTablecolumns}
+                              dataSource={sortedData.map((item, index) => ({
+                                key: index,
+                                ...item,
+                              }))}
+                              loading={loadingFetchedData}
+                              pagination={{ pageSize: 10 }}
+                              scroll={{ x: "max-content" }}
+                              bordered
+                            />
+                          </div>
+                        </>
+                      ),
+                    },
+                    {
+                      key: "purchase",
+                      label: (
+                        <div>
+                          <div
+                            className="fw-bold m-0 p-0"
+                            style={{ fontSize: "20px", color: "#0D3884" }}
+                          >
+                            Purchase request table
+                          </div>
+                          <div
+                            className="m-0 p-0"
+                            style={{ fontSize: "14px", color: "#0D3884" }}
+                          >
+                            View, approve or deny purchase requests
+                          </div>
+                        </div>
+                      ),
+                      children: (
+                        <>
+                          {/* <div>
+                            <div
+                              className="fw-bold m-0 p-0"
+                              style={{ fontSize: "20px", color: "#0D3884" }}
+                            >
+                              Purchase request table
+                            </div>
+                            <div
+                              className="m-0 p-0"
+                              style={{ fontSize: "14px", color: "#0D3884" }}
+                            >
+                              View, approve or deny purchase requests
+                            </div>
+                          </div>
+
+                          <div className="border border-1"></div> */}
+
+                          <div className="mt-3">
+                            <div className="mb-3 d-flex gap-1">
+                              <Input
+                                placeholder="Please provide search input"
+                                value={purchaseSearchText}
+                                onChange={(e) =>
+                                  setPurchaseSearchText(e.target.value)
+                                }
+                                style={{ width: 1300 }}
+                                suffix={<SearchOutlined />}
+                              />
+
+                              <DatePicker
+                                placeholder="Start Date"
+                                value={purchaseStartDate}
+                                style={{ width: 400 }}
+                                className="ms-3"
+                                onChange={(date) => {
+                                  if (
+                                    purchaseEndDate &&
+                                    date &&
+                                    date.isAfter(purchaseEndDate, "day")
+                                  ) {
+                                    notification.error({
+                                      message: "Invalid Date Range",
+                                      description:
+                                        "Start date cannot be after end date.",
+                                    });
+                                    return;
+                                  }
+                                  setPurchaseStartDate(date);
+                                }}
+                                format="DD-MM-YYYY"
+                                allowClear
+                              />
+
+                              <DatePicker
+                                placeholder="End Date"
+                                value={purchaseEndDate}
+                                style={{ width: 400 }}
+                                onChange={(date) => {
+                                  if (
+                                    purchaseStartDate &&
+                                    date &&
+                                    date.isBefore(purchaseStartDate, "day")
+                                  ) {
+                                    notification.error({
+                                      message: "Invalid Date Range",
+                                      description:
+                                        "End date cannot be before start date.",
+                                    });
+                                    return;
+                                  }
+                                  setPurchaseEndDate(date);
+                                }}
+                                format="DD-MM-YYYY"
+                                allowClear
+                              />
+
+                              <Button
+                                icon={<ReloadOutlined />}
+                                onClick={() => {
+                                  setPurchaseSearchText("");
+                                  setPurchaseStartDate(null);
+                                  setPurchaseEndDate(null);
+                                  fetchPurchaseRequestData();
+                                  notification.info({
+                                    message: "Filters Reset",
+                                    description: "Data has been refreshed.",
+                                  });
+                                }}
+                                size="large"
+                                className="resetButton ms-2"
+                              >
+                                Reset
+                              </Button>
+
+                              {isFullControl && (
+                                <Button
+                                  icon={<ExportOutlined />}
+                                  onClick={handleExport}
+                                  size="large"
+                                  className="exportButton"
+                                >
+                                  Export
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Purchase Requests Table */}
+                            <Table
+                              columns={fetchedPurchaseRequestTablecolumns}
+                              dataSource={purchaseSortedData.map(
+                                (item, index) => ({
+                                  key: index,
+                                  ...item,
+                                })
+                              )}
+                              loading={PurchaseLoadingFetchedData}
+                              pagination={{ pageSize: 10 }}
+                              scroll={{ x: "max-content" }}
+                              bordered
+                            />
+                          </div>
+                        </>
+                      ),
+                    },
+                  ]}
+                />
               </div>
             </div>
           </div>
