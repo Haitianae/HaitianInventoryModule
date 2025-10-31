@@ -129,6 +129,8 @@ export default function PurchaseRequest({ user }) {
   const [customerList, setCustomerList] = useState([]);
   const access = user?.access?.["Purchase Request"] || "No Access";
 
+  
+
   const GAS_URL =
     "https://script.google.com/macros/s/AKfycbyDyD05DHTruR35-VOztQm1bFuilGTnoEGsR1tX41r_truYKIc7__0Xh6QNaJJEGI5DDw/exec";
 
@@ -1041,13 +1043,14 @@ export default function PurchaseRequest({ user }) {
       title: "Status",
       dataIndex: "Status",
       width: 120,
+      fixed: "right",
       render: (status) => {
         let color = "orange";
         if (status === "Approved") color = "green";
         else if (status === "Denied") color = "red";
 
         return (
-          <Tag color={color} style={{ fontWeight: "bold" }}>
+          <Tag color={color} style={{ fontWeight: "bold" }} className="tag-large" >
             {status || "Pending"}
           </Tag>
         );
@@ -1077,7 +1080,22 @@ export default function PurchaseRequest({ user }) {
     },
   ];
 
-  const filteredData = fetchedData.filter((item) => {
+   const userEmail = user?.email?.toLowerCase() || "";
+const purchaseAccess = user?.access?.["Purchase Request"] || "";
+
+// ✅ Define who can see all records
+const canSeeAll =
+  userEmail === "admin@haitianme.com" || purchaseAccess === "Full Control";
+
+// ✅ Apply access-based filter
+const accessibleData = canSeeAll
+  ? fetchedData // admin or full control → see everything
+  : fetchedData.filter(
+      (item) =>
+        (item["Request Created By"] || "").toLowerCase() === userEmail
+    );
+
+  const filteredData = accessibleData.filter((item) => {
     const matchesSearch =
       searchText === "" ||
       Object.values(item).some((val) =>
@@ -1232,6 +1250,8 @@ export default function PurchaseRequest({ user }) {
     }
   };
 
+ 
+
   const styl = `.ant-form-item .ant-form-item-explain-error {
     color: #ff4d4f;
     font-weight: normal;
@@ -1299,6 +1319,9 @@ export default function PurchaseRequest({ user }) {
     margin: 0;
     font-size: 14px;
         font-weight: 700;
+}
+        .ant-steps .ant-steps-item-finish>.ant-steps-item-container>.ant-steps-item-content>.ant-steps-item-title::after {
+    background-color: #0d3884;
 }
   `;
 
@@ -1764,7 +1787,7 @@ export default function PurchaseRequest({ user }) {
                     <img
                       src={HaitianLogo}
                       alt="HaitianLogo"
-                      className=" m-0 p-0"
+                      className="m-0 p-0"
                       style={{ width: "30%" }}
                     />
                   </div>
@@ -1802,98 +1825,221 @@ export default function PurchaseRequest({ user }) {
                   </div>
 
                   <div className="border border-1"></div>
-                  <Steps
-                    className="mt-2 custom-steps"
-                    current={
-                      selectedRow?.Status === "Approved"
-                        ? 3
-                        : selectedRow?.Status === "Denied"
-                        ? 3
-                        : 1
-                    }
-                    status={
-                      selectedRow?.Status === "Denied"
-                        ? "error"
-                        : selectedRow?.Status === "Approved"
-                        ? "finish"
-                        : "process"
-                    }
-                    items={[
-                      {
-                        title: "Requested",
-                        description: (
-                          <div style={{ whiteSpace: "nowrap" }}>
-                            <div>Purchase request created</div>
-                            <div style={{ color: "#555" }}>
-                              by{" "}
-                              <span style={{ color: "#0D3884" }}>
-                                {selectedRow?.["Request Created By"] || "-"}
-                              </span>
+                  <div className="border border-1 border-light bg-light rounded-3 p-2 mt-3">
+                    <Steps
+                      direction="horizontal"
+                      className="mt-2 custom-steps"
+                      current={
+                        selectedRow?.Status === "Approved"
+                          ? 3
+                          : selectedRow?.Status === "Denied"
+                          ? 3
+                          : 1
+                      }
+                      status={
+                        selectedRow?.Status === "Denied"
+                          ? "error"
+                          : selectedRow?.Status === "Approved"
+                          ? "finish"
+                          : "process"
+                      }
+                      items={[
+                        {
+                          title: (
+                            <div
+                              className="haitianColor"
+                              style={{ fontSize: "17px", fontWeight: "700" }}
+                            >
+                              Requested
                             </div>
-                          </div>
-                        ),
-                        icon: <FileTextOutlined style={{ color: "#0D3884" }} />,
-                      },
-                      {
-                        title: "Processed",
-                        description: (
-                          <div style={{ whiteSpace: "nowrap" }}>
-                            <div>Processed by approver</div>
-                            <div style={{ color: "#555" }}>
-                              by
-                              <span style={{ color: "#0D3884" }}>
-                                {selectedRow?.["Approved/Denied By"]
-                                  ? ` ${selectedRow?.["Approved/Denied By"]}`
-                                  : "-"}
-                              </span>
-                            </div>
-                          </div>
-                        ),
-                        icon: (
-                          <ClockCircleOutlined style={{ color: "#0D3884" }} />
-                        ),
-                      },
-                      {
-                        title:
-                          selectedRow?.Status === "Approved"
-                            ? "Approved"
-                            : selectedRow?.Status === "Denied"
-                            ? "Denied"
-                            : "Pending",
-                        description: (
-                          <div style={{ whiteSpace: "nowrap" }}>
-                            <div>
-                              {selectedRow?.Status === "Approved"
-                                ? "Approved by approver"
-                                : selectedRow?.Status === "Denied"
-                                ? "Denied by approver"
-                                : "Waiting for approval"}
-                            </div>
-                            <div style={{ color: "#555" }}>
-                              <span style={{ color: "#0D3884" }}>
-                                by
-                                {/* {selectedRow?.["Approved/Denied Date & Time"] ||
-                                  "-"} */}
-                                {selectedRow?.["Approved/Denied By"]
-                                  ? ` ${selectedRow?.["Approved/Denied By"]}`
-                                  : "-"}
-                              </span>
-                            </div>
-                          </div>
-                        ),
-                        icon:
-                          selectedRow?.Status === "Approved" ? (
-                            <CheckCircleOutlined style={{ color: "green" }} />
-                          ) : selectedRow?.Status === "Denied" ? (
-                            <CloseCircleOutlined style={{ color: "red" }} />
-                          ) : (
-                            <ExclamationCircleOutlined
-                              style={{ color: "orange" }}
-                            />
                           ),
-                      },
-                    ]}
-                  />
+                          description: (
+                            <div
+                              style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                              <div className="gray-text">
+                                Purchase request created by
+                              </div>
+                              <div style={{ color: "#555" }}>
+                                <span style={{ color: "#0D3884" }}>
+                                  {selectedRow?.["Request Created By"] || "-"}
+                                </span>
+                                <div style={{ color: "#555" }}>
+                                  {selectedRow?.["Requested Date & Time"]
+                                    ? ` ${selectedRow?.["Requested Date & Time"]}`
+                                    : "-"}
+                                </div>
+                              </div>
+                            </div>
+                          ),
+
+                          icon: (
+                            <div
+                              style={{
+                                border: "2px solid #E8F0FE",
+                                padding: "10px",
+                                borderRadius: "30%",
+                                backgroundColor: "#E8F0FE",
+                              }}
+                            >
+                              <FileTextOutlined style={{ color: "#0D3884" }} />
+                            </div>
+                          ),
+                        },
+                        {
+                          title: (
+                            <div
+                              style={{
+                                fontSize: "17px",
+                                fontWeight: "700",
+                                color: "#ea9b09ff",
+                              }}
+                            >
+                              {selectedRow?.Status === "Approved"
+                                ? "Processed"
+                                : selectedRow?.Status === "Denied"
+                                ? "Processed"
+                                : "Request Submitted"}
+                            </div>
+                          ),
+                          description: (
+                            <div
+                              style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                              <div className="gray-text">
+                                Purchase request processed by
+                              </div>
+                              <div style={{ color: "#555" }}>
+                                <span style={{ color: "#0D3884" }}>
+                                  {selectedRow?.["Approved/Denied By"]
+                                    ? ` ${selectedRow?.["Approved/Denied By"]}`
+                                    : "-"}
+                                </span>
+                                <div style={{ color: "#555" }}>
+                                  {selectedRow?.["Approved/Denied Date & Time"]
+                                    ? ` ${selectedRow?.["Approved/Denied Date & Time"]}`
+                                    : "-"}
+                                </div>
+                              </div>
+                            </div>
+                          ),
+                          icon: (
+                            <div
+                              style={{
+                                border: "2px solid #f8ebd5ff",
+                                padding: "10px",
+                                borderRadius: "30%",
+                                backgroundColor: "#f8ebd5ff",
+                              }}
+                            >
+                              <ClockCircleOutlined
+                                style={{ color: "#ffa500" }}
+                              />
+                            </div>
+                          ),
+                        },
+                        {
+                          title:
+                            selectedRow?.Status === "Approved" ? (
+                              <div
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: "700",
+                                  color: "#048804",
+                                }}
+                              >
+                                Approved
+                              </div>
+                            ) : selectedRow?.Status === "Denied" ? (
+                              <div
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: "700",
+                                  color: "#FF0000",
+                                }}
+                              >
+                                Denied
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: "700",
+                                  color: "#969191ff",
+                                }}
+                              >
+                                Pending
+                              </div>
+                            ),
+                          description: (
+                            <div
+                              style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                              <div>
+                                {selectedRow?.Status === "Approved"
+                                  ? "Purchase request approved by "
+                                  : selectedRow?.Status === "Denied"
+                                  ? "Purchase request denied by "
+                                  : "Waiting for approval"}
+                              </div>
+                              <div style={{ color: "#555" }}>
+                                <span style={{ color: "#0D3884" }}>
+                                  {selectedRow?.["Approved/Denied By"]
+                                    ? ` ${selectedRow?.["Approved/Denied By"]}`
+                                    : "-"}
+                                </span>
+                                <div style={{ color: "#555" }}>
+                                  {selectedRow?.["Approved/Denied Date & Time"]
+                                    ? ` ${selectedRow?.["Approved/Denied Date & Time"]}`
+                                    : "-"}
+                                </div>
+                              </div>
+                            </div>
+                          ),
+                          icon:
+                            selectedRow?.Status === "Approved" ? (
+                              <div
+                                style={{
+                                  border: "2px solid #9ef99eff",
+                                  padding: "10px",
+                                  borderRadius: "30%",
+                                  backgroundColor: "#cdf8cdff",
+                                }}
+                              >
+                                {" "}
+                                <CheckCircleOutlined
+                                  style={{ color: "#0b890bff" }}
+                                />
+                              </div>
+                            ) : selectedRow?.Status === "Denied" ? (
+                              <div
+                                style={{
+                                  border: "2px solid #f6dfdfff",
+                                  padding: "10px",
+                                  borderRadius: "30%",
+                                  backgroundColor: "#f6dfdfff",
+                                }}
+                              >
+                                <CloseCircleOutlined style={{ color: "red" }} />
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  border: "2px solid #F0F0F0",
+                                  padding: "10px",
+                                  borderRadius: "30%",
+                                  backgroundColor: "#F0F0F0",
+                                }}
+                              >
+                                <ExclamationCircleOutlined
+                                  style={{ color: "#b9b5b5ff" }}
+                                />
+                              </div>
+                            ),
+                        },
+                      ]}
+                    />
+                  </div>
 
                   <Form form={viewForm} layout="vertical" className="mt-3">
                     <div className="container-fluid">
@@ -1985,6 +2131,18 @@ export default function PurchaseRequest({ user }) {
                                   "Approved/Denied Date & Time"
                                 ]?.trim() || "-"
                               }
+                            />
+                          </Form.Item>
+                        </div>
+                      </div>
+
+                      <div className="row">
+                        <div className="col-md-12">
+                          <Form.Item label="Rejection Note">
+                            <Input.TextArea
+                              value={selectedRow?.Note || "-"}
+                              autoSize={{ minRows: 2, maxRows: 4 }}
+                              readOnly
                             />
                           </Form.Item>
                         </div>

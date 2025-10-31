@@ -314,7 +314,7 @@ export default function Inventory({ user }) {
                   color = "orange";
                 }
         
-                return <Tag color={color}>{status}</Tag>;
+                return <Tag color={color} className="tag-large" >{status}</Tag>;
               },
             },
   ];

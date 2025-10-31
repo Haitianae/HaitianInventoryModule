@@ -5,6 +5,11 @@ import {
   ExportOutlined,
   ReloadOutlined,
   SearchOutlined,
+  FileTextOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import HaitianLogo from "../Images/Haitian.png";
 import dayjs from "dayjs";
@@ -30,6 +35,7 @@ import {
   Popconfirm,
   Tag,
   Tabs,
+  Steps,
 } from "antd";
 import "../App.css";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -1098,13 +1104,14 @@ export default function DeliveryNote({ user }) {
       title: "Status",
       dataIndex: "Status",
       width: 120,
+      fixed: "right",
       render: (status) => {
         let color = "orange";
         if (status === "Approved") color = "green";
         else if (status === "Denied") color = "red";
 
         return (
-          <Tag color={color} style={{ fontWeight: "bold" }}>
+          <Tag color={color} style={{ fontWeight: "bold" }} className="tag-large" >
             {status || "Pending"}
           </Tag>
         );
@@ -3694,6 +3701,9 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
     color: #1677ff;
     background: #E8F0FE;
 }
+      .ant-steps .ant-steps-item-finish>.ant-steps-item-container>.ant-steps-item-content>.ant-steps-item-title::after {
+    background-color: #0d3884;
+}
   `;
 
   if (access === "No Access") {
@@ -4679,7 +4689,229 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                   </div>
 
                   <div className="border border-1"></div>
+                  <div className="border border-1 border-light bg-light rounded-3 p-2 mt-3">
+                    <Steps
+                      direction="horizontal"
+                      className="mt-2 custom-steps"
+                      current={
+                        purchaseSelectedRow?.Status === "Approved"
+                          ? 3
+                          : purchaseSelectedRow?.Status === "Denied"
+                          ? 3
+                          : 1
+                      }
+                      status={
+                        purchaseSelectedRow?.Status === "Denied"
+                          ? "error"
+                          : purchaseSelectedRow?.Status === "Approved"
+                          ? "finish"
+                          : "process"
+                      }
+                      items={[
+                        {
+                          title: (
+                            <div
+                              className="haitianColor"
+                              style={{ fontSize: "17px", fontWeight: "700" }}
+                            >
+                              Requested
+                            </div>
+                          ),
+                          description: (
+                            <div
+                              style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                              <div className="gray-text" >Purchase request created by</div>
+                              <div style={{ color: "#555" }}>
+                                <span style={{ color: "#0D3884" }}>
+                                  {purchaseSelectedRow?.[
+                                    "Request Created By"
+                                  ] || "-"}
+                                </span>
+                                <div style={{ color: "#555" }}>
+                                  {purchaseSelectedRow?.[
+                                    "Requested Date & Time"
+                                  ]
+                                    ? ` ${purchaseSelectedRow?.["Requested Date & Time"]}`
+                                    : "-"}
+                                </div>
+                              </div>
+                            </div>
+                          ),
 
+                          icon: (
+                            <div
+                              style={{
+                                border: "2px solid #E8F0FE",
+                                padding: "10px",
+                                borderRadius: "30%",
+                                backgroundColor: "#E8F0FE",
+                              }}
+                            >
+                              <FileTextOutlined style={{ color: "#0D3884" }} />
+                            </div>
+                          ),
+                        },
+                        {
+                          title: (
+                            <div
+                              style={{
+                                fontSize: "17px",
+                                fontWeight: "700",
+                                color: "#ea9b09ff",
+                              }}
+                            >
+                              {purchaseSelectedRow?.Status === "Approved"
+                                ? "Processed"
+                                : purchaseSelectedRow?.Status === "Denied"
+                                ? "Processed"
+                                : "Request Submitted"}
+                            </div>
+                          ),
+
+                          description: (
+                            <div
+                              style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                              <div className="gray-text">Purchase request processed by</div>
+                              <div style={{ color: "#555" }}>
+                                <span style={{ color: "#0D3884" }}>
+                                  {purchaseSelectedRow?.["Approved/Denied By"]
+                                    ? ` ${purchaseSelectedRow?.["Approved/Denied By"]}`
+                                    : "-"}
+                                </span>
+                                <div style={{ color: "#555" }}>
+                                  {purchaseSelectedRow?.[
+                                    "Approved/Denied Date & Time"
+                                  ]
+                                    ? ` ${purchaseSelectedRow?.["Approved/Denied Date & Time"]}`
+                                    : "-"}
+                                </div>
+                              </div>
+                            </div>
+                          ),
+                          icon: (
+                            <div
+                              style={{
+                                border: "2px solid #f8ebd5ff",
+                                padding: "10px",
+                                borderRadius: "30%",
+                                backgroundColor: "#f8ebd5ff",
+                              }}
+                            >
+                              <ClockCircleOutlined
+                                style={{ color: "#ffa500" }}
+                              />
+                            </div>
+                          ),
+                        },
+                        {
+                          title:
+                            purchaseSelectedRow?.Status === "Approved" ? (
+                              <div
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: "700",
+                                  color: "#048804",
+                                }}
+                              >
+                                Approved
+                              </div>
+                            ) : purchaseSelectedRow?.Status === "Denied" ? (
+                              <div
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: "700",
+                                  color: "#FF0000",
+                                }}
+                              >
+                                Denied
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: "700",
+                                  color: "#969191ff",
+                                }}
+                              >
+                                Pending
+                              </div>
+                            ),
+
+                          description: (
+                            <div className="gray-text"
+                              style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                              <div>
+                                {purchaseSelectedRow?.Status === "Approved"
+                                  ? "Purchase request approved by "
+                                  : purchaseSelectedRow?.Status === "Denied"
+                                  ? "Purchase request denied by "
+                                  : "Waiting for approval"}
+                              </div>
+                              <div style={{ color: "#555" }}>
+                                <span style={{ color: "#0D3884" }}>
+                                  {purchaseSelectedRow?.["Approved/Denied By"]
+                                    ? ` ${purchaseSelectedRow?.["Approved/Denied By"]}`
+                                    : "-"}
+                                </span>
+                                <div style={{ color: "#555" }}>
+                                  {purchaseSelectedRow?.[
+                                    "Approved/Denied Date & Time"
+                                  ]
+                                    ? ` ${purchaseSelectedRow?.["Approved/Denied Date & Time"]}`
+                                    : "-"}
+                                </div>
+                              </div>
+                            </div>
+                          ),
+                          icon:
+                            purchaseSelectedRow?.Status === "Approved" ? (
+                              <div
+                                style={{
+                                  border: "2px solid #9ef99eff",
+                                  padding: "10px",
+                                  borderRadius: "30%",
+                                  backgroundColor: "#cdf8cdff",
+                                }}
+                              >
+                                {" "}
+                                <CheckCircleOutlined
+                                  style={{ color: "#048804ff" }}
+                                />
+                              </div>
+                            ) : purchaseSelectedRow?.Status === "Denied" ? (
+                              <div
+                                style={{
+                                  border: "2px solid #f6dfdfff",
+                                  padding: "10px",
+                                  borderRadius: "30%",
+                                  backgroundColor: "#f6dfdfff",
+                                }}
+                              >
+                                <CloseCircleOutlined
+                                  style={{ color: "#FF0000" }}
+                                />
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  border: "2px solid #F0F0F0",
+                                  padding: "10px",
+                                  borderRadius: "30%",
+                                  backgroundColor: "#F0F0F0",
+                                }}
+                              >
+                                <ExclamationCircleOutlined
+                                  style={{ color: "#b9b5b5ff" }}
+                                />
+                              </div>
+                            ),
+                        },
+                      ]}
+                    />
+                  </div>
                   <Form
                     form={purchaseViewForm}
                     layout="vertical"
@@ -4785,9 +5017,19 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                         <div className="col-md-12">
                           <Form.Item label="Rejection Note">
                             <Input.TextArea
-                              value={rejectionNote}
+                              value={
+                                purchaseSelectedRow?.Status === "Denied" ||
+                                purchaseSelectedRow?.Status === "Approved"
+                                  ? purchaseSelectedRow?.Note || "-"
+                                  : rejectionNote
+                              }
                               onChange={(e) => setRejectionNote(e.target.value)}
-                              placeholder="Enter reason for rejection"
+                              placeholder={
+                                purchaseSelectedRow?.Status === "Denied" ||
+                                purchaseSelectedRow?.Status === "Approved"
+                                  ? "No rejection note found"
+                                  : "Enter reason for rejection"
+                              }
                               autoSize={{ minRows: 2, maxRows: 4 }}
                               disabled={
                                 purchaseSelectedRow?.Status === "Denied" ||

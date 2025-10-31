@@ -153,7 +153,7 @@ export default function Dashboard({ user }) {
           color = "orange";
         }
 
-        return <Tag color={color}>{status}</Tag>;
+        return <Tag color={color} className="tag-large" >{status}</Tag>;
       },
     },
   ];
