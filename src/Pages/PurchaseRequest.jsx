@@ -132,7 +132,7 @@ export default function PurchaseRequest({ user }) {
   
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyDyD05DHTruR35-VOztQm1bFuilGTnoEGsR1tX41r_truYKIc7__0Xh6QNaJJEGI5DDw/exec";
+    "https://script.google.com/macros/s/AKfycbyWX8zH1HE0dCaX5xh93O74mBoFCC9RYKxxLA_QeGycVf6TLghuUgLrODDt-PheMIMcXA/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -1138,77 +1138,106 @@ const accessibleData = canSeeAll
     return numB - numA;
   });
 
-  const handleExport = () => {
-    if (!groupedData || groupedData.length === 0) {
-      notification.warning({
-        message: "Export Failed",
-        description: "No data available to export.",
-        placement: "bottomRight",
-      });
-      return;
-    }
-
-    const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
-    const fileName = `Purchase_Request_Report_${now}.xlsx`;
-
-    const headerStyle = {
-      font: { bold: true, sz: 12 },
-      alignment: { horizontal: "center", vertical: "center", wrapText: true },
-      border: getAllBorders(),
-      fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
-    };
-
-    const header = [
-      { v: "Purchase Request Number", t: "s", s: headerStyle },
-      { v: "Date", t: "s", s: headerStyle },
-      { v: "Customer Name", t: "s", s: headerStyle },
-      { v: "Address", t: "s", s: headerStyle },
-      { v: "Serial Number", t: "s", s: headerStyle },
-      { v: "Part Number", t: "s", s: headerStyle },
-      { v: "Item Description", t: "s", s: headerStyle },
-      { v: "Quantity", t: "s", s: headerStyle },
-      { v: "Unit", t: "s", s: headerStyle },
-      { v: "Stock In Hand", t: "s", s: headerStyle },
-      { v: "Modified User", t: "s", s: headerStyle },
-      { v: "Modified Date & Time", t: "s", s: headerStyle },
-    ];
-
-    const data = [];
-    groupedData.forEach((item) => {
-      (item.partsUsed || []).forEach((part) => {
-        data.push([
-          {
-            v: item["Purchase Request Number"],
-            s: { border: getAllBorders() },
-          },
-          { v: item["Date"], s: { border: getAllBorders() } },
-          { v: item["Customer Name"], s: { border: getAllBorders() } },
-          { v: item["Address"], s: { border: getAllBorders() } },
-          { v: part["Serial Number"], s: { border: getAllBorders() } },
-          { v: part["Part Number"], s: { border: getAllBorders() } },
-          { v: part["Item Description"], s: { border: getAllBorders() } },
-          { v: part["Quantity"], s: { border: getAllBorders() } },
-          { v: part["Unit"], s: { border: getAllBorders() } },
-          { v: part["Stock In Hand"], s: { border: getAllBorders() } },
-          { v: item["Modified User"], s: { border: getAllBorders() } },
-          { v: item["Modified Date & Time"], s: { border: getAllBorders() } },
-        ]);
-      });
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-    ws["!cols"] = header.map((_, i) => ({ wch: 25 }));
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
-    XLSX.writeFile(wb, fileName);
-
-    notification.success({
-      message: "Export Successful",
-      description: `File has been downloaded successfully.`,
+ const handleExport = () => {
+  if (!groupedData || groupedData.length === 0) {
+    notification.warning({
+      message: "Export Failed",
+      description: "No purchase request data available to export.",
       placement: "bottomRight",
     });
+    return;
+  }
+
+  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+  const fileName = `Purchase_Request_Report_${now}.xlsx`;
+
+  // Header style
+  const headerStyle = {
+    font: { bold: true, sz: 12 },
+    alignment: { horizontal: "left", vertical: "center", wrapText: true }, // Left align
+    border: getAllBorders(),
+    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } }, // Light blue
   };
+
+  const header = [
+    { v: "Purchase Request Number", t: "s", s: headerStyle },
+    { v: "Date", t: "s", s: headerStyle },
+    { v: "Customer Name", t: "s", s: headerStyle },
+    { v: "Address", t: "s", s: headerStyle },
+    { v: "Serial Number", t: "s", s: headerStyle },
+    { v: "Part Number", t: "s", s: headerStyle },
+    { v: "Item Description", t: "s", s: headerStyle },
+    { v: "Quantity", t: "s", s: headerStyle },
+    { v: "Unit", t: "s", s: headerStyle },
+    { v: "Stock In Hand", t: "s", s: headerStyle },
+    { v: "Request Created By", t: "s", s: headerStyle },
+    { v: "Requested Date & Time", t: "s", s: headerStyle },
+    { v: "Approved/Denied By", t: "s", s: headerStyle },
+    { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
+    { v: "Status", t: "s", s: headerStyle },
+    { v: "Note", t: "s", s: headerStyle },
+  ];
+
+  const data = [];
+
+  // ✅ Sort ascending for export (oldest → newest)
+  const sortedAsc = [...groupedData].sort((a, b) => {
+    const numA = parseInt(a["Purchase Request Number"].replace(/\D/g, ""), 10);
+    const numB = parseInt(b["Purchase Request Number"].replace(/\D/g, ""), 10);
+    return numA - numB;
+  });
+
+  // Build data rows
+  sortedAsc.forEach((item) => {
+    (item.partsUsed || []).forEach((part) => {
+      data.push([
+        { v: item["Purchase Request Number"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Date"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Customer Name"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Address"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: part["Serial Number"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: part["Part Number"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: part["Item Description"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: part["Quantity"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: part["Unit"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: part["Stock In Hand"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Request Created By"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Requested Date & Time"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Approved/Denied By"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Approved/Denied Date & Time"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Status"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+        { v: item["Note"] || "-", s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
+      ]);
+    });
+  });
+
+  // Create Excel worksheet
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+  // Auto column widths
+  const colWidths = header.map((_, colIndex) => {
+    let maxLength = 0;
+    [header, ...data].forEach((row) => {
+      const cell = row[colIndex];
+      const value = cell && cell.v != null ? String(cell.v) : "";
+      maxLength = Math.max(maxLength, value.length);
+    });
+    return { wch: Math.min(maxLength * 1.8, 60) };
+  });
+  ws["!cols"] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
+
+  XLSX.writeFile(wb, fileName);
+
+  notification.success({
+    message: "Export Successful",
+    description: "Purchase Request report downloaded successfully.",
+    placement: "bottomRight",
+  });
+};
+
 
   // Border helper
   const getAllBorders = () => ({
@@ -1899,7 +1928,7 @@ const accessibleData = canSeeAll
                                 ? "Processed"
                                 : selectedRow?.Status === "Denied"
                                 ? "Processed"
-                                : "Request Submitted"}
+                                : "Request submitted for approval"}
                             </div>
                           ),
                           description: (

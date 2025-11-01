@@ -12,6 +12,7 @@ import {
   Checkbox,
   Radio,
   Modal,
+  Popconfirm,
 } from "antd";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faListCheck, faEye, faEdit } from "@fortawesome/free-solid-svg-icons";
@@ -62,7 +63,7 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyDyD05DHTruR35-VOztQm1bFuilGTnoEGsR1tX41r_truYKIc7__0Xh6QNaJJEGI5DDw/exec";
+    "https://script.google.com/macros/s/AKfycbyWX8zH1HE0dCaX5xh93O74mBoFCC9RYKxxLA_QeGycVf6TLghuUgLrODDt-PheMIMcXA/exec";
   const fetchUsers = async () => {
     setFetching(true);
     try {
@@ -140,23 +141,22 @@ export default function AddUser({ user }) {
   ];
 
   const handleView = (record) => {
-  setSelectedUser(record);
+    setSelectedUser(record);
 
-  // build rows for table
-  const accessRows = modules.map((mod) => ({
-    module: mod,
-    access: record[mod] || "No Access",
-  }));
-  setViewDataSource(accessRows);
+    // build rows for table
+    const accessRows = modules.map((mod) => ({
+      module: mod,
+      access: record[mod] || "No Access",
+    }));
+    setViewDataSource(accessRows);
 
-  // preload just the email
-  viewForm.setFieldsValue({
-    viewUserEmail: record["User Email"],
-  });
+    // preload just the email
+    viewForm.setFieldsValue({
+      viewUserEmail: record["User Email"],
+    });
 
-  setIsViewModalVisible(true);
-};
-
+    setIsViewModalVisible(true);
+  };
 
   const handleEdit = (record) => {
     setSelectedUser(record);
@@ -182,6 +182,7 @@ export default function AddUser({ user }) {
   };
 
   const handleUpdate = async () => {
+     const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
     try {
       // ✅ validate EDIT form, not ADD form
       const values = await editForm.validateFields();
@@ -192,6 +193,7 @@ export default function AddUser({ user }) {
         userEmail: values.editUserEmail,
         access: JSON.stringify(values.access),
         modifiedBy: user?.email || "Admin",
+        modifiedDateTime: userLocalDateTime,
       };
 
       // ✅ include password only if entered
@@ -210,10 +212,10 @@ export default function AddUser({ user }) {
 
       if (data.success) {
         // message.success("User updated successfully!");
- notification.success({
-        message: "Success",
-        description: `User updated successfully.`,
-      });
+        notification.success({
+          message: "Success",
+          description: `User updated successfully.`,
+        });
         // refresh user list
         fetchUsers();
 
@@ -222,15 +224,15 @@ export default function AddUser({ user }) {
         editForm.resetFields();
       } else {
         // message.error(data.message || "Failed to update user.");
-               notification.success({
-        message: "Error",
-        description: (data.message || "Failed to update user."),
-      });
+        notification.success({
+          message: "Error",
+          description: data.message || "Failed to update user.",
+        });
       }
     } catch (error) {
       // console.error("Update error:", error);
       // message.error("Please check the form and try again.");
-       notification.success({
+      notification.success({
         message: "Error",
         description: `Please check the form and try again.`,
       });
@@ -239,77 +241,76 @@ export default function AddUser({ user }) {
     }
   };
 
-//   const columns = [
-//   { title: "User Email", dataIndex: "User Email", key: "userEmail" },
-//   {
-//     title: "Modified User",
-//     dataIndex: "Modified Date & Time", 
-//     key: "modifiedUser",
-//   },
-//   {
-//     title: "Modified Date & Time",
-//     dataIndex: "Modified User", 
-//     key: "modifiedDate",
-//     render: (value) => {
-//       if (!value) return "N/A";
-//       const parsed = dayjs(value);
-//       return parsed.isValid() ? parsed.format("DD-MM-YYYY hh:mm A") : value;
-//     },
-//   },
-//   {
-//     title: "Action",
-//     key: "action",
-//     render: (_, record) => (
-//       <>
-//         <Button className="addButton" onClick={() => handleView(record)}>
-//           View
-//         </Button>
-//         <Button
-//           className="deleteButton ms-2 "
-//           onClick={() => handleEdit(record)}
-//         >
-//           Edit
-//         </Button>
-//       </>
-//     ),
-//   },
-// ];
+  //   const columns = [
+  //   { title: "User Email", dataIndex: "User Email", key: "userEmail" },
+  //   {
+  //     title: "Modified User",
+  //     dataIndex: "Modified Date & Time",
+  //     key: "modifiedUser",
+  //   },
+  //   {
+  //     title: "Modified Date & Time",
+  //     dataIndex: "Modified User",
+  //     key: "modifiedDate",
+  //     render: (value) => {
+  //       if (!value) return "N/A";
+  //       const parsed = dayjs(value);
+  //       return parsed.isValid() ? parsed.format("DD-MM-YYYY hh:mm A") : value;
+  //     },
+  //   },
+  //   {
+  //     title: "Action",
+  //     key: "action",
+  //     render: (_, record) => (
+  //       <>
+  //         <Button className="addButton" onClick={() => handleView(record)}>
+  //           View
+  //         </Button>
+  //         <Button
+  //           className="deleteButton ms-2 "
+  //           onClick={() => handleEdit(record)}
+  //         >
+  //           Edit
+  //         </Button>
+  //       </>
+  //     ),
+  //   },
+  // ];
 
-const columns = [
-  { title: "User Email", dataIndex: "User Email", key: "userEmail" },
-  {
-    title: "Modified User",
-    dataIndex: "Modified User",
-    key: "modifiedUser",
-    render: (value) => value || "N/A",
-  },
-  {
-    title: "Modified Date & Time",
-    dataIndex: "Modified Date & Time",
-    key: "modifiedDate",
-    render: (value) => value || "N/A",
-  },
-  {
-    title: "Action",
-    key: "action",
-    render: (_, record) => (
-      <>
-        <Button className="addButton" onClick={() => handleView(record)}>
-          View
-        </Button>
-        {!readOnly && (
-        <Button
-          className="deleteButton ms-2"
-          onClick={() => handleEdit(record)}
-        >
-          Edit
-        </Button>)}
-      </>
-    ),
-  },
-];
-
-
+  const columns = [
+    { title: "User Email", dataIndex: "User Email", key: "userEmail" },
+    {
+      title: "Modified User",
+      dataIndex: "Modified User",
+      key: "modifiedUser",
+      render: (value) => value || "N/A",
+    },
+    {
+      title: "Modified Date & Time",
+      dataIndex: "Modified Date & Time",
+      key: "modifiedDate",
+      render: (value) => value || "N/A",
+    },
+    {
+      title: "Action",
+      key: "action",
+      render: (_, record) => (
+        <>
+          <Button className="addButton" onClick={() => handleView(record)}>
+            View
+          </Button>
+          {!readOnly && (
+            <Button
+              className="deleteButton ms-2"
+              onClick={() => handleEdit(record)}
+            >
+              Edit
+            </Button>
+          )}
+        </>
+      ),
+    },
+  ];
 
   const editModuleColumns = [
     {
@@ -336,28 +337,102 @@ const columns = [
     },
   ];
 
- const viewModuleColumns = [
-  {
-    title: "Module",
-    dataIndex: "module",
-    key: "module",
-    width: "50%",
-  },
-  {
-    title: "Access Level",
-    key: "access",
-    width: "50%",
-    render: (_, record) => (
-      <Radio.Group value={record.access} >
-        {accessLevels.map((lvl) => (
-          <Radio key={lvl} value={lvl} className="me-3">
-            {lvl}
-          </Radio>
-        ))}
-      </Radio.Group>
-    ),
-  },
-];
+  const viewModuleColumns = [
+    {
+      title: "Module",
+      dataIndex: "module",
+      key: "module",
+      width: "50%",
+    },
+    {
+      title: "Access Level",
+      key: "access",
+      width: "50%",
+      render: (_, record) => (
+        <Radio.Group value={record.access}>
+          {accessLevels.map((lvl) => (
+            <Radio key={lvl} value={lvl} className="me-3">
+              {lvl}
+            </Radio>
+          ))}
+        </Radio.Group>
+      ),
+    },
+  ];
+
+  // const handleDelete = async (email) => {
+  //   Modal.confirm({
+  //     title: "Confirm Deletion",
+  //     content: `Are you sure you want to delete user "${email}"?`,
+  //     okText: "Yes, Delete",
+  //     okType: "danger",
+  //     cancelText: "Cancel",
+  //     async onOk() {
+  //       try {
+  //         const res = await fetch(GAS_URL, {
+  //           method: "POST",
+  //           body: new URLSearchParams({
+  //             action: "deleteUser",
+  //             userEmail: email,
+  //           }),
+  //         });
+
+  //         const data = await res.json();
+  //         if (data.success) {
+  //           notification.success({
+  //             message: "User Deleted",
+  //             description: data.message,
+  //           });
+  //           fetchUsers(); // Refresh user list
+  //           setIsEditModalVisible(false);
+  //         } else {
+  //           notification.error({
+  //             message: "Error",
+  //             description: data.message,
+  //           });
+  //         }
+  //       } catch (err) {
+  //         notification.error({
+  //           message: "Error",
+  //           description: err.message,
+  //         });
+  //       }
+  //     },
+  //   });
+  // };
+
+  const handleDelete = async (email) => {
+  try {
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      body: new URLSearchParams({
+        action: "deleteUser",
+        userEmail: email,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      notification.success({
+        message: "User Deleted",
+        description: data.message,
+      });
+      fetchUsers(); // Refresh user list
+      setIsEditModalVisible(false);
+    } else {
+      notification.error({
+        message: "Error",
+        description: data.message,
+      });
+    }
+  } catch (err) {
+    notification.error({
+      message: "Error",
+      description: err.message,
+    });
+  }
+};
 
 
   const styl = `.ant-form-item .ant-form-item-explain-error {
@@ -477,9 +552,14 @@ const columns = [
   //     setLoading(false);
   //   }
   // };
-const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
-console.log(userLocalDateTime);
+
+  // const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+  // console.log(userLocalDateTime);
+
   const handleSubmit = async (values) => {
+
+      const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+  console.log("Register user at:", userLocalDateTime);
     // Ensure at least one module has access selected
     const access = values.access || {};
     const hasAccess = Object.values(access).some(
@@ -565,196 +645,206 @@ console.log(userLocalDateTime);
               <div className="col-12 p-3 p-lg-4  ">
                 {!readOnly && (
                   <>
-                <div className="d-flex align-items-center gap-2 mb-1">
-                  <div
-                    className="d-flex align-items-center justify-content-center"
-                    style={{
-                      backgroundColor: "#e8f0fe",
-                      borderRadius: "12px",
-                      width: "40px",
-                      height: "40px",
-                    }}
-                  >
-                    <FontAwesomeIcon
-                      icon={faUserPlus}
-                      size="lg"
-                      style={{ color: "#0D3884" }}
-                    />
-                  </div>
-                  <div>
-                    <div
-                      className="fw-bold m-0 p-0"
-                      style={{ fontSize: "20px", color: "#0D3884" }}
-                    >
-                      Create Account
-                    </div>
-                    <div
-                      className="m-0 p-0"
-                      style={{ fontSize: "14px", color: "#0D3884" }}
-                    >
-                      Fill in the details to create a new user account
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border border-1"></div>
-
-                <Form
-                  form={form}
-                  layout="vertical"
-                  onFinish={handleSubmit}
-                  className="mt-3 mt-lg-3"
-                  disabled={loading || readOnly}
-                >
-                  <div className="row mt-3">
-                    <Form.Item
-                      label="User Email"
-                      name="userEmail"
-                      className="fw-bold"
-                      rules={[
-                        { required: true, message: "Please input your email!" },
-                        {
-                          type: "email",
-                          message: "Please enter a valid email address!",
-                        },
-                        () => ({
-                          validator(_, value) {
-                            if (!value) return Promise.resolve();
-                            const exists = users.some(
-                              (u) => u["User Email"] === value
-                            );
-                            return exists
-                              ? Promise.reject(
-                                  new Error("This email is already registered!")
-                                )
-                              : Promise.resolve();
-                          },
-                        }),
-                      ]}
-                    >
-                      <Input
-                        placeholder="Enter User Email"
-                        autoComplete="off"
-                      />
-                    </Form.Item>
-
-                    <Table
-                      dataSource={dataSource}
-                      columns={moduleColumns}
-                      pagination={false}
-                    />
-
-                    <Form.Item
-                      label="Password"
-                      name="password"
-                      className="fw-bold mt-4"
-                      hasFeedback
-                      rules={[
-                        {
-                          required: true,
-                          message: "Please input your password!",
-                        },
-                        ({ getFieldValue }) => ({
-                          validator(_, value) {
-                            const regex =
-                              /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,15}$/;
-                            if (!value) {
-                              return Promise.resolve();
-                            }
-                            if (!regex.test(value)) {
-                              return Promise.reject(
-                                new Error(
-                                  "Password must be 8–15 characters and include uppercase, lowercase, number, and special character."
-                                )
-                              );
-                            }
-                            return Promise.resolve();
-                          },
-                        }),
-                      ]}
-                    >
-                      <Input.Password
-                        placeholder="Enter Password"
-                        autoComplete="new-password"
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      label="Confirm Password"
-                      name="confirmpassword"
-                      className="fw-bold"
-                      dependencies={["password"]}
-                      hasFeedback
-                      rules={[
-                        {
-                          required: true,
-                          message: "Please confirm your password!",
-                        },
-                        ({ getFieldValue }) => ({
-                          validator(_, value) {
-                            if (!value || getFieldValue("password") === value) {
-                              return Promise.resolve();
-                            }
-                            return Promise.reject(
-                              new Error("Passwords do not match!")
-                            );
-                          },
-                        }),
-                      ]}
-                    >
-                      <Input.Password
-                        placeholder="Enter Conform Password"
-                        autoComplete="new-password"
-                      />
-                    </Form.Item>
-
-                    {!readOnly && (
-                      <div className="col-7 text-center mt-4 mb-3 d-flex m-auto">
-                        <Button
-                          htmlType="submit"
-                          size="large"
-                          className="submitButton mt-2"
-                          loading={loading}
-                        >
-                          {loading ? "Registering User" : "Register User"}
-                        </Button>
-
-                        <Button
-                          htmlType="button"
-                          size="large"
-                          className="clearButton mt-2 ms-3"
-                          onClick={() => {
-                            const values = form.getFieldsValue();
-                            const isEmpty = Object.values(values).every(
-                              (value) =>
-                                value === undefined ||
-                                value === null ||
-                                value === "" ||
-                                (Array.isArray(value) && value.length === 0)
-                            );
-
-                            if (isEmpty) {
-                              notification.info({
-                                message: "Nothing to clear",
-                                description: "All fields are already empty.",
-                              });
-                            } else {
-                              form.resetFields();
-                              notification.success({
-                                message: "Success",
-                                description: "Form cleared successfully!",
-                              });
-                            }
-                          }}
-                        >
-                          Clear Input
-                        </Button>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <div
+                        className="d-flex align-items-center justify-content-center"
+                        style={{
+                          backgroundColor: "#e8f0fe",
+                          borderRadius: "12px",
+                          width: "40px",
+                          height: "40px",
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={faUserPlus}
+                          size="lg"
+                          style={{ color: "#0D3884" }}
+                        />
                       </div>
-                    )}
-                  </div>
-                </Form>
-                </>)}
-                
+                      <div>
+                        <div
+                          className="fw-bold m-0 p-0"
+                          style={{ fontSize: "20px", color: "#0D3884" }}
+                        >
+                          Create Account
+                        </div>
+                        <div
+                          className="m-0 p-0"
+                          style={{ fontSize: "14px", color: "#0D3884" }}
+                        >
+                          Fill in the details to create a new user account
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border border-1"></div>
+
+                    <Form
+                      form={form}
+                      layout="vertical"
+                      onFinish={handleSubmit}
+                      className="mt-3 mt-lg-3"
+                      disabled={loading || readOnly}
+                    >
+                      <div className="row mt-3">
+                        <Form.Item
+                          label="User Email"
+                          name="userEmail"
+                          className="fw-bold"
+                          rules={[
+                            {
+                              required: true,
+                              message: "Please input your email!",
+                            },
+                            {
+                              type: "email",
+                              message: "Please enter a valid email address!",
+                            },
+                            () => ({
+                              validator(_, value) {
+                                if (!value) return Promise.resolve();
+                                const exists = users.some(
+                                  (u) => u["User Email"] === value
+                                );
+                                return exists
+                                  ? Promise.reject(
+                                      new Error(
+                                        "This email is already registered!"
+                                      )
+                                    )
+                                  : Promise.resolve();
+                              },
+                            }),
+                          ]}
+                        >
+                          <Input
+                            placeholder="Enter User Email"
+                            autoComplete="off"
+                          />
+                        </Form.Item>
+
+                        <Table
+                          dataSource={dataSource}
+                          columns={moduleColumns}
+                          pagination={false}
+                        />
+
+                        <Form.Item
+                          label="Password"
+                          name="password"
+                          className="fw-bold mt-4"
+                          hasFeedback
+                          rules={[
+                            {
+                              required: true,
+                              message: "Please input your password!",
+                            },
+                            ({ getFieldValue }) => ({
+                              validator(_, value) {
+                                const regex =
+                                  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,15}$/;
+                                if (!value) {
+                                  return Promise.resolve();
+                                }
+                                if (!regex.test(value)) {
+                                  return Promise.reject(
+                                    new Error(
+                                      "Password must be 8–15 characters and include uppercase, lowercase, number, and special character."
+                                    )
+                                  );
+                                }
+                                return Promise.resolve();
+                              },
+                            }),
+                          ]}
+                        >
+                          <Input.Password
+                            placeholder="Enter Password"
+                            autoComplete="new-password"
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Confirm Password"
+                          name="confirmpassword"
+                          className="fw-bold"
+                          dependencies={["password"]}
+                          hasFeedback
+                          rules={[
+                            {
+                              required: true,
+                              message: "Please confirm your password!",
+                            },
+                            ({ getFieldValue }) => ({
+                              validator(_, value) {
+                                if (
+                                  !value ||
+                                  getFieldValue("password") === value
+                                ) {
+                                  return Promise.resolve();
+                                }
+                                return Promise.reject(
+                                  new Error("Passwords do not match!")
+                                );
+                              },
+                            }),
+                          ]}
+                        >
+                          <Input.Password
+                            placeholder="Enter Conform Password"
+                            autoComplete="new-password"
+                          />
+                        </Form.Item>
+
+                        {!readOnly && (
+                          <div className="col-7 text-center mt-4 mb-3 d-flex m-auto">
+                            <Button
+                              htmlType="submit"
+                              size="large"
+                              className="submitButton mt-2"
+                              loading={loading}
+                            >
+                              {loading ? "Registering User" : "Register User"}
+                            </Button>
+
+                            <Button
+                              htmlType="button"
+                              size="large"
+                              className="clearButton mt-2 ms-3"
+                              onClick={() => {
+                                const values = form.getFieldsValue();
+                                const isEmpty = Object.values(values).every(
+                                  (value) =>
+                                    value === undefined ||
+                                    value === null ||
+                                    value === "" ||
+                                    (Array.isArray(value) && value.length === 0)
+                                );
+
+                                if (isEmpty) {
+                                  notification.info({
+                                    message: "Nothing to clear",
+                                    description:
+                                      "All fields are already empty.",
+                                  });
+                                } else {
+                                  form.resetFields();
+                                  notification.success({
+                                    message: "Success",
+                                    description: "Form cleared successfully!",
+                                  });
+                                }
+                              }}
+                            >
+                              Clear Input
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </Form>
+                  </>
+                )}
+
                 <div
                   className={`d-flex align-items-center gap-2 ${
                     readOnly ? "mb-1 " : "mb-1 mt-4 pt-2"
@@ -854,7 +944,7 @@ console.log(userLocalDateTime);
                   </div>
                   <div className="border border-1"></div>
 
-                 <Form
+                  <Form
                     form={editForm}
                     layout="vertical"
                     onFinish={handleUpdate}
@@ -940,15 +1030,36 @@ console.log(userLocalDateTime);
 
                       {/* Buttons */}
                       {!readOnly && (
-                        <div className="col-7 text-center mt-4 mb-3 d-flex m-auto">
+                        <div className="col-12 text-center mt-4 mb-3 d-flex m-auto">
+
+                           <Popconfirm
+                            title="Are you sure you want to delete this user?"
+                            description={`This will permanently remove`}
+                            okText="Yes, Delete"
+                            okType="danger"
+                            cancelText="Cancel"
+                            onConfirm={() =>
+                              handleDelete(selectedUser["User Email"])
+                            }
+                          >
+                            <Button
+                              htmlType="button"
+                              size="large"
+                              className="clearButton mt-2 "
+                            >
+                              Delete User
+                            </Button>
+                          </Popconfirm>
+
                           <Button
                             htmlType="submit"
                             size="large"
-                            className="submitButton mt-2"
+                            className="submitButton mt-2 ms-3"
                             loading={loading}
                           >
                             {loading ? "Updating User" : "Update User"}
                           </Button>
+                         
 
                           <Button
                             htmlType="button"

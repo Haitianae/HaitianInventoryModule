@@ -140,9 +140,11 @@ export default function DeliveryNote({ user }) {
   const [purchaseEndDate, setPurchaseEndDate] = useState(null);
   const [isPurchaseModalVisible, setIsPurchaseModalVisible] = useState(false);
   const [rejectionNote, setRejectionNote] = useState("");
+  const [isPrefilledFromPurchase, setIsPrefilledFromPurchase] = useState(false);
+  const [isDeliveryNoteSubmitted, setIsDeliveryNoteSubmitted] = useState(false);
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyDyD05DHTruR35-VOztQm1bFuilGTnoEGsR1tX41r_truYKIc7__0Xh6QNaJJEGI5DDw/exec";
+    "https://script.google.com/macros/s/AKfycbyWX8zH1HE0dCaX5xh93O74mBoFCC9RYKxxLA_QeGycVf6TLghuUgLrODDt-PheMIMcXA/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -406,6 +408,29 @@ export default function DeliveryNote({ user }) {
     };
   }, []);
 
+  const actionColumn = {
+    title: "Action",
+    width: 120,
+    fixed: "right",
+    align: "center",
+    render: (_, record) =>
+      record.isInput ? (
+        <Button
+          className="addButton ps-4 pe-4"
+          onClick={handleAdd}
+          disabled={fetchingData || stockLoading}
+        >
+          Add
+        </Button>
+      ) : (
+        <Button
+          className="deleteButton ps-3 pe-3"
+          onClick={() => handleDelete(record.key)}
+        >
+          Delete
+        </Button>
+      ),
+  };
   const columns = [
     {
       title: "Serial Number",
@@ -862,31 +887,35 @@ export default function DeliveryNote({ user }) {
         ),
     },
 
-    {
-      title: "Action",
-      width: 120,
-      fixed: "right",
-      align: "center",
-      render: (_, record) =>
-        record.isInput ? (
-          <Button
-            className="addButton ps-4 pe-4"
-            onClick={handleAdd}
-            disabled={fetchingData || stockLoading}
-            // loading={fetchingData || stockLoading}
-          >
-            {/* {(fetchingData || stockLoading) ? "Loading..." : "Add"} */}
-            Add
-          </Button>
-        ) : (
-          <Button
-            className="deleteButton ps-3 pe-3"
-            onClick={() => handleDelete(record.key)}
-          >
-            Delete
-          </Button>
-        ),
-    },
+    // {
+    //   title: "Action",
+    //   width: 120,
+    //   fixed: "right",
+    //   align: "center",
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Button
+    //         className="addButton ps-4 pe-4"
+    //         onClick={handleAdd}
+    //         disabled={isPrefilledFromPurchase || fetchingData || stockLoading}
+    //         // loading={fetchingData || stockLoading}
+    //       >
+    //         {/* {(fetchingData || stockLoading) ? "Loading..." : "Add"} */}
+    //         Add
+    //       </Button>
+    //     ) : (
+    //       <Button
+    //         className="deleteButton ps-3 pe-3"
+    //         onClick={() => handleDelete(record.key)}
+    //         disabled={isPrefilledFromPurchase}
+
+    //       >
+    //         Delete
+    //       </Button>
+    //     ),
+    // },
+
+    ...(isPrefilledFromPurchase ? [] : [actionColumn]), // 👈 only include if not prefilled
   ];
 
   const modalColumns = [
@@ -1111,7 +1140,11 @@ export default function DeliveryNote({ user }) {
         else if (status === "Denied") color = "red";
 
         return (
-          <Tag color={color} style={{ fontWeight: "bold" }} className="tag-large" >
+          <Tag
+            color={color}
+            style={{ fontWeight: "bold" }}
+            className="tag-large"
+          >
             {status || "Pending"}
           </Tag>
         );
@@ -1130,6 +1163,7 @@ export default function DeliveryNote({ user }) {
             setPurchaseSelectedRow(record);
             setIsPurchaseModalVisible(true);
           }}
+          disabled={isDeliveryNoteSubmitted}
         >
           View
         </Button>
@@ -1920,6 +1954,8 @@ export default function DeliveryNote({ user }) {
     }
     if (loading) return;
     setLoading(true);
+setIsDeliveryNoteSubmitted(true);
+
 
     try {
       // const formattedDate =
@@ -2043,6 +2079,8 @@ export default function DeliveryNote({ user }) {
 
       // Reset AntD form fields
       form.resetFields();
+      setIsPrefilledFromPurchase(false);
+      setIsDeliveryNoteSubmitted(false);
 
       // Reset delivery date
       // const nowUTC = new Date();
@@ -2257,7 +2295,9 @@ export default function DeliveryNote({ user }) {
             setSelectedRow(record);
 
             setIsModalVisible(true);
+            
           }}
+          disabled={isDeliveryNoteSubmitted}
         >
           View
         </Button>
@@ -2393,6 +2433,107 @@ export default function DeliveryNote({ user }) {
       placement: "bottomRight",
     });
   };
+
+const handlePurchaseRequestExport = () => {
+  if (!purchaseSortedData || purchaseSortedData.length === 0) {
+    notification.warning({
+      message: "Export Failed",
+      description: "No purchase request data available to export.",
+      placement: "bottomRight",
+    });
+    return;
+  }
+
+  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+  const fileName = `Purchase_Request_Report_${now}.xlsx`;
+
+  const headerStyle = {
+    font: { bold: true, sz: 12 },
+    alignment: { horizontal: "left", vertical: "center", wrapText: true },
+    border: getAllBorders(),
+    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+  };
+
+  const header = [
+    { v: "Purchase Request Number", t: "s", s: headerStyle },
+    { v: "Date", t: "s", s: headerStyle },
+    { v: "Customer Name", t: "s", s: headerStyle },
+    { v: "Address", t: "s", s: headerStyle },
+    { v: "Serial Number", t: "s", s: headerStyle },
+    { v: "Part Number", t: "s", s: headerStyle },
+    { v: "Item Description", t: "s", s: headerStyle },
+    { v: "Quantity", t: "s", s: headerStyle },
+    { v: "Unit", t: "s", s: headerStyle },
+    { v: "Stock In Hand", t: "s", s: headerStyle },
+    { v: "Request Created By", t: "s", s: headerStyle },
+    { v: "Requested Date & Time", t: "s", s: headerStyle },
+    { v: "Approved/Denied By", t: "s", s: headerStyle },
+    { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
+    { v: "Status", t: "s", s: headerStyle },
+    { v: "Note", t: "s", s: headerStyle },
+  ];
+
+  const data = [];
+
+  // ✅ Sort ascending by Purchase Request Number (or Date)
+  const sortedAsc = [...purchaseSortedData].sort((a, b) => {
+    // Sort by Purchase Request Number if it has prefix PR000X
+    const numA = parseInt(a["Purchase Request Number"]?.replace(/\D/g, "") || 0);
+    const numB = parseInt(b["Purchase Request Number"]?.replace(/\D/g, "") || 0);
+    return numA - numB;
+  });
+
+  // Now generate data rows
+  sortedAsc.forEach((item) => {
+    (item.partsUsed || []).forEach((part) => {
+      data.push([
+        { v: item["Purchase Request Number"], s: { border: getAllBorders() } },
+        { v: item["Date"], s: { border: getAllBorders() } },
+        { v: item["Customer Name"], s: { border: getAllBorders() } },
+        { v: item["Address"], s: { border: getAllBorders() } },
+        { v: part["Serial Number"], s: { border: getAllBorders() } },
+        { v: part["Part Number"], s: { border: getAllBorders() } },
+        { v: part["Item Description"], s: { border: getAllBorders() } },
+        { v: part["Quantity"], s: { border: getAllBorders() } },
+        { v: part["Unit"], s: { border: getAllBorders() } },
+        { v: part["Stock In Hand"], s: { border: getAllBorders() } },
+        { v: item["Request Created By"], s: { border: getAllBorders() } },
+        { v: item["Requested Date & Time"], s: { border: getAllBorders() } },
+        { v: item["Approved/Denied By"], s: { border: getAllBorders() } },
+        { v: item["Approved/Denied Date & Time"], s: { border: getAllBorders() } },
+        { v: item["Status"], s: { border: getAllBorders() } },
+        { v: item["Note"] || "-", s: { border: getAllBorders() } },
+      ]);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+  const colWidths = header.map((_, colIndex) => {
+    let maxLength = 0;
+    [header, ...data].forEach((row) => {
+      const cell = row[colIndex];
+      const value = cell && cell.v != null ? String(cell.v) : "";
+      maxLength = Math.max(maxLength, value.length);
+    });
+    return { wch: Math.min(maxLength * 1.8, 60) };
+  });
+  ws["!cols"] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
+
+  XLSX.writeFile(wb, fileName);
+
+  notification.success({
+    message: "Export Successful",
+    description: `Purchase Request report downloaded successfully.`,
+    placement: "bottomRight",
+  });
+};
+
+
+
 
   // Border helper
   const getAllBorders = () => ({
@@ -3775,7 +3916,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
     // --- Update the Delivery Note table ---
     setDataSource(items);
     setStockMap(liveStock);
-
+    setIsPrefilledFromPurchase(true);
     notification.success({
       message: "Purchase Request Loaded",
       description: "Live stock updated successfully.",
@@ -3827,6 +3968,58 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         description: "Failed to reject the request. Please try again.",
       });
     }
+  };
+
+  const handleClearInput = () => {
+    const values = form.getFieldsValue();
+    const isEmpty = Object.values(values).every(
+      (value) =>
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        (Array.isArray(value) && value.length === 0)
+    );
+
+    if (isEmpty) {
+      notification.info({
+        message: "Nothing to clear",
+        description: "All fields are already empty.",
+      });
+      return;
+    }
+
+    const preservedFields = {
+      deliveryNumber: values.deliveryNumber,
+      date: values.date,
+    };
+
+    // Reset data and input rows
+    setDataSource([]);
+    setInputRow({
+      partNumber: "",
+      itemDescription: "",
+      quantity: "",
+      unit: "",
+      stockInHand: "",
+    });
+
+    // Clear specific fields but keep delivery number & date
+    form.setFields([
+      { name: "customername", value: undefined },
+      { name: "address", value: undefined },
+      { name: "modeOfDelivery", value: undefined },
+      { name: "reference", value: undefined },
+    ]);
+
+    form.setFieldsValue(preservedFields);
+
+    // Re-enable Add/Delete buttons
+    setIsPrefilledFromPurchase(false);
+
+    notification.success({
+      message: "Success",
+      description: "Form cleared successfully!",
+    });
   };
 
   return (
@@ -4136,52 +4329,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               htmlType="button"
                               size="large"
                               className="clearButton  ms-3"
-                              onClick={() => {
-                                const values = form.getFieldsValue();
-                                const isEmpty = Object.values(values).every(
-                                  (value) =>
-                                    value === undefined ||
-                                    value === null ||
-                                    value === "" ||
-                                    (Array.isArray(value) && value.length === 0)
-                                );
-
-                                if (isEmpty) {
-                                  notification.info({
-                                    message: "Nothing to clear",
-                                    description:
-                                      "All fields are already empty.",
-                                  });
-                                } else {
-                                  const preservedFields = {
-                                    deliveryNumber: values.deliveryNumber,
-                                    date: values.date,
-                                  };
-                                  // form.resetFields();
-                                  setDataSource([]);
-                                  setInputRow({
-                                    partNumber: "",
-                                    itemDescription: "",
-                                    quantity: "",
-                                    unit: "",
-                                    stockInHand: "",
-                                  });
-                                  form.setFields([
-                                    { name: "customername", value: undefined },
-                                    { name: "address", value: undefined },
-                                    {
-                                      name: "modeOfDelivery",
-                                      value: undefined,
-                                    },
-                                    { name: "reference", value: undefined },
-                                  ]);
-                                  form.setFieldsValue(preservedFields);
-                                  notification.success({
-                                    message: "Success",
-                                    description: "Form cleared successfully!",
-                                  });
-                                }
-                              }}
+                              onClick={handleClearInput}
                             >
                               Clear Input
                             </Button>
@@ -4721,7 +4869,9 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             <div
                               style={{ whiteSpace: "nowrap", fontSize: "13px" }}
                             >
-                              <div className="gray-text" >Purchase request created by</div>
+                              <div className="gray-text">
+                                Purchase request created by
+                              </div>
                               <div style={{ color: "#555" }}>
                                 <span style={{ color: "#0D3884" }}>
                                   {purchaseSelectedRow?.[
@@ -4765,7 +4915,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                 ? "Processed"
                                 : purchaseSelectedRow?.Status === "Denied"
                                 ? "Processed"
-                                : "Request Submitted"}
+                                : "Request submitted for approval"}
                             </div>
                           ),
 
@@ -4773,7 +4923,9 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             <div
                               style={{ whiteSpace: "nowrap", fontSize: "13px" }}
                             >
-                              <div className="gray-text">Purchase request processed by</div>
+                              <div className="gray-text">
+                                Purchase request processed by
+                              </div>
                               <div style={{ color: "#555" }}>
                                 <span style={{ color: "#0D3884" }}>
                                   {purchaseSelectedRow?.["Approved/Denied By"]
@@ -4840,7 +4992,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             ),
 
                           description: (
-                            <div className="gray-text"
+                            <div
+                              className="gray-text"
                               style={{ whiteSpace: "nowrap", fontSize: "13px" }}
                             >
                               <div>
@@ -5056,6 +5209,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             bordered
                             scroll={{ x: "max-content" }}
                             size="middle"
+
                           />
                         </div>
                       </div>
@@ -5066,6 +5220,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             title="Reject this Purchase Request?"
                             description="Are you sure you want to reject this request?"
                             okText="Yes"
+                            okType="danger"
                             cancelText="No"
                             onConfirm={() =>
                               handleRejectPurchaseRequest(
@@ -5245,6 +5400,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                     description: "Data has been refreshed.",
                                   });
                                 }}
+                                disabled={isDeliveryNoteSubmitted}
                                 size="large"
                                 className="resetButton ms-2"
                               >
@@ -5257,6 +5413,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                   onClick={handleExport}
                                   size="large"
                                   className="exportButton"
+                                  disabled={isDeliveryNoteSubmitted}
                                 >
                                   Export
                                 </Button>
@@ -5389,6 +5546,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                 }}
                                 size="large"
                                 className="resetButton ms-2"
+                                disabled={isDeliveryNoteSubmitted}
                               >
                                 Reset
                               </Button>
@@ -5396,9 +5554,10 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               {isFullControl && (
                                 <Button
                                   icon={<ExportOutlined />}
-                                  onClick={handleExport}
+                                  onClick={handlePurchaseRequestExport}
                                   size="large"
                                   className="exportButton"
+                                  disabled={isDeliveryNoteSubmitted}
                                 >
                                   Export
                                 </Button>
