@@ -132,7 +132,7 @@ export default function PurchaseRequest({ user }) {
   
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyWX8zH1HE0dCaX5xh93O74mBoFCC9RYKxxLA_QeGycVf6TLghuUgLrODDt-PheMIMcXA/exec";
+    "https://script.google.com/macros/s/AKfycbzCytaGqT5V9Wn-o67WLJ8DyyFSR8SheRiQ9u_4cA-2V9vbjDFnSRnG9m_vIE3dDHzm7w/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -703,7 +703,8 @@ export default function PurchaseRequest({ user }) {
     const now = dayjs();
     const fullDateTime = now.format("DD-MM-YYYY HH:mm:ss");
     const displayDate = now.format("DD-MM-YYYY");
-
+    console.log("fullDateTime:", fullDateTime);
+    console.log("displayDate:", displayDate);
     setPurchaseDate(fullDateTime);
     form.setFieldsValue({ date: displayDate });
   }, []);

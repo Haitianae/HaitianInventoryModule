@@ -144,7 +144,7 @@ export default function DeliveryNote({ user }) {
   const [isDeliveryNoteSubmitted, setIsDeliveryNoteSubmitted] = useState(false);
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyWX8zH1HE0dCaX5xh93O74mBoFCC9RYKxxLA_QeGycVf6TLghuUgLrODDt-PheMIMcXA/exec";
+    "https://script.google.com/macros/s/AKfycbzCytaGqT5V9Wn-o67WLJ8DyyFSR8SheRiQ9u_4cA-2V9vbjDFnSRnG9m_vIE3dDHzm7w/exec";
 
   // const fetchInitialData = async () => {
   //   try {
