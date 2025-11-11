@@ -63,7 +63,7 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzCytaGqT5V9Wn-o67WLJ8DyyFSR8SheRiQ9u_4cA-2V9vbjDFnSRnG9m_vIE3dDHzm7w/exec";
+    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
   const fetchUsers = async () => {
     setFetching(true);
     try {

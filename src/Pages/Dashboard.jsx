@@ -58,7 +58,7 @@ export default function Dashboard({ user }) {
     outOfStock: 0,
   });
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzCytaGqT5V9Wn-o67WLJ8DyyFSR8SheRiQ9u_4cA-2V9vbjDFnSRnG9m_vIE3dDHzm7w/exec";
+    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
   const baseColumns = [
     {
       title: "Serial Number",
@@ -246,7 +246,7 @@ export default function Dashboard({ user }) {
       const data = await res.json();
       if (data.success) setSummary(data.summary);
     } catch (err) {
-      console.error("Error fetching summary:", err);
+      // console.error("Error fetching summary:", err);
     }
   };
   const fetchInventory = async (values = {}) => {
@@ -293,7 +293,7 @@ export default function Dashboard({ user }) {
           return normalizedItem;
         });
 
-        console.log("Normalized data:", normalizedData);
+        // console.log("Normalized data:", normalizedData);
         setFullInventoryData(normalizedData);
         setTableDataSource(normalizedData);
         setFilteredInventoryData(normalizedData); // ✅ Table uses this

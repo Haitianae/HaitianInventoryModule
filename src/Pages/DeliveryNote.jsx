@@ -144,7 +144,7 @@ export default function DeliveryNote({ user }) {
   const [isDeliveryNoteSubmitted, setIsDeliveryNoteSubmitted] = useState(false);
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzCytaGqT5V9Wn-o67WLJ8DyyFSR8SheRiQ9u_4cA-2V9vbjDFnSRnG9m_vIE3dDHzm7w/exec";
+    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -342,7 +342,7 @@ export default function DeliveryNote({ user }) {
           });
           return newRow;
         });
-        console.log("✅ Cleaned Purchase Request Data:", cleaned);
+        // console.log("✅ Cleaned Purchase Request Data:", cleaned);
         setPurchaseFetchedData(cleaned);
       }
     } catch (err) {
@@ -2057,12 +2057,12 @@ setIsDeliveryNoteSubmitted(true);
           const updateResult = await updateStatusRes.json();
 
           if (updateResult.success) {
-            console.log("Purchase Request marked as Approved.");
+            // console.log("Purchase Request marked as Approved.");
           } else {
-            console.warn("Failed to update status:", updateResult.message);
+            // console.warn("Failed to update status:", updateResult.message);
           }
         } catch (err) {
-          console.error("Error updating status:", err);
+          // console.error("Error updating status:", err);
         }
       }
 
@@ -3890,7 +3890,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         liveStock = json.data; // { partNumber: { stockInHand, unit } }
       }
     } catch (err) {
-      console.error("Failed to fetch live stock:", err);
+      // console.error("Failed to fetch live stock:", err);
     }
 
     // --- Match each part with its live stock ---
@@ -3962,7 +3962,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         });
       }
     } catch (err) {
-      console.error("Reject error:", err);
+      // console.error("Reject error:", err);
       notification.error({
         message: "Network Error",
         description: "Failed to reject the request. Please try again.",

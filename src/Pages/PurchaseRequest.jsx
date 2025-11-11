@@ -132,7 +132,7 @@ export default function PurchaseRequest({ user }) {
   
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzCytaGqT5V9Wn-o67WLJ8DyyFSR8SheRiQ9u_4cA-2V9vbjDFnSRnG9m_vIE3dDHzm7w/exec";
+    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -163,23 +163,23 @@ export default function PurchaseRequest({ user }) {
         fetchWithRetry({ action: "getAllDescriptionsWithPartNumbers" }),
       ]);
 
-      console.log("✅ Promise.allSettled result:");
-      console.log("• requestNum:", requestNum);
-      console.log("• customers:", customers);
-      console.log("• descriptions:", descriptions);
+      // console.log("✅ Promise.allSettled result:");
+      // console.log("• requestNum:", requestNum);
+      // console.log("• customers:", customers);
+      // console.log("• descriptions:", descriptions);
 
       if (requestNum.status === "fulfilled" && requestNum.value) {
-        console.log(
-          "🔍 Raw getNextPurchaseRequestNumber response:",
-          requestNum.value
-        );
+        // console.log(
+        //   "🔍 Raw getNextPurchaseRequestNumber response:",
+        //   requestNum.value
+        // );
 
         const prNumber =
           requestNum.value.requestNumber ||
           requestNum.value?.data?.requestNumber ||
           requestNum.value?.purchaseRequestNumber;
 
-        console.log("✅ Purchase Request Number fetched:", prNumber);
+        // console.log("✅ Purchase Request Number fetched:", prNumber);
 
         setPurchaseRequestNumber(prNumber);
         form.setFieldsValue({
@@ -703,8 +703,8 @@ export default function PurchaseRequest({ user }) {
     const now = dayjs();
     const fullDateTime = now.format("DD-MM-YYYY HH:mm:ss");
     const displayDate = now.format("DD-MM-YYYY");
-    console.log("fullDateTime:", fullDateTime);
-    console.log("displayDate:", displayDate);
+    // console.log("fullDateTime:", fullDateTime);
+    // console.log("displayDate:", displayDate);
     setPurchaseDate(fullDateTime);
     form.setFieldsValue({ date: displayDate });
   }, []);
