@@ -559,7 +559,7 @@ export default function AddUser({ user }) {
   const handleSubmit = async (values) => {
 
       const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
-  console.log("Register user at:", userLocalDateTime);
+  // console.log("Register user at:", userLocalDateTime);
     // Ensure at least one module has access selected
     const access = values.access || {};
     const hasAccess = Object.values(access).some(

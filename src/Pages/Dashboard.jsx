@@ -10,7 +10,7 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faMagnifyingGlass,
@@ -153,7 +153,11 @@ export default function Dashboard({ user }) {
           color = "orange";
         }
 
-        return <Tag color={color} className="tag-large" >{status}</Tag>;
+        return (
+          <Tag color={color} className="tag-large">
+            {status}
+          </Tag>
+        );
       },
     },
   ];
@@ -249,9 +253,79 @@ export default function Dashboard({ user }) {
       // console.error("Error fetching summary:", err);
     }
   };
+  // const fetchInventory = async (values = {}) => {
+  //   try {
+  //     setLoading(true);
+  //     const params = new URLSearchParams({
+  //       action: "getInventory",
+  //       partNumber: values.partNumber || "",
+  //       description: values.description || "",
+  //     });
+
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       body: params,
+  //     });
+
+  //     const data = await res.json();
+  //     // if (data.success) {
+  //     //   setTableDataSource(data.data);
+  //     // } else {
+  //     //   notification.error({ message: "Error", description: data.message });
+  //     // }
+
+  //     if (data.success) {
+  //       const normalizedData = data.data.map((item, idx) => {
+  //         const normalizedItem = { key: idx };
+
+  //         Object.keys(item).forEach((header) => {
+  //           const newKey = columnMapping[header] || header;
+  //           normalizedItem[newKey] = item[header];
+  //         });
+
+  //         // ✅ Normalize and clean data
+  //         normalizedItem.Category = String(
+  //           normalizedItem.Category || normalizedItem.category || "Unknown"
+  //         )
+  //           .trim()
+  //           .replace(/\s+/g, " "); // collapse extra spaces
+
+  //         normalizedItem.quantity = Number(normalizedItem.quantity) || 0;
+  //         normalizedItem.totalPrice =
+  //           parseFloat(normalizedItem.totalPrice) || 0;
+
+  //         return normalizedItem;
+  //       });
+
+  //       console.log("Normalized data:", normalizedData);
+  //       setFullInventoryData(normalizedData);
+  //       setTableDataSource(normalizedData);
+  //       setFilteredInventoryData(normalizedData); // ✅ Table uses this
+  //     } else {
+  //       notification.error({ message: "Error", description: data.message });
+  //     }
+  //   } catch (err) {
+  //     notification.error({ message: "Error", description: err.message });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // ✅ Declare controller outside so the previous request can be cancelled
+  let inventoryRequestController = null;
+
   const fetchInventory = async (values = {}) => {
+    // ✅ Cancel previous request if still pending
+    if (inventoryRequestController) {
+      inventoryRequestController.abort();
+    }
+
+    // ✅ Create a new controller for this request
+    inventoryRequestController = new AbortController();
+
     try {
       setLoading(true);
+
       const params = new URLSearchParams({
         action: "getInventory",
         partNumber: values.partNumber || "",
@@ -261,47 +335,47 @@ export default function Dashboard({ user }) {
       const res = await fetch(GAS_URL, {
         method: "POST",
         body: params,
+        signal: inventoryRequestController.signal, // ✅ allow aborting
       });
 
+      if (!res.ok) {
+        throw new Error(`HTTP Error ${res.status}`);
+      }
+
       const data = await res.json();
-      // if (data.success) {
-      //   setTableDataSource(data.data);
-      // } else {
-      //   notification.error({ message: "Error", description: data.message });
-      // }
 
-      if (data.success) {
-        const normalizedData = data.data.map((item, idx) => {
-          const normalizedItem = { key: idx };
+      if (!data.success || !Array.isArray(data.data)) {
+        throw new Error("Invalid API response format");
+      }
 
-          Object.keys(item).forEach((header) => {
-            const newKey = columnMapping[header] || header;
-            normalizedItem[newKey] = item[header];
-          });
+      // ✅ YOUR EXISTING DATA NORMALIZATION LOGIC (kept the same)
+      const normalizedData = data.data.map((item, idx) => {
+        const normalizedItem = { key: idx };
 
-          // ✅ Normalize and clean data
-          normalizedItem.Category = String(
-            normalizedItem.Category || normalizedItem.category || "Unknown"
-          )
-            .trim()
-            .replace(/\s+/g, " "); // collapse extra spaces
-
-          normalizedItem.quantity = Number(normalizedItem.quantity) || 0;
-          normalizedItem.totalPrice =
-            parseFloat(normalizedItem.totalPrice) || 0;
-
-          return normalizedItem;
+        Object.keys(item).forEach((header) => {
+          const newKey = columnMapping[header] || header;
+          normalizedItem[newKey] = item[header];
         });
 
-        // console.log("Normalized data:", normalizedData);
-        setFullInventoryData(normalizedData);
-        setTableDataSource(normalizedData);
-        setFilteredInventoryData(normalizedData); // ✅ Table uses this
-      } else {
-        notification.error({ message: "Error", description: data.message });
-      }
+        normalizedItem.Category = String(
+          normalizedItem.Category || normalizedItem.category || "Unknown"
+        )
+          .trim()
+          .replace(/\s+/g, " ");
+
+        normalizedItem.quantity = Number(normalizedItem.quantity) || 0;
+        normalizedItem.totalPrice = parseFloat(normalizedItem.totalPrice) || 0;
+
+        return normalizedItem;
+      });
+
+      setFullInventoryData(normalizedData);
+      setTableDataSource(normalizedData);
+      setFilteredInventoryData(normalizedData);
     } catch (err) {
-      notification.error({ message: "Error", description: err.message });
+      if (err.name !== "AbortError") {
+        notification.error({ message: "Error", description: err.message });
+      }
     } finally {
       setLoading(false);
     }
@@ -419,8 +493,34 @@ export default function Dashboard({ user }) {
         .ant-modal-root .ant-modal {
       width: var(--ant-modal-xs-width);
       width: 100% !important;
-    
+      }
+    tspan {
+  font-size: 14px !important;
+}
     `;
+
+    const getPercentage = (label, data) => {
+  if (!Array.isArray(data) || data.length === 0) return "0%";
+
+  const total = data.reduce((sum, e) => sum + (e.value || 0), 0);
+  if (total === 0) return "0%";
+
+  const raw = data.map(item => (item.value / total) * 100);
+
+  // Round percentages (2 decimals)
+  const rounded = raw.map(p => Number(p.toFixed(2)));
+
+  // Drift correction
+  const drift = Number((100 - rounded.reduce((a, b) => a + b, 0)).toFixed(2));
+  rounded[rounded.length - 1] += drift;
+
+  const idx = data.findIndex(
+    d => d.name.trim().toLowerCase() === label.trim().toLowerCase()
+  );
+
+  return `${rounded[idx] ?? 0}%`;
+};
+
 
   const CATEGORY_COLORS = {
     Machine: "#0d3984e8",
@@ -433,7 +533,7 @@ export default function Dashboard({ user }) {
     Machine: "#2c5cb0f6",
     Consumables: "#0DA2E7",
     Auxiliaries: "#ed7321ff",
-    "Spare Parts": "#15A28D",
+    "Spare Parts": "#11cbafff",
   };
 
   // Compute counts by category
@@ -758,7 +858,7 @@ export default function Dashboard({ user }) {
                         <h5 className="card-title" style={{ color: "#0d3884" }}>
                           Total value
                         </h5>
-                        <p className="pb-2" >{summary.totalValue} AED</p>
+                        <p className="pb-2">{summary.totalValue} AED</p>
                       </div>
 
                       {/* ✅ Responsive decorative image */}
@@ -827,7 +927,7 @@ export default function Dashboard({ user }) {
                         >
                           Low stock alert
                         </h5>
-                        <p className="pb-2" >{summary.lowStock}</p>
+                        <p className="pb-2">{summary.lowStock}</p>
                       </div>
 
                       {/* ✅ Decorative image in bottom-right corner */}
@@ -895,7 +995,7 @@ export default function Dashboard({ user }) {
                         >
                           Out of stock
                         </h5>
-                        <p className="pb-2" >{summary.outOfStock}</p>
+                        <p className="pb-2">{summary.outOfStock}</p>
                       </div>
 
                       {/* ✅ Decorative image (responsive and non-intrusive) */}
@@ -919,7 +1019,10 @@ export default function Dashboard({ user }) {
 
                   <div className="row m-0 p-0">
                     <div className="col-6">
-                      <div className="mt-5 border border-2 border-light rounded-3 p-3" style={{boxShadow:"0 4px 4px rgba(0, 0, 0, 0.1)"}}>
+                      <div
+                        className="mt-5 border border-2 border-light rounded-3 p-3"
+                        style={{ boxShadow: "0 4px 4px rgba(0, 0, 0, 0.1)" }}
+                      >
                         <div className="d-flex align-items-center gap-2 mb-1">
                           <div
                             className="d-flex align-items-center justify-content-center"
@@ -1204,11 +1307,14 @@ export default function Dashboard({ user }) {
                                   cx="50%"
                                   cy="50%"
                                   outerRadius={120}
+                                  minAngle={3}
                                   paddingAngle={getPaddingAngle(pieChartData)}
                                   isAnimationActive={false}
-                                  label={({ index }) =>
-                                    pieChartData[index].value
-                                  }
+                                  // label={({ index }) =>
+                                  //   pieChartData[index].value
+                                  // }
+                                  label={({ index }) => pieChartData[index]?.value ?? ""}
+
                                 >
                                   {pieChartData.map((entry, index) => (
                                     <Cell
@@ -1235,28 +1341,77 @@ export default function Dashboard({ user }) {
                                   //   </span>
                                   // )}
 
-                                  formatter={(value, entry) => {
-                                    const total = pieChartData.reduce(
-                                      (sum, item) => sum + item.value,
-                                      0
-                                    );
-                                    const item = pieChartData.find(
-                                      (d) => d.name === value
-                                    );
-                                    const percent = total
-                                      ? ((item?.value / total) * 100).toFixed(1)
-                                      : 0;
-                                    return (
-                                      <span
-                                        style={{
-                                          color:
-                                            CATEGORY_COLORS[value] || "#8884d8",
-                                        }}
-                                      >
-                                        {`${value} (${percent}%)`}
-                                      </span>
-                                    );
-                                  }}
+                                  // formatter={(value, entry) => {
+                                  //   const total = pieChartData.reduce(
+                                  //     (sum, item) => sum + item.value,
+                                  //     0
+                                  //   );
+                                  //   // const item = pieChartData.find(
+                                  //   //   (d) => d.name === value
+                                  //   // );
+                                  //   const item = pieChartData.find(
+                                  //     (d) =>
+                                  //       d.name.trim().toLowerCase() ===
+                                  //       String(value).trim().toLowerCase()
+                                  //   );
+                                  //   const percent = total
+                                  //     ? ((item?.value / total) * 100).toFixed(1)
+                                  //     : 0;
+                                  //   return (
+                                  //     <span
+                                  //       style={{
+                                  //         color:
+                                  //           CATEGORY_COLORS[value] || "#8884d8",
+                                  //       }}
+                                  //     >
+                                  //       {`${value} (${percent}%)`}
+                                  //     </span>
+                                  //   );
+                                  // }}
+
+                                  // formatter={(value) => {
+                                  //   const total = pieChartData.reduce(
+                                  //     (sum, item) => sum + item.value,
+                                  //     0
+                                  //   );
+
+                                  //   // ✅ Step 1: compute raw % for all slices first
+                                  //   const rawPercents = pieChartData.map(
+                                  //     (item) => (item.value / total) * 100
+                                  //   );
+
+                                  //   // ✅ Step 2: round percentages (1 decimal place)
+                                  //   const roundedPercents = rawPercents.map(
+                                  //     (p) => Math.round(p * 10) / 10
+                                  //   );
+
+                                  //   // ✅ Step 3: fix rounding drift by adjusting the last item
+                                  //   const roundedSum = roundedPercents.reduce(
+                                  //     (sum, p) => sum + p,
+                                  //     0
+                                  //   );
+                                  //   const drift =
+                                  //     Math.round((100 - roundedSum) * 10) / 10;
+
+                                  //   const percent = roundedPercents.map(
+                                  //     (p, idx) =>
+                                  //       idx === roundedPercents.length - 1
+                                  //         ? p + drift
+                                  //         : p
+                                  //   );
+
+                                  //   // ✅ find current slice and return its exact percent
+                                  //   const idx = pieChartData.findIndex(
+                                  //     (item) =>
+                                  //       item.name.trim().toLowerCase() ===
+                                  //       value.trim().toLowerCase()
+                                  //   );
+
+                                  //   return `${value} (${percent[idx]}%)`;
+                                  // }}
+
+                                  formatter={(value) => `${value} (${getPercentage(value, pieChartData)})`}
+
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -1265,7 +1420,10 @@ export default function Dashboard({ user }) {
                       </div>
                     </div>
                     <div className="col-6">
-                      <div className="mt-5  border border-2 border-light rounded-3 p-3" style={{boxShadow:"0 4px 4px rgba(0, 0, 0, 0.1)"}}>
+                      <div
+                        className="mt-5  border border-2 border-light rounded-3 p-3"
+                        style={{ boxShadow: "0 4px 4px rgba(0, 0, 0, 0.1)" }}
+                      >
                         <div className="d-flex align-items-center gap-2 mb-1">
                           <div
                             className="d-flex align-items-center justify-content-center"
@@ -1544,7 +1702,7 @@ export default function Dashboard({ user }) {
                           )}
                         </div> */}
 
-                        <div style={{ width: "100%", height: 400 }}>
+                        {/* <div style={{ width: "100%", height: 400 }}>
                           {tableDataSource.length === 0 ||
                           valueChartData.every((d) => d.value === 0) ? (
                             <div
@@ -1632,6 +1790,119 @@ export default function Dashboard({ user }) {
                                       </span>
                                     );
                                   }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          )}
+                        </div> */}
+
+                        <div style={{ width: "100%", height: 400 }}>
+                          {tableDataSource.length === 0 ||
+                          valueChartData.every((d) => d.value === 0) ? (
+                            <div
+                              style={{
+                                border: "2px dashed #ccc",
+                                borderRadius: "8px",
+                                height: "400px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#0D3884",
+                                fontSize: "16px",
+                                fontWeight: "500",
+                                backgroundColor: "#fafafa",
+                              }}
+                              className="mt-3"
+                            >
+                              No Data Available
+                            </div>
+                          ) : (
+                            <ResponsiveContainer width="100%" height={400}>
+                              <PieChart>
+                                <Pie
+                                  data={valueChartData}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  cx="50%"
+                                  cy="50%"
+                                  outerRadius={120}
+                                  minAngle={3} // ✅ ensures very small slices are still visible
+                                  paddingAngle={getPaddingAngle(valueChartData)}
+                                  isAnimationActive={false}
+                                  // label={({ index }) =>
+                                  //   valueChartData[
+                                  //     index
+                                  //   ].value.toLocaleString() + " AED"
+                                  // }
+                                  label={({ index }) =>
+  valueChartData[index]?.value?.toLocaleString() + " AED" || ""
+}
+                                >
+                                  {valueChartData.map((entry, index) => (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={
+                                        VALUE_CATEGORY_COLORS[entry.name] ||
+                                        "#8884d8"
+                                      }
+                                    />
+                                  ))}
+                                </Pie>
+
+                                <Legend
+                                  layout="horizontal"
+                                  verticalAlign="bottom"
+                                  align="center"
+                                  iconType="square"
+                                  // formatter={(value) => {
+                                  //   const total = valueChartData.reduce(
+                                  //     (sum, e) => sum + e.value,
+                                  //     0
+                                  //   );
+                                  //   const item = valueChartData.find(
+                                  //     (d) =>
+                                  //       d.name.trim().toLowerCase() ===
+                                  //       String(value).trim().toLowerCase()
+                                  //   );
+                                  //   const percent = total
+                                  //     ? (
+                                  //         ((item?.value || 0) / total) *
+                                  //         100
+                                  //       ).toFixed(2)
+                                  //     : 0;
+                                  //   const valueAED = (
+                                  //     item?.value || 0
+                                  //   ).toLocaleString();
+                                  //   return `${value} (${percent}%)`;
+                                  // }}
+
+//                                   formatter={(value) => {
+//   const total = valueChartData.reduce((sum, e) => sum + e.value, 0);
+//   if (total === 0) return `${value} (0%)`;
+
+//   // ✅ Step 1: get index of legend item
+//   const idx = valueChartData.findIndex(
+//     (d) => d.name.trim().toLowerCase() === value.trim().toLowerCase()
+//   );
+//   if (idx === -1) return `${value} (0%)`;
+
+//   // ✅ Step 2: compute raw exact percentage (no rounding loss)
+//   const rawPercents = valueChartData.map((d) => (d.value / total) * 100);
+
+//   // ✅ Step 3: round percentages only to two decimals (to avoid 0.0 problem)
+//   const rounded = rawPercents.map((p) => Number(p.toFixed(2)));
+
+//   // ✅ Step 4: apply drift correction (ensure total = 100)
+//   const drift = Number((100 - rounded.reduce((a, b) => a + b, 0)).toFixed(2));
+//   rounded[rounded.length - 1] += drift;
+
+//   // ✅ Step 5: Return cleaned formatting
+//   return `${value} (${rounded[idx]}%)`;
+// }}
+
+formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
+
+
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -1740,7 +2011,10 @@ export default function Dashboard({ user }) {
                     </div> */}
 
                     <div className="col-6">
-                      <div className="mt-5  border border-2 border-light rounded-3 p-3" style={{boxShadow:"0 4px 4px rgba(0, 0, 0, 0.1)"}}>
+                      <div
+                        className="mt-5  border border-2 border-light rounded-3 p-3"
+                        style={{ boxShadow: "0 4px 4px rgba(0, 0, 0, 0.1)" }}
+                      >
                         <div className="d-flex align-items-center gap-2 mb-1">
                           <div
                             className="d-flex align-items-center justify-content-center"
@@ -1785,9 +2059,12 @@ export default function Dashboard({ user }) {
                                   cx="50%"
                                   cy="50%"
                                   outerRadius={120}
+                                  minAngle={3}
                                   paddingAngle={getPaddingAngle(low)}
                                   isAnimationActive={false}
-                                  label={({ index }) => low[index].value}
+                                  // label={({ index }) => low[index].value}
+                                  label={({ index }) => low[index]?.value ?? ""}
+
                                 >
                                   {low.map((entry, index) => {
                                     // ✅ Extract clean base name (remove " - Low Stock")
@@ -1818,32 +2095,94 @@ export default function Dashboard({ user }) {
                                   //   </span>
                                   // )}
 
-                                  formatter={(value, entry) => {
-                                    const baseName = value
-                                      .replace(" - Low Stock", "")
-                                      .trim();
+                                  // formatter={(value, entry) => {
+                                  //   const baseName = value
+                                  //     .replace(" - Low Stock", "")
+                                  //     .trim();
 
-                                    const total = low.reduce(
-                                      (sum, item) => sum + item.value,
-                                      0
-                                    );
-                                    const item = low.find(
-                                      (d) => d.name === value
-                                    );
-                                    const percent = total
-                                      ? ((item?.value / total) * 100).toFixed(1)
-                                      : 0;
-                                    return (
-                                      <span
-                                        style={{
-                                          color:
-                                            LOW_COLORS[baseName] || "#FFD36B",
-                                        }}
-                                      >
-                                        {`${baseName} (${percent}%)`}
-                                      </span>
-                                    );
-                                  }}
+                                  //   const total = low.reduce(
+                                  //     (sum, item) => sum + item.value,
+                                  //     0
+                                  //   );
+                                  //   // const item = low.find(
+                                  //   //   (d) => d.name === value
+                                  //   // );
+                                  //   const item = low.find(
+                                  //     (d) =>
+                                  //       d.name.trim().toLowerCase() ===
+                                  //       String(value).trim().toLowerCase()
+                                  //   );
+
+                                  //   const percent = total
+                                  //     ? ((item?.value / total) * 100).toFixed(1)
+                                  //     : 0;
+                                  //   return (
+                                  //     <span
+                                  //       style={{
+                                  //         color:
+                                  //           LOW_COLORS[baseName] || "#FFD36B",
+                                  //       }}
+                                  //     >
+                                  //       {`${baseName} (${percent}%)`}
+                                  //     </span>
+                                  //   );
+                                  // }}
+
+                                  // formatter={(value) => {
+                                  //   const baseName = value
+                                  //     .replace(" - Low Stock", "")
+                                  //     .trim();
+
+                                  //   const total = low.reduce(
+                                  //     (sum, item) => sum + item.value,
+                                  //     0
+                                  //   );
+
+                                  //   // ✅ Step 1: compute raw percentages
+                                  //   const rawPercents = low.map(
+                                  //     (item) => (item.value / total) * 100
+                                  //   );
+
+                                  //   // ✅ Step 2: round percentages (1 decimal)
+                                  //   const roundedPercents = rawPercents.map(
+                                  //     (p) => Math.round(p * 10) / 10 // 1 decimal rounding
+                                  //   );
+
+                                  //   // ✅ Step 3: adjust last slice to ensure exactly 100%
+                                  //   const roundedSum = roundedPercents.reduce(
+                                  //     (sum, p) => sum + p,
+                                  //     0
+                                  //   );
+                                  //   const drift =
+                                  //     Math.round((100 - roundedSum) * 10) / 10;
+
+                                  //   const fixedPercents = roundedPercents.map(
+                                  //     (p, idx) =>
+                                  //       idx === roundedPercents.length - 1
+                                  //         ? p + drift
+                                  //         : p
+                                  //   );
+
+                                  //   // ✅ Step 4: find correct index for legend item
+                                  //   const idx = low.findIndex(
+                                  //     (d) =>
+                                  //       d.name.trim().toLowerCase() ===
+                                  //       value.trim().toLowerCase()
+                                  //   );
+
+                                  //   return (
+                                  //     <span
+                                  //       style={{
+                                  //         color:
+                                  //           LOW_COLORS[baseName] || "#FFD36B",
+                                  //       }}
+                                  //     >
+                                  //       {`${baseName} (${fixedPercents[idx]}%)`}
+                                  //     </span>
+                                  //   );
+                                  // }}
+                                  formatter={(value) => `${value} (${getPercentage(value, low)})`}
+
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -1871,7 +2210,10 @@ export default function Dashboard({ user }) {
                     </div>
 
                     <div className="col-6">
-                      <div className="mt-5  border border-2 border-light rounded-3 p-3" style={{boxShadow:"0 4px 4px rgba(0, 0, 0, 0.1)"}}>
+                      <div
+                        className="mt-5  border border-2 border-light rounded-3 p-3"
+                        style={{ boxShadow: "0 4px 4px rgba(0, 0, 0, 0.1)" }}
+                      >
                         <div className="d-flex align-items-center gap-2 mb-1">
                           <div
                             className="d-flex align-items-center justify-content-center"
@@ -1917,8 +2259,11 @@ export default function Dashboard({ user }) {
                                   cy="50%"
                                   outerRadius={120}
                                   isAnimationActive={false}
+                                  minAngle={3}
                                   paddingAngle={getPaddingAngle(out)}
-                                  label={({ index }) => out[index].value}
+                                  // label={({ index }) => out[index].value}
+                                  label={({ index }) => out[index]?.value ?? ""}
+
                                 >
                                   {/* {out.map((entry, index) => (
                                     
@@ -1961,32 +2306,95 @@ export default function Dashboard({ user }) {
                                   //   </span>
                                   // )}
 
-                                  formatter={(value, entry) => {
-                                    const baseName = value
-                                      .replace(" - Out of Stock", "")
-                                      .trim();
+                                  // formatter={(value, entry) => {
+                                  //   const baseName = value
+                                  //     .replace(" - Out of Stock", "")
+                                  //     .trim();
 
-                                    const total = out.reduce(
-                                      (sum, item) => sum + item.value,
-                                      0
-                                    );
-                                    const item = out.find(
-                                      (d) => d.name === value
-                                    );
-                                    const percent = total
-                                      ? ((item?.value / total) * 100).toFixed(1)
-                                      : 0;
-                                    return (
-                                      <span
-                                        style={{
-                                          color:
-                                            OUT_COLORS[baseName] || "#FF6B6B",
-                                        }}
-                                      >
-                                        {`${baseName} (${percent}%)`}
-                                      </span>
-                                    );
-                                  }}
+                                  //   const total = out.reduce(
+                                  //     (sum, item) => sum + item.value,
+                                  //     0
+                                  //   );
+                                  //   // const item = out.find(
+                                  //   //   (d) => d.name === value
+                                  //   // );
+                                  //   const item = out.find(
+                                  //     (d) =>
+                                  //       d.name.trim().toLowerCase() ===
+                                  //       String(value).trim().toLowerCase()
+                                  //   );
+
+                                  //   const percent = total
+                                  //     ? ((item?.value / total) * 100).toFixed(1)
+                                  //     : 0;
+                                  //   return (
+                                  //     <span
+                                  //       style={{
+                                  //         color:
+                                  //           OUT_COLORS[baseName] || "#FF6B6B",
+                                  //       }}
+                                  //     >
+                                  //       {`${baseName} (${percent}%)`}
+                                  //     </span>
+                                  //   );
+                                  // }}
+
+                                  // formatter={(value) => {
+                                  //   const baseName = value
+                                  //     .replace(" - Out of Stock", "")
+                                  //     .trim();
+
+                                  //   const total = out.reduce(
+                                  //     (sum, item) => sum + item.value,
+                                  //     0
+                                  //   );
+
+                                  //   // ✅ Step 1: compute raw percentages for all slices
+                                  //   const rawPercents = out.map(
+                                  //     (item) => (item.value / total) * 100
+                                  //   );
+
+                                  //   // ✅ Step 2: round percentages (1 decimal place)
+                                  //   const roundedPercents = rawPercents.map(
+                                  //     (p) => Math.round(p * 10) / 10 // 1 decimal
+                                  //   );
+
+                                  //   // ✅ Step 3: fix rounding drift (ensure total = 100.0%)
+                                  //   const roundedSum = roundedPercents.reduce(
+                                  //     (sum, p) => sum + p,
+                                  //     0
+                                  //   );
+                                  //   const drift =
+                                  //     Math.round((100 - roundedSum) * 10) / 10;
+
+                                  //   const fixedPercents = roundedPercents.map(
+                                  //     (p, idx) =>
+                                  //       idx === roundedPercents.length - 1
+                                  //         ? p + drift
+                                  //         : p
+                                  //   );
+
+                                  //   // ✅ Step 4: get correct index for matching label
+                                  //   const idx = out.findIndex(
+                                  //     (d) =>
+                                  //       d.name.trim().toLowerCase() ===
+                                  //       value.trim().toLowerCase()
+                                  //   );
+
+                                  //   return (
+                                  //     <span
+                                  //       style={{
+                                  //         color:
+                                  //           OUT_COLORS[baseName] || "#FF6B6B",
+                                  //       }}
+                                  //     >
+                                  //       {`${baseName} (${fixedPercents[idx]}%)`}
+                                  //     </span>
+                                  //   );
+                                  // }}
+
+                                  formatter={(value) => `${value} (${getPercentage(value, out)})`}
+
                                 />
                               </PieChart>
                             </ResponsiveContainer>
