@@ -549,6 +549,7 @@ import {
 import "../App.css";
 import HaitianLogo from "../Images/HaitianLogo.png";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 export default function SideNavBar({ onLogout, user }) {
   const navigate = useNavigate();
@@ -572,6 +573,15 @@ export default function SideNavBar({ onLogout, user }) {
   const visibleMenuItems = menuItemsConfig.filter(
     (item) => (access[item.access] ?? "No Access") !== "No Access"
   );
+const firstAllowedPage = visibleMenuItems.length > 0 ? visibleMenuItems[0].key : null;
+
+useEffect(() => {
+  const allowed = visibleMenuItems.some((item) => item.key === location.pathname);
+
+  if (!allowed && firstAllowedPage) {
+    navigate(firstAllowedPage);
+  }
+}, [location.pathname, visibleMenuItems, firstAllowedPage]);
 
   const customStyles = `
     .ant-menu {

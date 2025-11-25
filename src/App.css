@@ -555,3 +555,6 @@ body, input, textarea, select, button, label, h1, h2, h3, h4, h5, h6, p, span, d
   font-size: 14px;
   padding: 2px 6px;
 }
+.input-row {
+  display: none !important;
+}

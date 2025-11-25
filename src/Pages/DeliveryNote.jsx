@@ -126,8 +126,12 @@ export default function DeliveryNote({ user }) {
     stockInHand: "",
     unit: "",
     stockUnit: "",
+    location: purchaseSelectedRow?.Location || "AE",
   });
   const [downloading, setDownloading] = useState(false);
+  const [purchaseRequestDownloading, setPurchaseRequestDownloading] =
+    useState(false);
+
   const [isStockLoading, setIsStockLoading] = useState(false);
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
   const [customerList, setCustomerList] = useState([]);
@@ -142,9 +146,13 @@ export default function DeliveryNote({ user }) {
   const [rejectionNote, setRejectionNote] = useState("");
   const [isPrefilledFromPurchase, setIsPrefilledFromPurchase] = useState(false);
   const [isDeliveryNoteSubmitted, setIsDeliveryNoteSubmitted] = useState(false);
+  const [partMap, setPartMap] = useState({});
+  const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+
+    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -231,7 +239,10 @@ export default function DeliveryNote({ user }) {
       const [deliveryNum, customers, descriptions] = await Promise.allSettled([
         fetchWithRetry({ action: "getNextDeliveryNumber" }),
         fetchWithRetry({ action: "getCustomerDetails" }),
-        fetchWithRetry({ action: "getAllDescriptionsWithPartNumbers" }),
+        fetchWithRetry({
+          action: "getAllDescriptionsWithPartNumbers",
+          location: "AE",
+        }),
       ]);
 
       if (deliveryNum.status === "fulfilled" && deliveryNum.value) {
@@ -245,8 +256,51 @@ export default function DeliveryNote({ user }) {
         setCustomerList(customers.value.customers || []);
       }
 
+      // if (descriptions.status === "fulfilled" && descriptions.value) {
+      //   setDescriptionList(descriptions.value.items || []);
+      // }
+
       if (descriptions.status === "fulfilled" && descriptions.value) {
-        setDescriptionList(descriptions.value.items || []);
+        const items = descriptions.value.items || [];
+
+        // 🔥 Filter only AE rows
+        const filtered = items.filter((item) => item.location === "AE");
+
+        // Save full filtered list
+        setDescriptionList(filtered);
+
+        const mapped = {};
+
+        for (let i = filtered.length - 1; i >= 0; i--) {
+          const item = filtered[i];
+
+          if (!mapped[item.partNumber]) {
+            mapped[item.partNumber] = {
+              description: item.description,
+              unit: item.unit,
+              location: item.location,
+            };
+          }
+        }
+
+        setPartMap(mapped);
+
+        // const descMapTemp = {};
+        // filtered.forEach((item) => {
+        //   descMapTemp[item.description] = item.partNumber;
+        // });
+        // setDescMap(descMapTemp);
+
+        const descMapTemp = {};
+        filtered.forEach((item) => {
+          if (!descMapTemp[item.description]) {
+            descMapTemp[item.description] = [];
+          }
+          descMapTemp[item.description].push(item.partNumber);
+        });
+        setDescMap(descMapTemp);
+
+        console.log("🔍 Final Part Mapping:", mapped);
       }
 
       // ✅ Fetch delivery notes separately (doesn’t need retry)
@@ -370,12 +424,16 @@ export default function DeliveryNote({ user }) {
             body: new URLSearchParams({
               action: "getStockForPartNumber",
               partNumber: inputRow.partNumber,
+              location: inputRow.location,
               category: "", // update if needed
             }),
             signal: controller.signal,
           });
 
+          // const result = await res.json();
+          if (!res.ok) throw new Error("Network error");
           const result = await res.json();
+
           if (result.success) {
             setInputRow((prev) => ({
               ...prev,
@@ -406,7 +464,41 @@ export default function DeliveryNote({ user }) {
       clearTimeout(debounceTimer);
       controller.abort();
     };
-  }, []);
+  }, [inputRow.partNumber]);
+
+  useEffect(() => {
+    if (isPurchaseModalVisible) {
+      // reset ONLY for pending records
+      if (
+        purchaseSelectedRow?.Status !== "Approved" &&
+        purchaseSelectedRow?.Status !== "Denied"
+      ) {
+        setRejectionNote("");
+      }
+    }
+  }, [purchaseSelectedRow, isPurchaseModalVisible]);
+
+  useEffect(() => {
+    if (!inputRow.itemDescription) return;
+
+    const matched = descMap[inputRow.itemDescription] || [];
+    if (matched.length === 0) return;
+
+    // Auto-pick first if none selected or invalid
+    if (!inputRow.partNumber || !matched.includes(inputRow.partNumber)) {
+      const defaultPart = matched[0];
+      const selected = partMap[defaultPart];
+      const cachedStock = stockMap[defaultPart] || { stockInHand: 0, unit: "" };
+
+      setInputRow((prev) => ({
+        ...prev,
+        partNumber: defaultPart,
+        unit: selected?.unit || "",
+        stockInHand: safeToString(cachedStock.stockInHand),
+        stockUnit: selected?.unit || "",
+      }));
+    }
+  }, [inputRow.itemDescription, descMap, partMap, stockMap]);
 
   const actionColumn = {
     title: "Action",
@@ -447,251 +539,391 @@ export default function DeliveryNote({ user }) {
           </Tooltip>
         ),
     },
+    {
+      title: "Location",
+      dataIndex: "location",
+      width: 120,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input value={inputRow.location} readOnly />
+        ) : (
+          <span>{record.location}</span>
+        ),
+    },
 
+    // {
+    //   title: "Part Number",
+    //   dataIndex: "partNumber",
+    //   width: 250,
+    //   ellipsis: true,
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Tooltip>
+    //         <Select
+    //           showSearch
+    //           placeholder="Select part number"
+    //           value={inputRow.partNumber || undefined}
+    //           loading={loadingDescription}
+    //           disabled={loadingDescription}
+    //           filterOption={(input, option) =>
+    //             option.children.toLowerCase().includes(input.toLowerCase())
+    //           }
+    //           // onChange={(value) => {
+    //           //   const selected = partMap[value];
+
+    //           //   console.log("🔍 Part Selected:", selected);
+
+    //           //   setInputRow((prev) => ({
+    //           //     ...prev,
+    //           //     partNumber: value,
+    //           //     itemDescription: selected?.description || "",
+    //           //     unit: selected?.unit || "",
+    //           //     stockUnit: selected?.unit || "",
+    //           //   }));
+    //           // }}
+    //           onChange={(value) => {
+    //             const selected = partMap[value];
+    //             const cachedStock = stockMap[value] || {
+    //               stockInHand: 0,
+    //               unit: "",
+    //             };
+
+    //             setInputRow((prev) => ({
+    //               ...prev,
+    //               partNumber: value,
+    //               itemDescription:
+    //                 selected?.description || prev.itemDescription,
+    //               unit: selected?.unit,
+    //               stockInHand: safeToString(cachedStock.stockInHand),
+    //               stockUnit: selected?.unit,
+    //             }));
+
+    //             const currentPart = value;
+
+    //             // 🔄 Background live stock fetch (RESTORED FROM PREVIOUS CODE)
+    //             (async () => {
+    //               setStockLoading(true);
+    //               try {
+    //                 const res = await fetch(GAS_URL, {
+    //                   method: "POST",
+    //                   headers: {
+    //                     "Content-Type": "application/x-www-form-urlencoded",
+    //                   },
+    //                   body: new URLSearchParams({
+    //                     action: "getStockForPartNumber",
+    //                     partNumber: currentPart,
+    //                     location: inputRow.location,
+    //                   }),
+    //                 });
+
+    //                 const result = await res.json();
+
+    //                 setInputRow((prev) => {
+    //                   if (prev.partNumber !== currentPart) return prev; // ignore outdated
+    //                   return {
+    //                     ...prev,
+    //                     stockInHand: safeToString(result.stockInHand),
+    //                     stockUnit: selected?.unit || prev.stockUnit, // trust frontend mapping
+    //                     unit: selected?.unit || prev.unit,
+    //                   };
+    //                 });
+
+    //                 setStockMap((prev) => ({
+    //                   ...prev,
+    //                   [currentPart]: {
+    //                     // stockInHand: result.stockInHand,
+    //                     // unit: result.unit,
+    //                     stockUnit: selected?.unit,
+    //                   },
+    //                 }));
+    //               } finally {
+    //                 setStockLoading(false);
+    //               }
+    //             })();
+    //           }}
+    //           style={{ width: "100%" }}
+    //         >
+    //           {Object.keys(partMap).map((part, i) => (
+    //             <Select.Option key={i} value={part}>
+    //               {part}
+    //             </Select.Option>
+    //           ))}
+    //         </Select>
+    //       </Tooltip>
+    //     ) : (
+    //       <Tooltip title={record.partNumber}>
+    //         <span>{record.partNumber}</span>
+    //       </Tooltip>
+    //     ),
+    // },
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
+      render: (_, record) => {
+        if (!record.isInput) {
+          return (
+            <Tooltip title={record.partNumber}>
+              <span>{record.partNumber}</span>
+            </Tooltip>
+          );
+        }
+
+        const matchedParts = descMap[inputRow.itemDescription] || [];
+
+        const sortedParts = [
+          ...Object.keys(partMap).filter((p) => matchedParts.includes(p)),
+          ...Object.keys(partMap).filter((p) => !matchedParts.includes(p)),
+        ];
+
+        return (
           <Tooltip>
             <Select
               showSearch
-              placeholder="Select or enter part number"
+              placeholder="Select part number"
               value={inputRow.partNumber || undefined}
               loading={loadingDescription}
               disabled={loadingDescription}
-              notFoundContent={
-                loadingDescription ? "Fetching..." : "No results found"
-              }
               filterOption={(input, option) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
+                String(option.children)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
-              // onChange={(value) => {
-              //   const selected = descriptionList.find(
-              //     (item) => item.partNumber === value
-              //   );
-              //   setInputRow((prev) => ({
-              //     ...prev,
-              //     partNumber: value,
-              //     itemDescription:
-              //       selected?.description || prev.itemDescription,
-              //     unit: selected?.unit || "",
-              //   }));
-              // }}
               onChange={(value) => {
-                const selected = descriptionList.find(
-                  (item) => item.partNumber === value
-                );
+                const selected = partMap[value];
                 const cachedStock = stockMap[value] || {
                   stockInHand: 0,
                   unit: "",
                 };
 
-                // Immediate UI update from cache
                 setInputRow((prev) => ({
                   ...prev,
                   partNumber: value,
                   itemDescription:
                     selected?.description || prev.itemDescription,
-                  unit: cachedStock.unit,
-                  // stockInHand: cachedStock.stockInHand.toString(),
+                  unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
-                  stockUnit: cachedStock.unit,
-                }));
-
-                // Save the part number being fetched
-                const currentPart = value;
-
-                // 🔄 Background fetch
-                (async () => {
-                  setStockLoading(true);
-                  try {
-                    const res = await fetch(GAS_URL, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                      },
-                      body: new URLSearchParams({
-                        action: "getStockForPartNumber",
-                        partNumber: currentPart,
-                      }),
-                    });
-                    const result = await res.json();
-
-                    // ✅ Only update if user is still on the same part
-                    setInputRow((prev) => {
-                      if (prev.partNumber !== currentPart) {
-                        return prev; // ignore outdated response
-                      }
-                      return {
-                        ...prev,
-                        // stockInHand: result.stockInHand?.toString() || "0",
-                        stockInHand: safeToString(result.stockInHand),
-
-                        stockUnit: result.unit || "",
-                        unit: result.unit || prev.unit,
-                      };
-                    });
-
-                    setStockMap((prev) => ({
-                      ...prev,
-                      [currentPart]: {
-                        stockInHand: result.stockInHand,
-                        unit: result.unit,
-                      },
-                    }));
-                  } catch (err) {
-                    // console.error("Live stock fetch failed", err);
-                  } finally {
-                    setStockLoading(false); // stop loading
-                  }
-                })();
-              }}
-              onSearch={(value) => {
-                setInputRow((prev) => ({
-                  ...prev,
-                  partNumber: value,
+                  stockUnit: selected?.unit,
                 }));
               }}
               style={{ width: "100%" }}
             >
-              {[...new Set(descriptionList.map((item) => item.partNumber))]
-                .filter((p) => p) // remove empty
-                .map((part, idx) => (
-                  <Select.Option key={`pn-${idx}`} value={part}>
+              {sortedParts.map((part, i) => {
+                const isMatched = matchedParts.includes(part);
+                const isSelected = part === inputRow.partNumber;
+
+                let style = {};
+
+                if (isMatched && isSelected) {
+                  style = {
+                    fontWeight: "bold",
+                    backgroundColor: "#e6f4ff",
+                    color: "#0D3884",
+                  };
+                } else if (isMatched) {
+                  style = {
+                    fontWeight: "bold",
+                    backgroundColor: "#f0f0f0",
+                    color: "#888",
+                  };
+                }
+
+                return (
+                  <Select.Option key={i} value={part} style={style}>
                     {part}
                   </Select.Option>
-                ))}
+                );
+              })}
             </Select>
           </Tooltip>
-        ) : (
-          <Tooltip title={record.partNumber}>
-            <span>{record.partNumber}</span>
-          </Tooltip>
-        ),
+        );
+      },
     },
+
+    // {
+    //   title: "Item Description",
+    //   dataIndex: "itemDescription",
+    //   width: 500,
+    //   ellipsis: true,
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Tooltip>
+    //         <Select
+    //           showSearch
+    //           placeholder="Select Description"
+    //           value={inputRow.itemDescription || undefined}
+    //           loading={loadingDescription}
+    //           disabled={loadingDescription}
+    //           filterOption={(input, option) =>
+    //             option.children.toLowerCase().includes(input.toLowerCase())
+    //           }
+    //           // onChange={(value) => {
+    //           //   const partNumber = descMap[value]; // 🔥 Get linked partNumber
+    //           //   const selected = partMap[partNumber]; // 🔥 Get AE mapped row
+
+    //           //   console.log("🔍 Description Selected:", value, selected);
+
+    //           //   setInputRow((prev) => ({
+    //           //     ...prev,
+    //           //     itemDescription: value,
+    //           //     partNumber,
+    //           //     unit: selected?.unit || "",
+    //           //     stockUnit: selected?.unit || "",
+    //           //   }));
+    //           // }}
+
+    //           onChange={(value) => {
+    //             const partNumber = descMap[value];
+    //             const selected = partMap[partNumber];
+    //             const cachedStock = stockMap[partNumber] || {
+    //               stockInHand: 0,
+    //               unit: "",
+    //             };
+
+    //             setInputRow((prev) => ({
+    //               ...prev,
+    //               itemDescription: value,
+    //               partNumber,
+    //               unit: selected?.unit,
+    //               stockInHand: safeToString(cachedStock.stockInHand),
+    //               stockUnit: selected?.unit,
+    //             }));
+
+    //             const currentPart = partNumber;
+
+    //             // 🔄 Background live stock fetch (RESTORED)
+    //             (async () => {
+    //               setStockLoading(true);
+    //               try {
+    //                 const res = await fetch(GAS_URL, {
+    //                   method: "POST",
+    //                   headers: {
+    //                     "Content-Type": "application/x-www-form-urlencoded",
+    //                   },
+    //                   body: new URLSearchParams({
+    //                     action: "getStockForPartNumber",
+    //                     partNumber: currentPart,
+    //                     location: inputRow.location,
+    //                   }),
+    //                 });
+    //                 const result = await res.json();
+
+    //                 setInputRow((prev) => {
+    //                   if (prev.partNumber !== currentPart) return prev;
+    //                   return {
+    //                     ...prev,
+    //                     stockInHand: safeToString(result.stockInHand),
+    //                     // stockUnit: selected?.unit,
+    //                     stockUnit: selected?.unit || prev.stockUnit, // trust frontend mapping
+    //                     unit: selected?.unit || prev.unit,
+    //                   };
+    //                 });
+
+    //                 setStockMap((prev) => ({
+    //                   ...prev,
+    //                   [currentPart]: {
+    //                     // stockInHand: result.stockInHand,
+    //                     // unit: selected?.unit,
+    //                     stockUnit: selected?.unit,
+    //                   },
+    //                 }));
+    //               } finally {
+    //                 setStockLoading(false);
+    //               }
+    //             })();
+    //           }}
+    //           style={{ width: "100%" }}
+    //         >
+    //           {Object.keys(descMap).map((desc, idx) => (
+    //             <Select.Option key={idx} value={desc}>
+    //               {desc}
+    //             </Select.Option>
+    //           ))}
+    //         </Select>
+    //       </Tooltip>
+    //     ) : (
+    //       <Tooltip title={record.itemDescription}>
+    //         {record.itemDescription}
+    //       </Tooltip>
+    //     ),
+    // },
+
     {
       title: "Item Description",
       dataIndex: "itemDescription",
-      ellipsis: true,
       width: 500,
+      ellipsis: true,
       render: (_, record) =>
         record.isInput ? (
           <Tooltip>
             <Select
               showSearch
-              // value={inputRow.itemDescription}
+              placeholder="Select Description"
               value={inputRow.itemDescription || undefined}
               loading={loadingDescription}
               disabled={loadingDescription}
-              notFoundContent={
-                loadingDescription ? "Fetching..." : "No results found"
-              }
-              placeholder="Select or enter description"
               filterOption={(input, option) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
+                String(option.children)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
-              // onChange={(value) => {
-              //   const selected = descriptionList.find(
-              //     (item) => item.description === value
-              //   );
-              //   setInputRow((prev) => ({
-              //     ...prev,
-              //     itemDescription: value,
-              //     partNumber: selected?.partNumber || prev.partNumber,
-              //     unit: selected?.unit || "",
-              //   }));
-              // }}
-
               onChange={(value) => {
-                const selected = descriptionList.find(
-                  (item) => item.description === value
-                );
-                const partNumber = selected?.partNumber || "";
+                const matchedParts = descMap[value] || [];
+                const partNumber = matchedParts[0] || "";
+                const selected = partMap[partNumber];
                 const cachedStock = stockMap[partNumber] || {
                   stockInHand: 0,
                   unit: "",
                 };
 
-                // Immediate UI update from cache
                 setInputRow((prev) => ({
                   ...prev,
                   itemDescription: value,
                   partNumber,
-                  unit: cachedStock.unit,
-                  // stockInHand: cachedStock.stockInHand.toString(),
+                  unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
-                  stockUnit: cachedStock.unit,
+                  stockUnit: selected?.unit,
                 }));
-
-                // Save the part number being fetched
-                const currentPart = partNumber;
-
-                // 🔄 Background live fetch
-                (async () => {
-                  setStockLoading(true);
-                  try {
-                    const res = await fetch(GAS_URL, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                      },
-                      body: new URLSearchParams({
-                        action: "getStockForPartNumber",
-                        partNumber: currentPart,
-                      }),
-                    });
-                    const result = await res.json();
-
-                    // ✅ Only update if still on the same part
-                    setInputRow((prev) => {
-                      if (prev.partNumber !== currentPart) return prev; // ignore outdated
-                      return {
-                        ...prev,
-                        // stockInHand: result.stockInHand?.toString() || "0",
-                        stockInHand: safeToString(result.stockInHand),
-                        stockUnit: result.unit || "",
-                        unit: result.unit || prev.unit,
-                      };
-                    });
-
-                    setStockMap((prev) => ({
-                      ...prev,
-                      [currentPart]: {
-                        stockInHand: result.stockInHand,
-                        unit: result.unit,
-                      },
-                    }));
-                  } catch (err) {
-                    // console.error("Live stock fetch failed (description)", err);
-                  } finally {
-                    setStockLoading(false);
-                  }
-                })();
               }}
               style={{ width: "100%" }}
             >
-              {[...new Set(descriptionList.map((item) => item.description))]
-                .filter((d) => d)
-                .map((desc, idx) => (
-                  <Select.Option key={`desc-${idx}`} value={desc}>
-                    {desc}
-                  </Select.Option>
-                ))}
+              {Object.keys(descMap).map((desc, idx) => (
+                <Select.Option key={idx} value={desc}>
+                  {desc}
+                </Select.Option>
+              ))}
             </Select>
           </Tooltip>
         ) : (
           <Tooltip title={record.itemDescription}>
-            <span className="truncate-text">
-              {record.itemDescription?.length > 150
-                ? `${record.itemDescription.slice(0, 150)}...`
-                : record.itemDescription}
-            </span>
+            {record.itemDescription}
           </Tooltip>
         ),
     },
+    // {
+    //   title: "Quantity",
+    //   dataIndex: "quantity",
+    //   width: 200,
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Tooltip>
+    //         <Input
+    //           placeholder="Enter quantity"
+    //           type="number"
+    //           value={inputRow.quantity}
+    //           onChange={(e) =>
+    //             setInputRow((prev) => ({ ...prev, quantity: e.target.value }))
+    //           }
+    //         />
+    //       </Tooltip>
+    //     ) : (
+    //       <Tooltip title={record.quantity}>
+    //         <span>{record.quantity}</span>
+    //       </Tooltip>
+    //     ),
+    // },
+
     // {
     //   title: "Quantity",
     //   dataIndex: "quantity",
@@ -917,6 +1149,13 @@ export default function DeliveryNote({ user }) {
 
     ...(isPrefilledFromPurchase ? [] : [actionColumn]), // 👈 only include if not prefilled
   ];
+  const filteredColumns = columns.map((col) => ({
+    ...col,
+    render: (value, record, index) => {
+      if (record?.isInput && isPrefilledFromPurchase) return null;
+      return col.render ? col.render(value, record, index) : value;
+    },
+  }));
 
   const modalColumns = [
     {
@@ -1248,6 +1487,49 @@ export default function DeliveryNote({ user }) {
     form.setFieldsValue({ date: displayDate });
   }, []);
 
+  useEffect(() => {
+    if (isPurchaseModalVisible) {
+      const values = form.getFieldsValue();
+
+      const preservedFields = {
+        deliveryNumber: values.deliveryNumber,
+        date: values.date,
+      };
+
+      // Reset data and input rows
+      setDataSource([]);
+      setInputRow({
+        partNumber: "",
+        itemDescription: "",
+        quantity: "",
+        unit: "",
+        stockInHand: "",
+        location: "AE",
+      });
+
+      // Clear specific fields but keep delivery number & date
+      // form.setFields([
+      //   { name: "customername", value: undefined },
+      //   { name: "address", value: undefined },
+      //   { name: "modeOfDelivery", value: undefined },
+      //   { name: "reference", value: undefined },
+      // ]);
+
+      // form.setFieldsValue(preservedFields);
+
+      form.setFieldsValue({
+        customername: undefined,
+        address: undefined,
+        modeOfDelivery: undefined,
+        reference: undefined,
+        ...preservedFields,
+      });
+
+      // Re-enable Add/Delete buttons
+      setIsPrefilledFromPurchase(false);
+    }
+  }, [isPurchaseModalVisible]);
+
   const handleAdd = () => {
     if (dataSource.length >= 50) {
       notification.warning({
@@ -1290,6 +1572,7 @@ export default function DeliveryNote({ user }) {
     const newData = {
       key: Date.now(),
       serialNumber: dataSource.length + 1,
+      location: inputRow.location,
       partNumber,
       itemDescription,
       quantity,
@@ -1307,6 +1590,7 @@ export default function DeliveryNote({ user }) {
 
     setInputRow({
       partNumber: "",
+      location: "AE",
       itemDescription: "",
       quantity: "",
       stockInHand: "",
@@ -1954,8 +2238,7 @@ export default function DeliveryNote({ user }) {
     }
     if (loading) return;
     setLoading(true);
-setIsDeliveryNoteSubmitted(true);
-
+    setIsDeliveryNoteSubmitted(true);
 
     try {
       // const formattedDate =
@@ -1999,7 +2282,9 @@ setIsDeliveryNoteSubmitted(true);
           dataSource,
           false
         );
-        doc.save(`DeliveryNote_${confirmedDeliveryNumber}.pdf`);
+        const cleanPR = String(confirmedDeliveryNumber).replace(/^'/, "");
+
+        doc.save(`DeliveryNote_${cleanPR}.pdf`);
       } catch (pdfErr) {
         // console.error("PDF generation failed:", pdfErr);
         throw new Error("Form saved, but PDF generation failed.");
@@ -2031,8 +2316,18 @@ setIsDeliveryNoteSubmitted(true);
       });
 
       const uploadResult = await uploadRes.json();
-      if (!uploadResult.success)
-        throw new Error(uploadResult.message || "PDF upload failed.");
+      // if (!uploadResult.success)
+      //   throw new Error(uploadResult.message || "PDF upload failed.");
+      if (!uploadResult.success) {
+        notification.error({
+          message: "PDF Upload Error",
+          description: uploadResult.message, // shows backend message
+        });
+
+        setLoading(false);
+        setIsDeliveryNoteSubmitted(false);
+        return; // STOP — do not continue
+      }
 
       notification.success({
         message: "Success",
@@ -2075,12 +2370,13 @@ setIsDeliveryNoteSubmitted(true);
         quantity: "",
         unit: "",
         stockInHand: "",
+        location: "AE",
       });
 
       // Reset AntD form fields
       form.resetFields();
       setIsPrefilledFromPurchase(false);
-      setIsDeliveryNoteSubmitted(false);
+      // setIsDeliveryNoteSubmitted(false);
 
       // Reset delivery date
       // const nowUTC = new Date();
@@ -2108,9 +2404,10 @@ setIsDeliveryNoteSubmitted(true);
 
       // Fetch new delivery number etc.
       // await fetchInitialData();
-      setTimeout(() => {
-        fetchInitialData(); // Refresh customers, delivery number, items, etc.
-      }, 500);
+      // setTimeout(() => {
+      //   fetchInitialData(); // Refresh customers, delivery number, items, etc.
+      // }, 500);
+      await fetchInitialData();
     } catch (err) {
       // console.error("Submit error:", err);
       notification.error({
@@ -2119,6 +2416,7 @@ setIsDeliveryNoteSubmitted(true);
       });
     } finally {
       setLoading(false);
+      setIsDeliveryNoteSubmitted(false);
     }
   };
 
@@ -2295,7 +2593,30 @@ setIsDeliveryNoteSubmitted(true);
             setSelectedRow(record);
 
             setIsModalVisible(true);
-            
+
+            const preserved = {
+              deliveryNumber: form.getFieldValue("deliveryNumber"),
+              date: form.getFieldValue("date"),
+              location: form.getFieldValue("location"),
+            };
+
+            form.resetFields();
+
+            // ✅ Restore required fields
+            form.setFieldsValue(preserved);
+
+            // ✅ Clear delivery note table and item inputs
+            setDataSource([]);
+            setInputRow({
+              partNumber: "",
+              itemDescription: "",
+              quantity: "",
+              unit: "",
+              stockInHand: "",
+              location: preserved.location || "AE",
+            });
+
+            setIsPrefilledFromPurchase(false);
           }}
           disabled={isDeliveryNoteSubmitted}
         >
@@ -2434,106 +2755,113 @@ setIsDeliveryNoteSubmitted(true);
     });
   };
 
-const handlePurchaseRequestExport = () => {
-  if (!purchaseSortedData || purchaseSortedData.length === 0) {
-    notification.warning({
-      message: "Export Failed",
-      description: "No purchase request data available to export.",
+  const handlePurchaseRequestExport = () => {
+    if (!purchaseSortedData || purchaseSortedData.length === 0) {
+      notification.warning({
+        message: "Export Failed",
+        description: "No purchase request data available to export.",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+    const fileName = `Purchase_Request_Report_${now}.xlsx`;
+
+    const headerStyle = {
+      font: { bold: true, sz: 12 },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border: getAllBorders(),
+      fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+    };
+
+    const header = [
+      { v: "Purchase Request Number", t: "s", s: headerStyle },
+      { v: "Date", t: "s", s: headerStyle },
+      { v: "Customer Name", t: "s", s: headerStyle },
+      { v: "Address", t: "s", s: headerStyle },
+      { v: "Serial Number", t: "s", s: headerStyle },
+      { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Item Description", t: "s", s: headerStyle },
+      { v: "Quantity", t: "s", s: headerStyle },
+      { v: "Unit", t: "s", s: headerStyle },
+      { v: "Stock In Hand", t: "s", s: headerStyle },
+      { v: "Request Created By", t: "s", s: headerStyle },
+      { v: "Requested Date & Time", t: "s", s: headerStyle },
+      { v: "Approved/Denied By", t: "s", s: headerStyle },
+      { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
+      { v: "Status", t: "s", s: headerStyle },
+      { v: "Note", t: "s", s: headerStyle },
+    ];
+
+    const data = [];
+
+    // ✅ Sort ascending by Purchase Request Number (or Date)
+    const sortedAsc = [...purchaseSortedData].sort((a, b) => {
+      // Sort by Purchase Request Number if it has prefix PR000X
+      const numA = parseInt(
+        a["Purchase Request Number"]?.replace(/\D/g, "") || 0
+      );
+      const numB = parseInt(
+        b["Purchase Request Number"]?.replace(/\D/g, "") || 0
+      );
+      return numA - numB;
+    });
+
+    // Now generate data rows
+    sortedAsc.forEach((item) => {
+      (item.partsUsed || []).forEach((part) => {
+        data.push([
+          {
+            v: item["Purchase Request Number"],
+            s: { border: getAllBorders() },
+          },
+          { v: item["Date"], s: { border: getAllBorders() } },
+          { v: item["Customer Name"], s: { border: getAllBorders() } },
+          { v: item["Address"], s: { border: getAllBorders() } },
+          { v: part["Serial Number"], s: { border: getAllBorders() } },
+          { v: part["Part Number"], s: { border: getAllBorders() } },
+          { v: part["Item Description"], s: { border: getAllBorders() } },
+          { v: part["Quantity"], s: { border: getAllBorders() } },
+          { v: part["Unit"], s: { border: getAllBorders() } },
+          { v: part["Stock In Hand"], s: { border: getAllBorders() } },
+          { v: item["Request Created By"], s: { border: getAllBorders() } },
+          { v: item["Requested Date & Time"], s: { border: getAllBorders() } },
+          { v: item["Approved/Denied By"], s: { border: getAllBorders() } },
+          {
+            v: item["Approved/Denied Date & Time"],
+            s: { border: getAllBorders() },
+          },
+          { v: item["Status"], s: { border: getAllBorders() } },
+          { v: item["Note"] || "-", s: { border: getAllBorders() } },
+        ]);
+      });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+    const colWidths = header.map((_, colIndex) => {
+      let maxLength = 0;
+      [header, ...data].forEach((row) => {
+        const cell = row[colIndex];
+        const value = cell && cell.v != null ? String(cell.v) : "";
+        maxLength = Math.max(maxLength, value.length);
+      });
+      return { wch: Math.min(maxLength * 1.8, 60) };
+    });
+    ws["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
+
+    XLSX.writeFile(wb, fileName);
+
+    notification.success({
+      message: "Export Successful",
+      description: `Purchase Request report downloaded successfully.`,
       placement: "bottomRight",
     });
-    return;
-  }
-
-  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
-  const fileName = `Purchase_Request_Report_${now}.xlsx`;
-
-  const headerStyle = {
-    font: { bold: true, sz: 12 },
-    alignment: { horizontal: "left", vertical: "center", wrapText: true },
-    border: getAllBorders(),
-    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
   };
-
-  const header = [
-    { v: "Purchase Request Number", t: "s", s: headerStyle },
-    { v: "Date", t: "s", s: headerStyle },
-    { v: "Customer Name", t: "s", s: headerStyle },
-    { v: "Address", t: "s", s: headerStyle },
-    { v: "Serial Number", t: "s", s: headerStyle },
-    { v: "Part Number", t: "s", s: headerStyle },
-    { v: "Item Description", t: "s", s: headerStyle },
-    { v: "Quantity", t: "s", s: headerStyle },
-    { v: "Unit", t: "s", s: headerStyle },
-    { v: "Stock In Hand", t: "s", s: headerStyle },
-    { v: "Request Created By", t: "s", s: headerStyle },
-    { v: "Requested Date & Time", t: "s", s: headerStyle },
-    { v: "Approved/Denied By", t: "s", s: headerStyle },
-    { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
-    { v: "Status", t: "s", s: headerStyle },
-    { v: "Note", t: "s", s: headerStyle },
-  ];
-
-  const data = [];
-
-  // ✅ Sort ascending by Purchase Request Number (or Date)
-  const sortedAsc = [...purchaseSortedData].sort((a, b) => {
-    // Sort by Purchase Request Number if it has prefix PR000X
-    const numA = parseInt(a["Purchase Request Number"]?.replace(/\D/g, "") || 0);
-    const numB = parseInt(b["Purchase Request Number"]?.replace(/\D/g, "") || 0);
-    return numA - numB;
-  });
-
-  // Now generate data rows
-  sortedAsc.forEach((item) => {
-    (item.partsUsed || []).forEach((part) => {
-      data.push([
-        { v: item["Purchase Request Number"], s: { border: getAllBorders() } },
-        { v: item["Date"], s: { border: getAllBorders() } },
-        { v: item["Customer Name"], s: { border: getAllBorders() } },
-        { v: item["Address"], s: { border: getAllBorders() } },
-        { v: part["Serial Number"], s: { border: getAllBorders() } },
-        { v: part["Part Number"], s: { border: getAllBorders() } },
-        { v: part["Item Description"], s: { border: getAllBorders() } },
-        { v: part["Quantity"], s: { border: getAllBorders() } },
-        { v: part["Unit"], s: { border: getAllBorders() } },
-        { v: part["Stock In Hand"], s: { border: getAllBorders() } },
-        { v: item["Request Created By"], s: { border: getAllBorders() } },
-        { v: item["Requested Date & Time"], s: { border: getAllBorders() } },
-        { v: item["Approved/Denied By"], s: { border: getAllBorders() } },
-        { v: item["Approved/Denied Date & Time"], s: { border: getAllBorders() } },
-        { v: item["Status"], s: { border: getAllBorders() } },
-        { v: item["Note"] || "-", s: { border: getAllBorders() } },
-      ]);
-    });
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-
-  const colWidths = header.map((_, colIndex) => {
-    let maxLength = 0;
-    [header, ...data].forEach((row) => {
-      const cell = row[colIndex];
-      const value = cell && cell.v != null ? String(cell.v) : "";
-      maxLength = Math.max(maxLength, value.length);
-    });
-    return { wch: Math.min(maxLength * 1.8, 60) };
-  });
-  ws["!cols"] = colWidths;
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
-
-  XLSX.writeFile(wb, fileName);
-
-  notification.success({
-    message: "Export Successful",
-    description: `Purchase Request report downloaded successfully.`,
-    placement: "bottomRight",
-  });
-};
-
-
-
 
   // Border helper
   const getAllBorders = () => ({
@@ -3555,6 +3883,9 @@ const handlePurchaseRequestExport = () => {
     const rightX = 125; // Right column start X
 
     doc.setFontSize(10);
+    const sanitizedDeliveryNumber = String(formValues.deliveryNumber || "")
+      .trim()
+      .replace(/'/g, "");
 
     // Wrap Deliver To lines (left column)
     const deliverToLines = [
@@ -3575,11 +3906,7 @@ const handlePurchaseRequestExport = () => {
       doc.setFontSize(30);
       doc.text("Delivery Note", rightX, 20);
       doc.setFontSize(13);
-      doc.text(
-        `Delivery Note Number: ${formValues.deliveryNumber || ""}`,
-        rightX,
-        30
-      );
+      doc.text(`Delivery Note Number: ${sanitizedDeliveryNumber}`, rightX, 30);
       doc.text(`Delivery Date: ${formValues.date || ""}`, rightX, 36);
 
       const startY = 50;
@@ -3718,7 +4045,7 @@ const handlePurchaseRequestExport = () => {
     }
 
     if (saveLocally) {
-      doc.save(`DeliveryNote_${formValues.deliveryNumber || "Unknown"}.pdf`);
+      doc.save(`DeliveryNote_${sanitizedDeliveryNumber || "Unknown"}.pdf`);
     }
     return doc;
   };
@@ -3757,6 +4084,50 @@ const handlePurchaseRequestExport = () => {
       });
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadPurchasePDF = async (row) => {
+    if (!row || !row["Purchase Request Number"]) {
+      notification.error({
+        message: "Error",
+        description: "Purchase request number not found.",
+      });
+      return;
+    }
+
+    try {
+      setPurchaseRequestDownloading(true);
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "downloadPurchaseRequestPDF",
+          purchaseRequestNumber: row["Purchase Request Number"],
+        }),
+      });
+
+      const result = await res.json();
+      if (!result.success) {
+        notification.error({
+          message: "Error",
+          description: result.message || "PDF not found.",
+        });
+        return;
+      }
+
+      // Convert Base64 to blob
+      const link = document.createElement("a");
+      link.href = `data:application/pdf;base64,${result.pdfBase64}`;
+      link.download = result.fileName || "PurchaseRequest.pdf";
+      link.click();
+    } catch (err) {
+      notification.error({
+        message: "Download Failed",
+        description: err.message,
+      });
+    } finally {
+      setPurchaseRequestDownloading(false);
     }
   };
 
@@ -3873,9 +4244,19 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       address: purchaseSelectedRow["Address"] || "",
       reference: purchaseSelectedRow["Purchase Request Number"] || "",
     });
+    console.log("📍 Purchase Request Location:", purchaseSelectedRow.Location);
 
+    setInputRow((prev) => ({
+      ...prev,
+      location: purchaseSelectedRow?.Location || "MEA",
+    }));
+    console.log("Input Row After Setting Location:", {
+      ...inputRow,
+      location: purchaseSelectedRow?.Location,
+    });
     // Get parts list from the purchase request
     const parts = purchaseSelectedRow.partsUsed || [];
+    console.log("🧩 Parts From Purchase Request:", parts);
 
     // --- Fetch live stock from backend ---
     let liveStock = {};
@@ -3886,6 +4267,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         body: new URLSearchParams({ action: "getAllStockData" }),
       });
       const json = await res.json();
+      console.log("📦 Live Stock Returned From Apps Script:", json);
+
       if (json.success && json.data) {
         liveStock = json.data; // { partNumber: { stockInHand, unit } }
       }
@@ -3896,7 +4279,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
     // --- Match each part with its live stock ---
     const items = parts.map((part, idx) => {
       const partNo = part["Part Number"];
-      const stockInfo = liveStock[partNo] || {
+      const stockInfo = liveStock[partNo]?.[purchaseSelectedRow.Location] || {
         stockInHand: 0,
         unit: part["Unit"],
       };
@@ -3910,11 +4293,14 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         unit: stockInfo.unit || part["Unit"] || "",
         stockInHand: stockInfo.stockInHand?.toString() || "0",
         stockUnit: stockInfo.unit || part["Unit"] || "",
+        location: purchaseSelectedRow?.Location || "MEA", // ← Optional (recommended)
       };
     });
 
     // --- Update the Delivery Note table ---
     setDataSource(items);
+    console.log("📋 Final Table Rows:", items);
+
     setStockMap(liveStock);
     setIsPrefilledFromPurchase(true);
     notification.success({
@@ -3953,8 +4339,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
           message: "Rejected",
           description: `Purchase Request ${purchaseRequestNumber} marked as Denied.`,
         });
-        setIsPurchaseModalVisible(false);
         await fetchPurchaseRequestData(); // refresh table
+        setIsPurchaseModalVisible(false);
       } else {
         notification.error({
           message: "Error",
@@ -3969,6 +4355,58 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       });
     }
   };
+
+  // const handleClearInput = () => {
+  //   const values = form.getFieldsValue();
+  //   const isEmpty = Object.values(values).every(
+  //     (value) =>
+  //       value === undefined ||
+  //       value === null ||
+  //       value === "" ||
+  //       (Array.isArray(value) && value.length === 0)
+  //   );
+
+  //   if (isEmpty) {
+  //     notification.info({
+  //       message: "Nothing to clear",
+  //       description: "All fields are already empty.",
+  //     });
+  //     return;
+  //   }
+
+  //   const preservedFields = {
+  //     deliveryNumber: values.deliveryNumber,
+  //     date: values.date,
+  //   };
+
+  //   // Reset data and input rows
+  //   setDataSource([]);
+  //   setInputRow({
+  //     partNumber: "",
+  //     itemDescription: "",
+  //     quantity: "",
+  //     unit: "",
+  //     stockInHand: "",
+  //   });
+
+  //   // Clear specific fields but keep delivery number & date
+  //   form.setFields([
+  //     { name: "customername", value: undefined },
+  //     { name: "address", value: undefined },
+  //     { name: "modeOfDelivery", value: undefined },
+  //     { name: "reference", value: undefined },
+  //   ]);
+
+  //   form.setFieldsValue(preservedFields);
+
+  //   // Re-enable Add/Delete buttons
+  //   setIsPrefilledFromPurchase(false);
+
+  //   notification.success({
+  //     message: "Success",
+  //     description: "Form cleared successfully!",
+  //   });
+  // };
 
   const handleClearInput = () => {
     const values = form.getFieldsValue();
@@ -3993,7 +4431,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       date: values.date,
     };
 
-    // Reset data and input rows
+    // Reset table data
     setDataSource([]);
     setInputRow({
       partNumber: "",
@@ -4001,19 +4439,18 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       quantity: "",
       unit: "",
       stockInHand: "",
+      location: "AE",
     });
 
-    // Clear specific fields but keep delivery number & date
-    form.setFields([
-      { name: "customername", value: undefined },
-      { name: "address", value: undefined },
-      { name: "modeOfDelivery", value: undefined },
-      { name: "reference", value: undefined },
-    ]);
+    // Correct API to clear form fields
+    form.setFieldsValue({
+      customername: undefined,
+      address: undefined,
+      modeOfDelivery: undefined,
+      reference: undefined,
+      ...preservedFields, // keep delivery number and date safe
+    });
 
-    form.setFieldsValue(preservedFields);
-
-    // Re-enable Add/Delete buttons
     setIsPrefilledFromPurchase(false);
 
     notification.success({
@@ -4208,8 +4645,14 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                 ? "Fetching..."
                                 : "No results found"
                             }
+                            // filterOption={(input, option) =>
+                            //   option.children
+                            //     .toLowerCase()
+                            //     .includes(input.toLowerCase())
+                            // }
+
                             filterOption={(input, option) =>
-                              option.children
+                              String(option.children)
                                 .toLowerCase()
                                 .includes(input.toLowerCase())
                             }
@@ -4300,7 +4743,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                         </div>
                         <Form.Item>
                           <Table
-                            columns={columns}
+                            // columns={columns}
+                            columns={filteredColumns}
                             dataSource={displayData}
                             pagination={{
                               pageSize: 10,
@@ -4790,7 +5234,10 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                 </div> */}
                 <Modal
                   open={isPurchaseModalVisible}
-                  onCancel={() => setIsPurchaseModalVisible(false)}
+                  onCancel={() => {
+                    setIsPurchaseModalVisible(false);
+                    setRejectionNote("");
+                  }}
                   footer={null}
                   width={1200}
                   style={{ top: "5px" }}
@@ -5209,7 +5656,6 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             bordered
                             scroll={{ x: "max-content" }}
                             size="middle"
-
                           />
                         </div>
                       </div>
@@ -5271,6 +5717,20 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               Create Delivery Note
                             </Button>
                           </Tooltip>
+
+                          <Button
+                            className="submitButton ms-1"
+                            size="large"
+                            loading={purchaseRequestDownloading}
+                            disabled={purchaseRequestDownloading}
+                            onClick={() =>
+                              handleDownloadPurchasePDF(purchaseSelectedRow)
+                            }
+                          >
+                            {purchaseRequestDownloading
+                              ? "Downloading PDF"
+                              : "Download PDF"}
+                          </Button>
 
                           {/* Close */}
 

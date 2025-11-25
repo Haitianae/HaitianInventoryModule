@@ -122,17 +122,19 @@ export default function PurchaseRequest({ user }) {
     stockInHand: "",
     unit: "",
     stockUnit: "",
+    location: "MEA",
   });
   const [downloading, setDownloading] = useState(false);
   const [isStockLoading, setIsStockLoading] = useState(false);
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
   const [customerList, setCustomerList] = useState([]);
   const access = user?.access?.["Purchase Request"] || "No Access";
-
-  
-
+  const [partMap, setPartMap] = useState({});
+  const [descMap, setDescMap] = useState({});
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+
+    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -160,13 +162,16 @@ export default function PurchaseRequest({ user }) {
       const [requestNum, customers, descriptions] = await Promise.allSettled([
         fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
         fetchWithRetry({ action: "getCustomerDetails" }),
-        fetchWithRetry({ action: "getAllDescriptionsWithPartNumbers" }),
+        fetchWithRetry({
+          action: "getAllDescriptionsWithPartNumbers",
+          location: "MEA",
+        }),
       ]);
 
       // console.log("✅ Promise.allSettled result:");
       // console.log("• requestNum:", requestNum);
       // console.log("• customers:", customers);
-      // console.log("• descriptions:", descriptions);
+      console.log("• descriptions:", descriptions);
 
       if (requestNum.status === "fulfilled" && requestNum.value) {
         // console.log(
@@ -191,9 +196,55 @@ export default function PurchaseRequest({ user }) {
         setCustomerList(customers.value.customers || []);
       }
 
+      // if (descriptions.status === "fulfilled" && descriptions.value) {
+      //   setDescriptionList(descriptions.value.items || []);
+      // }
+
       if (descriptions.status === "fulfilled" && descriptions.value) {
-        setDescriptionList(descriptions.value.items || []);
+        const items = descriptions.value.items || [];
+
+        const filtered = items.filter(
+          (item) => !item.location || item.location === "MEA"
+        );
+
+        setDescriptionList(filtered);
+
+        const mapped = {};
+
+        for (let i = filtered.length - 1; i >= 0; i--) {
+          const item = filtered[i];
+
+          if (!mapped[item.partNumber]) {
+            mapped[item.partNumber] = {
+              description: item.description,
+              unit: item.unit,
+              location: item.location,
+            };
+          }
+        }
+
+        setPartMap(mapped);
+
+        // const descMapTemp = {};
+        // filtered.forEach((item) => {
+        //   descMapTemp[item.description] = item.partNumber;
+        // });
+        // setDescMap(descMapTemp);
+
+        const descMapTemp = {};
+
+        filtered.forEach((item) => {
+          if (!descMapTemp[item.description]) {
+            descMapTemp[item.description] = [];
+          }
+          descMapTemp[item.description].push(item.partNumber);
+        });
+
+        setDescMap(descMapTemp);
+
+        console.log("🔍 Final Part Mapping:", mapped);
       }
+
       await fetchPurchaseRequestData();
     } catch (err) {
       notification.error({
@@ -244,12 +295,17 @@ export default function PurchaseRequest({ user }) {
             body: new URLSearchParams({
               action: "getStockForPartNumber",
               partNumber: inputRow.partNumber,
+              location: "MEA",
               category: "", // update if needed
             }),
             signal: controller.signal,
           });
-
+           if (!res.ok) {
+          throw new Error("Network error");
+        }
           const result = await res.json();
+          console.log("Backend Stock Response:", result);
+
           if (result.success) {
             setInputRow((prev) => ({
               ...prev,
@@ -280,7 +336,36 @@ export default function PurchaseRequest({ user }) {
       clearTimeout(debounceTimer);
       controller.abort();
     };
-  }, []);
+  }, [inputRow.partNumber]);
+
+  useEffect(() => {
+    if (!inputRow.itemDescription) return;
+
+    const matched = descMap[inputRow.itemDescription] || [];
+
+    if (matched.length === 0) return;
+
+    // If no part selected yet OR selected part not in matched list → force select first
+    if (!inputRow.partNumber || !matched.includes(inputRow.partNumber)) {
+      const autoPart = matched[0];
+      const selected = partMap[autoPart];
+      const cachedStock = stockMap[autoPart] || { stockInHand: 0, unit: "" };
+
+      setInputRow((prev) => ({
+        ...prev,
+        partNumber: autoPart,
+        unit: selected?.unit || "",
+        stockInHand: safeToString(cachedStock.stockInHand),
+        stockUnit: selected?.unit || "",
+      }));
+    }
+  }, [inputRow.itemDescription, descMap, partMap, stockMap]);
+
+  const getHighlightedParts = () => {
+    if (!inputRow.itemDescription) return [];
+    if (!descMap || typeof descMap !== "object") return [];
+    return descMap[inputRow.itemDescription] || [];
+  };
 
   const columns = [
     {
@@ -298,50 +383,399 @@ export default function PurchaseRequest({ user }) {
           </Tooltip>
         ),
     },
+    {
+      title: "Location",
+      dataIndex: "location",
+      width: 120,
+      render: (_, record) =>
+        record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
+    },
+
+    // {
+    //   title: "Part Number",
+    //   dataIndex: "partNumber",
+    //   width: 250,
+    //   ellipsis: true,
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Tooltip>
+    //         <Select
+    //           showSearch
+    //           placeholder="Select or enter part number"
+    //           value={inputRow.partNumber || undefined}
+    //           loading={loadingDescription}
+    //           disabled={loadingDescription}
+    //           notFoundContent={
+    //             loadingDescription ? "Fetching..." : "No results found"
+    //           }
+    //           filterOption={(input, option) =>
+    //             option.children.toLowerCase().includes(input.toLowerCase())
+    //           }
+    //           onChange={(value) => {
+    //             const selected = descriptionList.find(
+    //               (item) => item.partNumber === value
+    //             );
+    //             const cachedStock = stockMap[value] || {
+    //               stockInHand: 0,
+    //               unit: "",
+    //             };
+
+    //             // Immediate UI update from cache
+    //             setInputRow((prev) => ({
+    //               ...prev,
+    //               partNumber: value,
+    //               itemDescription:
+    //                 selected?.description || prev.itemDescription,
+    //               unit: cachedStock.unit,
+    //               stockInHand: safeToString(cachedStock.stockInHand),
+    //               stockUnit: cachedStock.unit,
+    //             }));
+
+    //             const currentPart = value;
+
+    //             // 🔄 Background fetch
+    //             (async () => {
+    //               setStockLoading(true);
+    //               try {
+    //                 const res = await fetch(GAS_URL, {
+    //                   method: "POST",
+    //                   headers: {
+    //                     "Content-Type": "application/x-www-form-urlencoded",
+    //                   },
+    //                   body: new URLSearchParams({
+    //                     action: "getStockForPartNumber",
+    //                     partNumber: currentPart,
+    //                     location: "MEA",
+    //                   }),
+    //                 });
+    //                 const result = await res.json();
+
+    //                 // ✅ Only update if user is still on the same part
+    //                 setInputRow((prev) => {
+    //                   if (prev.partNumber !== currentPart) {
+    //                     return prev; // ignore outdated response
+    //                   }
+    //                   return {
+    //                     ...prev,
+    //                     // stockInHand: result.stockInHand?.toString() || "0",
+    //                     stockInHand: safeToString(result.stockInHand),
+
+    //                     stockUnit: result.unit || "",
+    //                     unit: result.unit || prev.unit,
+    //                   };
+    //                 });
+
+    //                 setStockMap((prev) => ({
+    //                   ...prev,
+    //                   [currentPart]: {
+    //                     stockInHand: result.stockInHand,
+    //                     unit: result.unit,
+    //                   },
+    //                 }));
+    //               } catch (err) {
+    //                 // console.error("Live stock fetch failed", err);
+    //               } finally {
+    //                 setStockLoading(false); // stop loading
+    //               }
+    //             })();
+    //           }}
+    //           onSearch={(value) => {
+    //             setInputRow((prev) => ({
+    //               ...prev,
+    //               partNumber: value,
+    //             }));
+    //           }}
+    //           style={{ width: "100%" }}
+    //         >
+    //           {[...new Set(descriptionList.map((item) => item.partNumber))]
+    //             .filter((p) => p) // remove empty
+    //             .map((part, idx) => (
+    //               <Select.Option key={`pn-${idx}`} value={part}>
+    //                 {part}
+    //               </Select.Option>
+    //             ))}
+    //         </Select>
+    //       </Tooltip>
+    //     ) : (
+    //       <Tooltip title={record.partNumber}>
+    //         <span>{record.partNumber}</span>
+    //       </Tooltip>
+    //     ),
+    // },
+    // {
+    //   title: "Item Description",
+    //   dataIndex: "itemDescription",
+    //   ellipsis: true,
+    //   width: 500,
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Tooltip>
+    //         <Select
+    //           showSearch
+    //           // value={inputRow.itemDescription}
+    //           value={inputRow.itemDescription || undefined}
+    //           loading={loadingDescription}
+    //           disabled={loadingDescription}
+    //           notFoundContent={
+    //             loadingDescription ? "Fetching..." : "No results found"
+    //           }
+    //           placeholder="Select or enter description"
+    //           filterOption={(input, option) =>
+    //             option.children.toLowerCase().includes(input.toLowerCase())
+    //           }
+    //           onChange={(value) => {
+    //             const selected = descriptionList.find(
+    //               (item) => item.description === value
+    //             );
+    //             const partNumber = selected?.partNumber || "";
+    //             const cachedStock = stockMap[partNumber] || {
+    //               stockInHand: 0,
+    //               unit: "",
+    //             };
+
+    //             // Immediate UI update from cache
+    //             setInputRow((prev) => ({
+    //               ...prev,
+    //               itemDescription: value,
+    //               partNumber,
+    //               unit: cachedStock.unit,
+    //               // stockInHand: cachedStock.stockInHand.toString(),
+    //               stockInHand: safeToString(cachedStock.stockInHand),
+    //               stockUnit: cachedStock.unit,
+    //             }));
+
+    //             // Save the part number being fetched
+    //             const currentPart = partNumber;
+
+    //             // 🔄 Background live fetch
+    //             (async () => {
+    //               setStockLoading(true);
+    //               try {
+    //                 const res = await fetch(GAS_URL, {
+    //                   method: "POST",
+    //                   headers: {
+    //                     "Content-Type": "application/x-www-form-urlencoded",
+    //                   },
+    //                   body: new URLSearchParams({
+    //                     action: "getStockForPartNumber",
+    //                     partNumber: currentPart,
+    //                     location: "MEA",
+    //                   }),
+    //                 });
+    //                 const result = await res.json();
+
+    //                 // ✅ Only update if still on the same part
+    //                 setInputRow((prev) => {
+    //                   if (prev.partNumber !== currentPart) return prev; // ignore outdated
+    //                   return {
+    //                     ...prev,
+    //                     // stockInHand: result.stockInHand?.toString() || "0",
+    //                     stockInHand: safeToString(result.stockInHand),
+    //                     stockUnit: result.unit || "",
+    //                     unit: result.unit || prev.unit,
+    //                   };
+    //                 });
+
+    //                 setStockMap((prev) => ({
+    //                   ...prev,
+    //                   [currentPart]: {
+    //                     stockInHand: result.stockInHand,
+    //                     unit: result.unit,
+    //                   },
+    //                 }));
+    //               } catch (err) {
+    //                 // console.error("Live stock fetch failed (description)", err);
+    //               } finally {
+    //                 setStockLoading(false);
+    //               }
+    //             })();
+    //           }}
+    //           style={{ width: "100%" }}
+    //         >
+    //           {[...new Set(descriptionList.map((item) => item.description))]
+    //             .filter((d) => d)
+    //             .map((desc, idx) => (
+    //               <Select.Option key={`desc-${idx}`} value={desc}>
+    //                 {desc}
+    //               </Select.Option>
+    //             ))}
+    //         </Select>
+    //       </Tooltip>
+    //     ) : (
+    //       <Tooltip title={record.itemDescription}>
+    //         <span className="truncate-text">
+    //           {record.itemDescription?.length > 150
+    //             ? `${record.itemDescription.slice(0, 150)}...`
+    //             : record.itemDescription}
+    //         </span>
+    //       </Tooltip>
+    //     ),
+    // },
+
+    //Working code
+    // {
+    //   title: "Part Number",
+    //   dataIndex: "partNumber",
+    //   width: 250,
+    //   ellipsis: true,
+    //   render: (_, record) =>
+    //     record.isInput ? (
+    //       <Tooltip>
+    //         <Select
+    //           showSearch
+    //           placeholder="Select part number"
+    //           value={inputRow.partNumber || undefined}
+    //           loading={loadingDescription}
+    //           disabled={loadingDescription}
+    //           filterOption={(input, option) =>
+    //             option.children.toLowerCase().includes(input.toLowerCase())
+    //           }
+    //           // onChange={(value) => {
+    //           //   const selected = partMap[value];
+
+    //           //   console.log("🔍 Part Selected:", selected);
+
+    //           //   setInputRow((prev) => ({
+    //           //     ...prev,
+    //           //     partNumber: value,
+    //           //     itemDescription: selected?.description || "",
+    //           //     unit: selected?.unit || "",
+    //           //     stockUnit: selected?.unit || "",
+    //           //   }));
+    //           // }}
+    //           onChange={(value) => {
+    //             const selected = partMap[value];
+    //             const cachedStock = stockMap[value] || {
+    //               stockInHand: 0,
+    //               unit: "",
+    //             };
+
+    //             setInputRow((prev) => ({
+    //               ...prev,
+    //               partNumber: value,
+    //               itemDescription:
+    //                 selected?.description || prev.itemDescription,
+    //               unit: selected?.unit,
+    //               stockInHand: safeToString(cachedStock.stockInHand),
+    //               stockUnit: selected?.unit,
+    //             }));
+
+    //             const currentPart = value;
+
+    //             // 🔄 Background live stock fetch (RESTORED FROM PREVIOUS CODE)
+    //             (async () => {
+    //               setStockLoading(true);
+    //               try {
+    //                 const res = await fetch(GAS_URL, {
+    //                   method: "POST",
+    //                   headers: {
+    //                     "Content-Type": "application/x-www-form-urlencoded",
+    //                   },
+    //                   body: new URLSearchParams({
+    //                     action: "getStockForPartNumber",
+    //                     partNumber: currentPart,
+    //                     location: "MEA",
+    //                   }),
+    //                 });
+
+    //                 const result = await res.json();
+
+    //                 setInputRow((prev) => {
+    //                   if (prev.partNumber !== currentPart) return prev; // ignore outdated
+    //                   return {
+    //                     ...prev,
+    //                     stockInHand: safeToString(result.stockInHand),
+    //                     stockUnit: selected?.unit || prev.stockUnit, // trust frontend mapping
+    //                     unit: selected?.unit || prev.unit,
+    //                   };
+    //                 });
+
+    //                 setStockMap((prev) => ({
+    //                   ...prev,
+    //                   [currentPart]: {
+    //                     // stockInHand: result.stockInHand,
+    //                     // unit: result.unit,
+    //                     stockUnit: selected?.unit,
+    //                   },
+    //                 }));
+    //               } finally {
+    //                 setStockLoading(false);
+    //               }
+    //             })();
+    //           }}
+    //           style={{ width: "100%" }}
+    //         >
+    //           {Object.keys(partMap).map((part, i) => (
+    //             <Select.Option key={i} value={part}>
+    //               {part}
+    //             </Select.Option>
+    //           ))}
+    //         </Select>
+    //       </Tooltip>
+    //     ) : (
+    //       <Tooltip title={record.partNumber}>
+    //         <span>{record.partNumber}</span>
+    //       </Tooltip>
+    //     ),
+    // },
 
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
+      render: (_, record) => {
+        if (!record.isInput) {
+          return (
+            <Tooltip title={record.partNumber}>
+              <span>{record.partNumber}</span>
+            </Tooltip>
+          );
+        }
+
+        const matchedParts = getHighlightedParts();
+        const sortedParts = [
+          ...Object.keys(partMap).filter((p) => matchedParts.includes(p)),
+          ...Object.keys(partMap).filter((p) => !matchedParts.includes(p)),
+        ];
+
+        return (
           <Tooltip>
             <Select
               showSearch
-              placeholder="Select or enter part number"
+              placeholder="Select part number"
               value={inputRow.partNumber || undefined}
               loading={loadingDescription}
               disabled={loadingDescription}
-              notFoundContent={
-                loadingDescription ? "Fetching..." : "No results found"
-              }
+              // filterOption={(input, option) =>
+              //   option.children.toLowerCase().includes(input.toLowerCase())
+              // }
               filterOption={(input, option) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
+                String(option.children)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
               onChange={(value) => {
-                const selected = descriptionList.find(
-                  (item) => item.partNumber === value
-                );
+                const selected = partMap[value];
                 const cachedStock = stockMap[value] || {
                   stockInHand: 0,
                   unit: "",
                 };
 
-                // Immediate UI update from cache
+                // ✅ Immediate UI update (FAST)
                 setInputRow((prev) => ({
                   ...prev,
                   partNumber: value,
                   itemDescription:
                     selected?.description || prev.itemDescription,
-                  unit: cachedStock.unit,
+                  unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
-                  stockUnit: cachedStock.unit,
+                  stockUnit: selected?.unit,
                 }));
 
                 const currentPart = value;
 
-                // 🔄 Background fetch
+                // ✅ RESTORED: Live stock fetch (CRITICAL PART)
                 (async () => {
                   setStockLoading(true);
                   try {
@@ -353,21 +787,18 @@ export default function PurchaseRequest({ user }) {
                       body: new URLSearchParams({
                         action: "getStockForPartNumber",
                         partNumber: currentPart,
+                        location: "MEA",
                       }),
                     });
+
                     const result = await res.json();
 
-                    // ✅ Only update if user is still on the same part
                     setInputRow((prev) => {
-                      if (prev.partNumber !== currentPart) {
-                        return prev; // ignore outdated response
-                      }
+                      if (prev.partNumber !== currentPart) return prev;
                       return {
                         ...prev,
-                        // stockInHand: result.stockInHand?.toString() || "0",
                         stockInHand: safeToString(result.stockInHand),
-
-                        stockUnit: result.unit || "",
+                        stockUnit: result.unit || prev.stockUnit,
                         unit: result.unit || prev.unit,
                       };
                     });
@@ -379,118 +810,6 @@ export default function PurchaseRequest({ user }) {
                         unit: result.unit,
                       },
                     }));
-                  } catch (err) {
-                    // console.error("Live stock fetch failed", err);
-                  } finally {
-                    setStockLoading(false); // stop loading
-                  }
-                })();
-              }}
-              onSearch={(value) => {
-                setInputRow((prev) => ({
-                  ...prev,
-                  partNumber: value,
-                }));
-              }}
-              style={{ width: "100%" }}
-            >
-              {[...new Set(descriptionList.map((item) => item.partNumber))]
-                .filter((p) => p) // remove empty
-                .map((part, idx) => (
-                  <Select.Option key={`pn-${idx}`} value={part}>
-                    {part}
-                  </Select.Option>
-                ))}
-            </Select>
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.partNumber}>
-            <span>{record.partNumber}</span>
-          </Tooltip>
-        ),
-    },
-    {
-      title: "Item Description",
-      dataIndex: "itemDescription",
-      ellipsis: true,
-      width: 500,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Select
-              showSearch
-              // value={inputRow.itemDescription}
-              value={inputRow.itemDescription || undefined}
-              loading={loadingDescription}
-              disabled={loadingDescription}
-              notFoundContent={
-                loadingDescription ? "Fetching..." : "No results found"
-              }
-              placeholder="Select or enter description"
-              filterOption={(input, option) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
-              }
-              onChange={(value) => {
-                const selected = descriptionList.find(
-                  (item) => item.description === value
-                );
-                const partNumber = selected?.partNumber || "";
-                const cachedStock = stockMap[partNumber] || {
-                  stockInHand: 0,
-                  unit: "",
-                };
-
-                // Immediate UI update from cache
-                setInputRow((prev) => ({
-                  ...prev,
-                  itemDescription: value,
-                  partNumber,
-                  unit: cachedStock.unit,
-                  // stockInHand: cachedStock.stockInHand.toString(),
-                  stockInHand: safeToString(cachedStock.stockInHand),
-                  stockUnit: cachedStock.unit,
-                }));
-
-                // Save the part number being fetched
-                const currentPart = partNumber;
-
-                // 🔄 Background live fetch
-                (async () => {
-                  setStockLoading(true);
-                  try {
-                    const res = await fetch(GAS_URL, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                      },
-                      body: new URLSearchParams({
-                        action: "getStockForPartNumber",
-                        partNumber: currentPart,
-                      }),
-                    });
-                    const result = await res.json();
-
-                    // ✅ Only update if still on the same part
-                    setInputRow((prev) => {
-                      if (prev.partNumber !== currentPart) return prev; // ignore outdated
-                      return {
-                        ...prev,
-                        // stockInHand: result.stockInHand?.toString() || "0",
-                        stockInHand: safeToString(result.stockInHand),
-                        stockUnit: result.unit || "",
-                        unit: result.unit || prev.unit,
-                      };
-                    });
-
-                    setStockMap((prev) => ({
-                      ...prev,
-                      [currentPart]: {
-                        stockInHand: result.stockInHand,
-                        unit: result.unit,
-                      },
-                    }));
-                  } catch (err) {
-                    // console.error("Live stock fetch failed (description)", err);
                   } finally {
                     setStockLoading(false);
                   }
@@ -498,26 +817,159 @@ export default function PurchaseRequest({ user }) {
               }}
               style={{ width: "100%" }}
             >
-              {[...new Set(descriptionList.map((item) => item.description))]
-                .filter((d) => d)
-                .map((desc, idx) => (
-                  <Select.Option key={`desc-${idx}`} value={desc}>
-                    {desc}
+              // ✅ Reorder parts: matched first, then unmatched
+              {sortedParts.map((part, i) => {
+                const isMatched = matchedParts.includes(part);
+                const isSelected = inputRow.partNumber === part;
+
+                let style = {};
+
+                if (isMatched && isSelected) {
+                  style = {
+                    fontWeight: "bold",
+                    backgroundColor: "#e6f4ff",
+                    color: "#0D3884",
+                  };
+                } else if (isMatched && !isSelected) {
+                  style = {
+                    fontWeight: "bold",
+                    backgroundColor: "#f3f3f3",
+                    color: "#888",
+                  };
+                } else {
+                  style = {
+                    backgroundColor: "white",
+                    color: "inherit",
+                  };
+                }
+
+                return (
+                  <Select.Option key={i} value={part} style={style}>
+                    {part}
                   </Select.Option>
-                ))}
+                );
+              })}
+            </Select>
+          </Tooltip>
+        );
+      },
+    },
+
+    {
+      title: "Item Description",
+      dataIndex: "itemDescription",
+      width: 500,
+      ellipsis: true,
+      render: (_, record) =>
+        record.isInput ? (
+          <Tooltip>
+            <Select
+              showSearch
+              placeholder="Select Description"
+              value={inputRow.itemDescription || undefined}
+              loading={loadingDescription}
+              disabled={loadingDescription}
+              // filterOption={(input, option) =>
+              //   option.children.toLowerCase().includes(input.toLowerCase())
+              // }
+
+              filterOption={(input, option) =>
+                String(option.children)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              // onChange={(value) => {
+              //   const partNumber = descMap[value]; // 🔥 Get linked partNumber
+              //   const selected = partMap[partNumber]; // 🔥 Get AE mapped row
+
+              //   console.log("🔍 Description Selected:", value, selected);
+
+              //   setInputRow((prev) => ({
+              //     ...prev,
+              //     itemDescription: value,
+              //     partNumber,
+              //     unit: selected?.unit || "",
+              //     stockUnit: selected?.unit || "",
+              //   }));
+              // }}
+
+              onChange={(value) => {
+                // const partNumber = descMap[value];
+                const matchedParts = descMap[value] || [];
+                const partNumber = matchedParts[0] || "";
+                const selected = partMap[partNumber];
+                const cachedStock = stockMap[partNumber] || {
+                  stockInHand: 0,
+                  unit: "",
+                };
+
+                setInputRow((prev) => ({
+                  ...prev,
+                  itemDescription: value,
+                  partNumber,
+                  unit: selected?.unit,
+                  stockInHand: safeToString(cachedStock.stockInHand),
+                  stockUnit: selected?.unit,
+                }));
+
+                const currentPart = partNumber;
+
+                // 🔄 Background live stock fetch (RESTORED)
+                (async () => {
+                  setStockLoading(true);
+                  try {
+                    const res = await fetch(GAS_URL, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                      },
+                      body: new URLSearchParams({
+                        action: "getStockForPartNumber",
+                        partNumber: currentPart,
+                        location: "MEA",
+                      }),
+                    });
+                    const result = await res.json();
+
+                    setInputRow((prev) => {
+                      if (prev.partNumber !== currentPart) return prev;
+                      return {
+                        ...prev,
+                        stockInHand: safeToString(result.stockInHand),
+                        // stockUnit: selected?.unit,
+                        stockUnit: selected?.unit || prev.stockUnit, // trust frontend mapping
+                        unit: selected?.unit || prev.unit,
+                      };
+                    });
+
+                    setStockMap((prev) => ({
+                      ...prev,
+                      [currentPart]: {
+                        // stockInHand: result.stockInHand,
+                        // unit: selected?.unit,
+                        stockUnit: selected?.unit,
+                      },
+                    }));
+                  } finally {
+                    setStockLoading(false);
+                  }
+                })();
+              }}
+              style={{ width: "100%" }}
+            >
+              {Object.keys(descMap).map((desc, idx) => (
+                <Select.Option key={idx} value={desc}>
+                  {desc}
+                </Select.Option>
+              ))}
             </Select>
           </Tooltip>
         ) : (
           <Tooltip title={record.itemDescription}>
-            <span className="truncate-text">
-              {record.itemDescription?.length > 150
-                ? `${record.itemDescription.slice(0, 150)}...`
-                : record.itemDescription}
-            </span>
+            {record.itemDescription}
           </Tooltip>
         ),
     },
-
     {
       title: "Quantity",
       dataIndex: "quantity",
@@ -677,6 +1129,11 @@ export default function PurchaseRequest({ user }) {
       render: (text) => <span>{text}</span>,
     },
     {
+      title: "Location",
+      dataIndex: "Location",
+      render: (text) => <span>{text || "MEA"}</span>,
+    },
+    {
       title: "Part Number",
       dataIndex: "Part Number",
       render: (text) => <span>{text}</span>,
@@ -757,6 +1214,7 @@ export default function PurchaseRequest({ user }) {
       stockInHand: inputRow.stockInHand || "0",
       unit: inputRow.unit || "",
       stockUnit: inputRow.stockUnit || "",
+      location: inputRow.location || "MEA",
     };
 
     const updatedData = [...dataSource, newData].map((item, index) => ({
@@ -772,6 +1230,7 @@ export default function PurchaseRequest({ user }) {
       quantity: "",
       stockInHand: "",
       unit: "",
+      location: "MEA",
     });
   };
 
@@ -784,6 +1243,99 @@ export default function PurchaseRequest({ user }) {
       }));
     setDataSource(updatedData);
   };
+
+  // const handleSubmit = async (values) => {
+  //   if (!navigator.onLine) {
+  //     notification.error({
+  //       message: "No Internet",
+  //       description: "Check connection.",
+  //     });
+  //     return;
+  //   }
+  //   if (dataSource.length === 0) {
+  //     notification.error({
+  //       message: "No Items",
+  //       description: "Please add at least one item.",
+  //     });
+  //     return;
+  //   }
+  //   if (loading) return;
+  //   setLoading(true);
+
+  //   try {
+  //     // const formattedDate =
+  //     //   username === "Admin" ? dayjs(values.date).format("DD-MM-YYYY") : deliveryDate;
+  //     // const formattedDate = form.getFieldValue("date") || purchaseDate;
+
+  //     const fullDateTime = purchaseDate;
+  //     const formattedDate =
+  //       form.getFieldValue("date") || fullDateTime.split(" ")[0];
+
+  //     // 1️⃣ Save form data only
+  //     const response = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({
+  //         action: "addPurchaseRequest",
+  //         // date: formattedDate,
+  //         date: purchaseDate,
+  //         customername: values.customername,
+  //         address: values.address,
+  //         items: JSON.stringify(dataSource),
+  //         // userName: user || "-",
+  //         userName: user?.email || "",
+  //       }),
+  //     });
+
+  //     const result = await response.json();
+  //     if (!result.success)
+  //       throw new Error(result.message || "Failed to add purchase request.");
+
+  //     setDataSource([]);
+  //     setInputRow({
+  //       partNumber: "",
+  //       itemDescription: "",
+  //       quantity: "",
+  //       unit: "",
+  //       stockInHand: "",
+  //     });
+
+  //     form.resetFields();
+
+  //     // const nowUTC = new Date();
+  //     // const dubaiOffset = 4 * 60; // UTC+4
+  //     // const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
+  //     // const dubaiDayjs = dayjs(dubaiTime);
+  //     // const todayFormatted = dubaiDayjs.format("DD-MM-YYYY");
+  //     // setPurchaseDate(todayFormatted);
+
+  //     const now = dayjs();
+  //     const fullDateAndTime = now.format("DD-MM-YYYY HH:mm:ss");
+  //     const displayDate = now.format("DD-MM-YYYY");
+
+  //     setPurchaseDate(fullDateAndTime);
+
+  //     form.setFieldsValue({
+  //       // date: username === "Admin" ? dubaiDayjs : todayFormatted,
+  //       date: displayDate,
+  //       customername: undefined,
+  //       address: undefined,
+  //     });
+
+  //     // await fetchInitialData();
+  //     setTimeout(() => {
+  //       fetchInitialData();
+  //     }, 500);
+  //   } catch (err) {
+  //     // console.error("Submit error:", err);
+  //     notification.error({
+  //       message: "Submission Error",
+  //       description: err.message,
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleSubmit = async (values) => {
     if (!navigator.onLine) {
@@ -829,8 +1381,69 @@ export default function PurchaseRequest({ user }) {
       });
 
       const result = await response.json();
+      console.log("Result:", result);
       if (!result.success)
         throw new Error(result.message || "Failed to add purchase request.");
+
+      const confirmedPurchaseNumber = result.requestNumber;
+
+      let doc;
+      try {
+        doc = generatePurchaseRequestPDF(
+          {
+            ...values,
+            date: formattedDate,
+            purchaseRequestNumber: confirmedPurchaseNumber,
+          },
+          dataSource,
+          false
+        );
+        const cleanPR = String(confirmedPurchaseNumber).replace(/^'/, "");
+
+        // doc.save(`PurchaseRequest_${confirmedPurchaseNumber}.pdf`);
+        doc.save(`PurchaseRequest_${cleanPR}.pdf`);
+
+        const pdfBase64 = doc.output("datauristring").split(",")[1];
+        const pdfSizeKB = ((pdfBase64.length * 3) / 4 / 1024).toFixed(2);
+        // console.log("PDF size:", pdfSizeKB, "KB");
+        if (pdfSizeKB > 6000) {
+          throw new Error(
+            "PDF too large for Apps Script upload (limit ~6MB). Try reducing content."
+          );
+        }
+
+        // 3️⃣ Upload PDF separately
+        const uploadRes = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            action: "uploadPurchaseRequestPDF",
+            pdfBase64,
+            fileName: `PurchaseRequest_${confirmedPurchaseNumber}.pdf`,
+          }),
+        });
+
+        const uploadResult = await uploadRes.json();
+        // if (!uploadResult.success)
+        //   throw new Error(uploadResult.message || "PDF upload failed.");
+        if (!uploadResult.success) {
+          notification.error({
+            message: "PDF Upload Error",
+            description: uploadResult.message, // shows backend message
+          });
+
+          setLoading(false);
+          return; // STOP — do not continue
+        }
+
+        notification.success({
+          message: "Success",
+          description: `Purchase Request ${confirmedPurchaseNumber} saved and PDF uploaded.`,
+        });
+      } catch (pdfErr) {
+        // console.error("PDF generation failed:", pdfErr);
+        throw new Error("Form saved, but PDF generation failed.");
+      }
 
       setDataSource([]);
       setInputRow({
@@ -839,6 +1452,7 @@ export default function PurchaseRequest({ user }) {
         quantity: "",
         unit: "",
         stockInHand: "",
+        location: "MEA",
       });
 
       form.resetFields();
@@ -938,6 +1552,16 @@ export default function PurchaseRequest({ user }) {
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Location",
+      dataIndex: "Location", // make sure your data has a 'Location' key
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
         </Tooltip>
       ),
     },
@@ -1051,7 +1675,11 @@ export default function PurchaseRequest({ user }) {
         else if (status === "Denied") color = "red";
 
         return (
-          <Tag color={color} style={{ fontWeight: "bold" }} className="tag-large" >
+          <Tag
+            color={color}
+            style={{ fontWeight: "bold" }}
+            className="tag-large"
+          >
             {status || "Pending"}
           </Tag>
         );
@@ -1073,6 +1701,27 @@ export default function PurchaseRequest({ user }) {
             setSelectedRow(record);
 
             setIsModalVisible(true);
+
+            const preserved = {
+              purchaseRequest: form.getFieldValue("purchaseRequest"),
+              date: form.getFieldValue("date"),
+              location: form.getFieldValue("location"),
+            };
+            form.resetFields();
+
+            // ✅ Restore only required fields
+            form.setFieldsValue(preserved);
+
+            // ✅ Reset table + input rows
+            setDataSource([]);
+            setInputRow({
+              partNumber: "",
+              itemDescription: "",
+              quantity: "",
+              unit: "",
+              stockInHand: "",
+              location: preserved.location || "MEA",
+            });
           }}
         >
           View
@@ -1081,20 +1730,19 @@ export default function PurchaseRequest({ user }) {
     },
   ];
 
-   const userEmail = user?.email?.toLowerCase() || "";
-const purchaseAccess = user?.access?.["Purchase Request"] || "";
+  const userEmail = user?.email?.toLowerCase() || "";
+  const purchaseAccess = user?.access?.["Purchase Request"] || "";
 
-// ✅ Define who can see all records
-const canSeeAll =
-  userEmail === "admin@haitianme.com" || purchaseAccess === "Full Control";
+  // ✅ Define who can see all records
+  const canSeeAll =
+    userEmail === "Admin@haitianme.com" || purchaseAccess === "Full Control";
 
-// ✅ Apply access-based filter
-const accessibleData = canSeeAll
-  ? fetchedData // admin or full control → see everything
-  : fetchedData.filter(
-      (item) =>
-        (item["Request Created By"] || "").toLowerCase() === userEmail
-    );
+  // ✅ Apply access-based filter
+  const accessibleData = canSeeAll
+    ? fetchedData // admin or full control → see everything
+    : fetchedData.filter(
+        (item) => (item["Request Created By"] || "").toLowerCase() === userEmail
+      );
 
   const filteredData = accessibleData.filter((item) => {
     const matchesSearch =
@@ -1119,15 +1767,18 @@ const accessibleData = canSeeAll
         acc[purchaseNo] = {
           ...item,
           partsUsed: [],
+          Location: item["Location"] || "MEA",
         };
       }
       acc[purchaseNo].partsUsed.push({
         "Serial Number": item["Serial Number"],
+        Location: item["Location"] || "MEA",
         "Part Number": item["Part Number"],
         "Item Description": item["Item Description"],
         Quantity: item["Quantity"],
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
+        Location: item["Location"] || "MEA",
       });
       return acc;
     }, {})
@@ -1139,106 +1790,165 @@ const accessibleData = canSeeAll
     return numB - numA;
   });
 
- const handleExport = () => {
-  if (!groupedData || groupedData.length === 0) {
-    notification.warning({
-      message: "Export Failed",
-      description: "No purchase request data available to export.",
+  const handleExport = () => {
+    if (!groupedData || groupedData.length === 0) {
+      notification.warning({
+        message: "Export Failed",
+        description: "No purchase request data available to export.",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+    const fileName = `Purchase_Request_Report_${now}.xlsx`;
+
+    // Header style
+    const headerStyle = {
+      font: { bold: true, sz: 12 },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true }, // Left align
+      border: getAllBorders(),
+      fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } }, // Light blue
+    };
+
+    const header = [
+      { v: "Purchase Request Number", t: "s", s: headerStyle },
+      { v: "Date", t: "s", s: headerStyle },
+      { v: "Customer Name", t: "s", s: headerStyle },
+      { v: "Address", t: "s", s: headerStyle },
+      { v: "Serial Number", t: "s", s: headerStyle },
+      { v: "Location", t: "s", s: headerStyle },
+      { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Item Description", t: "s", s: headerStyle },
+      { v: "Quantity", t: "s", s: headerStyle },
+      { v: "Unit", t: "s", s: headerStyle },
+      { v: "Stock In Hand", t: "s", s: headerStyle },
+      { v: "Request Created By", t: "s", s: headerStyle },
+      { v: "Requested Date & Time", t: "s", s: headerStyle },
+      { v: "Approved/Denied By", t: "s", s: headerStyle },
+      { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
+      { v: "Status", t: "s", s: headerStyle },
+      { v: "Note", t: "s", s: headerStyle },
+    ];
+
+    const data = [];
+
+    // ✅ Sort ascending for export (oldest → newest)
+    const sortedAsc = [...groupedData].sort((a, b) => {
+      const numA = parseInt(
+        a["Purchase Request Number"].replace(/\D/g, ""),
+        10
+      );
+      const numB = parseInt(
+        b["Purchase Request Number"].replace(/\D/g, ""),
+        10
+      );
+      return numA - numB;
+    });
+
+    // Build data rows
+    sortedAsc.forEach((item) => {
+      (item.partsUsed || []).forEach((part) => {
+        data.push([
+          {
+            v: item["Purchase Request Number"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Date"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Customer Name"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Address"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: part["Serial Number"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: part["Location"] || item["Location"] || "-",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+
+          {
+            v: part["Part Number"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: part["Item Description"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: part["Quantity"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: part["Unit"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: part["Stock In Hand"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Request Created By"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Requested Date & Time"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Approved/Denied By"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Approved/Denied Date & Time"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Status"],
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+          {
+            v: item["Note"] || "-",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+        ]);
+      });
+    });
+
+    // Create Excel worksheet
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+    // Auto column widths
+    const colWidths = header.map((_, colIndex) => {
+      let maxLength = 0;
+      [header, ...data].forEach((row) => {
+        const cell = row[colIndex];
+        const value = cell && cell.v != null ? String(cell.v) : "";
+        maxLength = Math.max(maxLength, value.length);
+      });
+      return { wch: Math.min(maxLength * 1.8, 60) };
+    });
+    ws["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
+
+    XLSX.writeFile(wb, fileName);
+
+    notification.success({
+      message: "Export Successful",
+      description: "Purchase Request report downloaded successfully.",
       placement: "bottomRight",
     });
-    return;
-  }
-
-  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
-  const fileName = `Purchase_Request_Report_${now}.xlsx`;
-
-  // Header style
-  const headerStyle = {
-    font: { bold: true, sz: 12 },
-    alignment: { horizontal: "left", vertical: "center", wrapText: true }, // Left align
-    border: getAllBorders(),
-    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } }, // Light blue
   };
-
-  const header = [
-    { v: "Purchase Request Number", t: "s", s: headerStyle },
-    { v: "Date", t: "s", s: headerStyle },
-    { v: "Customer Name", t: "s", s: headerStyle },
-    { v: "Address", t: "s", s: headerStyle },
-    { v: "Serial Number", t: "s", s: headerStyle },
-    { v: "Part Number", t: "s", s: headerStyle },
-    { v: "Item Description", t: "s", s: headerStyle },
-    { v: "Quantity", t: "s", s: headerStyle },
-    { v: "Unit", t: "s", s: headerStyle },
-    { v: "Stock In Hand", t: "s", s: headerStyle },
-    { v: "Request Created By", t: "s", s: headerStyle },
-    { v: "Requested Date & Time", t: "s", s: headerStyle },
-    { v: "Approved/Denied By", t: "s", s: headerStyle },
-    { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
-    { v: "Status", t: "s", s: headerStyle },
-    { v: "Note", t: "s", s: headerStyle },
-  ];
-
-  const data = [];
-
-  // ✅ Sort ascending for export (oldest → newest)
-  const sortedAsc = [...groupedData].sort((a, b) => {
-    const numA = parseInt(a["Purchase Request Number"].replace(/\D/g, ""), 10);
-    const numB = parseInt(b["Purchase Request Number"].replace(/\D/g, ""), 10);
-    return numA - numB;
-  });
-
-  // Build data rows
-  sortedAsc.forEach((item) => {
-    (item.partsUsed || []).forEach((part) => {
-      data.push([
-        { v: item["Purchase Request Number"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Date"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Customer Name"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Address"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: part["Serial Number"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: part["Part Number"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: part["Item Description"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: part["Quantity"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: part["Unit"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: part["Stock In Hand"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Request Created By"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Requested Date & Time"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Approved/Denied By"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Approved/Denied Date & Time"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Status"], s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-        { v: item["Note"] || "-", s: { border: getAllBorders(), alignment: { horizontal: "left" } } },
-      ]);
-    });
-  });
-
-  // Create Excel worksheet
-  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-
-  // Auto column widths
-  const colWidths = header.map((_, colIndex) => {
-    let maxLength = 0;
-    [header, ...data].forEach((row) => {
-      const cell = row[colIndex];
-      const value = cell && cell.v != null ? String(cell.v) : "";
-      maxLength = Math.max(maxLength, value.length);
-    });
-    return { wch: Math.min(maxLength * 1.8, 60) };
-  });
-  ws["!cols"] = colWidths;
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Purchase Requests");
-
-  XLSX.writeFile(wb, fileName);
-
-  notification.success({
-    message: "Export Successful",
-    description: "Purchase Request report downloaded successfully.",
-    placement: "bottomRight",
-  });
-};
-
 
   // Border helper
   const getAllBorders = () => ({
@@ -1280,7 +1990,288 @@ const accessibleData = canSeeAll
     }
   };
 
- 
+  const handleClearInput = () => {
+    const values = form.getFieldsValue();
+
+    const isEmpty = Object.values(values).every(
+      (value) =>
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        (Array.isArray(value) && value.length === 0)
+    );
+
+    if (isEmpty) {
+      notification.info({
+        message: "Nothing to clear",
+        description: "All fields are already empty.",
+      });
+    } else {
+      // fields to preserve
+      const preservedFields = {
+        purchaseRequestNumber: values.purchaseRequestNumber,
+        date: values.date,
+      };
+
+      // reset table input rows
+      setDataSource([]);
+      setInputRow({
+        partNumber: "",
+        itemDescription: "",
+        quantity: "",
+        unit: "",
+        stockInHand: "",
+        location: "MEA",
+      });
+
+      // correct API to CLEAR specific fields
+      form.setFieldsValue({
+        customername: undefined,
+        address: undefined,
+        ...preservedFields, // keep purchaseRequestNumber & date
+      });
+
+      notification.success({
+        message: "Success",
+        description: "Form cleared successfully!",
+      });
+    }
+  };
+
+  const generatePurchaseRequestPDF = (
+    formValues,
+    items = [],
+    saveLocally = true
+  ) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const BOTTOM_MARGIN = 65;
+    const rightX = 125; // Right column start X
+
+    doc.setFontSize(10);
+
+    const sanitizedPRNumber = String(
+      formValues.purchaseRequest || formValues.purchaseRequestNumber || ""
+    )
+      .trim()
+      .replace(/'/g, "");
+
+    // Wrap Deliver To lines (left column)
+    const deliverToLines = [
+      ...(formValues.customername ? [formValues.customername] : []),
+      ...(formValues.address ? formValues.address.split("\n") : []),
+    ].flatMap((line) => doc.splitTextToSize(line, 100));
+
+    // Calculate header height only from left column
+    const leftHeight = deliverToLines.length * 5 + 6;
+    const HEADER_HEIGHT = 50 + leftHeight;
+
+    // Draw header
+    const drawHeader = () => {
+      // Logo
+      doc.addImage(HaitianLogo, "PNG", 10, 10, 70, 25);
+
+      // Title & delivery info
+      doc.setFontSize(30);
+      doc.text("Purchase Request", 110, 20);
+      doc.setFontSize(13);
+      // doc.text(
+      //   `Purchase Number: ${formValues.purchaseRequestNumber || ""}`,
+      //   110,
+      //   30
+      // );
+      doc.text(`Purchase Number: ${sanitizedPRNumber}`, 110, 30);
+
+      doc.text(`Purchase Request Date: ${formValues.date || ""}`, 110, 36);
+
+      const startY = 50;
+
+      // LEFT column (Deliver To)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text("Bill To:", 14, startY);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(deliverToLines, 14, startY + 6);
+
+      // ✅ Removed Delivery Type completely
+    };
+
+    // Draw footer
+    const drawFooter = (pageNum, totalPages) => {
+      doc.setFontSize(10);
+      const borderY = pageHeight - 30;
+
+      // Black border line
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(14, borderY, pageWidth - 14, borderY);
+
+      // // Signature lines (only on last page)
+      // if (pageNum === totalPages) {
+      //   const sigY = borderY - 10;
+      //   doc.setDrawColor(0, 0, 0);
+      //   doc.setLineDash([2, 1], 0);
+
+      //   // Left side (Received By)
+      //   doc.line(14, sigY, 80, sigY);
+      //   doc.text("Received By", 14, sigY + 5);
+
+      //   // Right side (Delivered By)
+      //   doc.line(pageWidth - 80, sigY, pageWidth - 14, sigY);
+      //   doc.text("Delivered By", pageWidth - 80, sigY + 5);
+
+      //   doc.setLineDash([]);
+      // }
+
+      // Company info
+      // const companyInfo = [
+      //   "Haitian Middle East LLC",
+      //   "Umm El Thoub, Umm Al Quwain, United Arab Emirates",
+      //   "Phone: +971 688 457 78  Email: ask@haitianme.com   Web: www.haitianme.com",
+      // ];
+      // let footerY = borderY + 6;
+      // companyInfo.forEach((line) => {
+      //   doc.text(line, pageWidth / 2, footerY, { align: "center" });
+      //   footerY += 5;
+      // });
+
+      // Company info
+      const companyInfo = [
+        { text: "Haitian Middle East LLC", bold: true },
+        { text: "Umm El Thoub, Umm Al Quwain, United Arab Emirates" },
+        {
+          text: "Phone: +971 688 457 78  Email: ask@haitianme.com   Web: www.haitianme.com",
+        },
+      ];
+      let footerY = borderY + 6;
+      companyInfo.forEach((line) => {
+        if (line.bold) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+        } else {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+        }
+        doc.text(line.text, pageWidth / 2, footerY, { align: "center" });
+        footerY += 5;
+      });
+
+      // Page number
+      doc.text(
+        `Page ${pageNum} of ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 5,
+        { align: "center" }
+      );
+    };
+
+    // Table
+    autoTable(doc, {
+      head: [["S.No", "Loc", "Item & Description", "Qty", "Unit"]],
+      body: items.map((item, idx) => [
+        idx + 1,
+        // `${item.itemDescription || ""}\n${item.partNumber || ""}`,
+        item.location || "",
+
+        [item.itemDescription || "", item.partNumber || ""].join("\n"),
+        item.quantity || "",
+        item.unit || "",
+      ]),
+      margin: { top: HEADER_HEIGHT, bottom: BOTTOM_MARGIN },
+      styles: {
+        fontSize: 11,
+        lineHeight: 1, // tighter multi-line spacing
+        cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, // compact padding
+        valign: "middle",
+        textColor: [0, 0, 0],
+        lineWidth: 0.4,
+        lineColor: [0, 0, 0],
+      },
+
+      headStyles: {
+        fillColor: [255, 255, 255], // White background
+        textColor: [0, 0, 0], // Black header text
+        halign: "center", // ✅ Center align only header
+        lineWidth: 0.4,
+        lineColor: [0, 0, 0],
+      },
+      bodyStyles: {
+        lineWidth: 0.4,
+        lineColor: [0, 0, 0],
+      },
+
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 15 },
+        1: { halign: "center", cellWidth: 15 },
+
+        2: { halign: "left" },
+        // 1: { halign: "left", cellWidth: 145 },
+
+        3: { halign: "center", cellWidth: 22 },
+        4: { halign: "center", cellWidth: 20 },
+      },
+      pageBreak: "auto",
+      didDrawPage: () => {
+        drawHeader();
+      },
+    });
+
+    // Footer for all pages
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawFooter(i, totalPages);
+    }
+
+    if (saveLocally) {
+      // doc.save(
+      //   `PurchaseRequest_${formValues.purchaseRequestNumber || "Unknown"}.pdf`
+      // );
+      doc.save(`PurchaseRequest_${sanitizedPRNumber || "Unknown"}.pdf`);
+    }
+    return doc;
+  };
+
+  const handleDownloadPDF = async (purchaseRequestNumber) => {
+    setDownloading(true);
+
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "downloadPurchaseRequestPDF",
+          purchaseRequestNumber,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.success && result.pdfBase64) {
+        const link = document.createElement("a");
+        link.href = "data:application/pdf;base64," + result.pdfBase64;
+        link.download = result.fileName || "PurchaseRequest.pdf";
+        link.click();
+      } else {
+        notification.error({
+          message: "Error",
+          description: result.message || "Failed to download PDF",
+        });
+      }
+    } catch (err) {
+      // console.error("Download error:", err);
+      notification.error({
+        message: "Error",
+        description: "Something went wrong while downloading the PDF.",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const styl = `.ant-form-item .ant-form-item-explain-error {
     color: #ff4d4f;
@@ -1504,8 +2495,14 @@ const accessibleData = canSeeAll
                                 ? "Fetching..."
                                 : "No results found"
                             }
+                            // filterOption={(input, option) =>
+                            //   option.children
+                            //     .toLowerCase()
+                            //     .includes(input.toLowerCase())
+                            // }
+
                             filterOption={(input, option) =>
-                              option.children
+                              String(option.children)
                                 .toLowerCase()
                                 .includes(input.toLowerCase())
                             }
@@ -1616,48 +2613,50 @@ const accessibleData = canSeeAll
                               htmlType="button"
                               size="large"
                               className="clearButton  ms-3"
-                              onClick={() => {
-                                const values = form.getFieldsValue();
-                                const isEmpty = Object.values(values).every(
-                                  (value) =>
-                                    value === undefined ||
-                                    value === null ||
-                                    value === "" ||
-                                    (Array.isArray(value) && value.length === 0)
-                                );
+                              // onClick={() => {
+                              //   const values = form.getFieldsValue();
+                              //   const isEmpty = Object.values(values).every(
+                              //     (value) =>
+                              //       value === undefined ||
+                              //       value === null ||
+                              //       value === "" ||
+                              //       (Array.isArray(value) && value.length === 0)
+                              //   );
 
-                                if (isEmpty) {
-                                  notification.info({
-                                    message: "Nothing to clear",
-                                    description:
-                                      "All fields are already empty.",
-                                  });
-                                } else {
-                                  const preservedFields = {
-                                    purchaseRequestNumber:
-                                      values.purchaseRequestNumber,
-                                    date: values.date,
-                                  };
-                                  // form.resetFields();
-                                  setDataSource([]);
-                                  setInputRow({
-                                    partNumber: "",
-                                    itemDescription: "",
-                                    quantity: "",
-                                    unit: "",
-                                    stockInHand: "",
-                                  });
-                                  form.setFields([
-                                    { name: "customername", value: undefined },
-                                    { name: "address", value: undefined },
-                                  ]);
-                                  form.setFieldsValue(preservedFields);
-                                  notification.success({
-                                    message: "Success",
-                                    description: "Form cleared successfully!",
-                                  });
-                                }
-                              }}
+                              //   if (isEmpty) {
+                              //     notification.info({
+                              //       message: "Nothing to clear",
+                              //       description:
+                              //         "All fields are already empty.",
+                              //     });
+                              //   } else {
+                              //     const preservedFields = {
+                              //       purchaseRequestNumber:
+                              //         values.purchaseRequestNumber,
+                              //       date: values.date,
+                              //     };
+                              //     // form.resetFields();
+                              //     setDataSource([]);
+                              //     setInputRow({
+                              //       partNumber: "",
+                              //       itemDescription: "",
+                              //       quantity: "",
+                              //       unit: "",
+                              //       stockInHand: "",
+                              //     });
+                              //     form.setFields([
+                              //       { name: "customername", value: undefined },
+                              //       { name: "address", value: undefined },
+                              //     ]);
+                              //     form.setFieldsValue(preservedFields);
+                              //     notification.success({
+                              //       message: "Success",
+                              //       description: "Form cleared successfully!",
+                              //     });
+                              //   }
+                              // }}
+
+                              onClick={handleClearInput}
                             >
                               Clear Input
                             </Button>
@@ -2198,7 +3197,7 @@ const accessibleData = canSeeAll
                         </div>
                       </div>
                       <div className="row">
-                        <div className="mt-5 mb-5 d-flex align-items-center justify-content-center">
+                        {/* <div className="mt-5 mb-5 d-flex align-items-center justify-content-center">
                           <Button
                             className="closeModalButton"
                             size="large"
@@ -2207,6 +3206,33 @@ const accessibleData = canSeeAll
                             }}
                           >
                             Close Form
+                          </Button>
+                        </div> */}
+
+                        <div className="mt-5 mb-5 col-7 m-auto">
+                          <Button
+                            className="closeModalButton"
+                            size="large"
+                            onClick={() => {
+                              setIsModalVisible(false);
+                            }}
+                          >
+                            Close Form
+                          </Button>
+
+                          <Button
+                            key="download"
+                            className="submitButton ms-3"
+                            size="large"
+                            loading={downloading}
+                            disabled={downloading}
+                            onClick={() =>
+                              handleDownloadPDF(
+                                selectedRow["Purchase Request Number"]
+                              )
+                            }
+                          >
+                            {downloading ? "Downloading PDF" : "Download PDF"}
                           </Button>
                         </div>
                       </div>

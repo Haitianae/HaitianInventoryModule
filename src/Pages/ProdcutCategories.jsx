@@ -59,6 +59,7 @@ export default function ProductCategories({ user }) {
     stockUnit: "",
     addOnCost: "",
     totalPrice: "",
+    location: "",
   });
   const [machineinputRow, setMachineInputRow] = useState({
     partNumber: "",
@@ -72,6 +73,8 @@ export default function ProductCategories({ user }) {
     stockUnit: "",
     addOnCost: "",
     totalPrice: "",
+    location: "",
+
   });
   // const [selectedAssets, setSelectedAssets] = useState(null);
   const [selectedAuxiliaries, setSelectedAuxiliaries] = useState(null);
@@ -87,6 +90,8 @@ export default function ProductCategories({ user }) {
     stockUnit: "",
     addOnCost: "",
     totalPrice: "",
+    location: "",
+
   });
   // const [assetsInputRow, setAssetsInputRow] = useState({
   //   partNumber: "",
@@ -151,6 +156,8 @@ export default function ProductCategories({ user }) {
     sellingCost: "",
     totalPrice: "",
     note: "",
+    location: "",
+
   });
 
   const [consumablesDataSource, setConsumablesDataSource] = useState([]);
@@ -167,6 +174,7 @@ export default function ProductCategories({ user }) {
   const [sparePartsEditRow, setSparePartsEditRow] = useState(null);
   const [sparePartsAddLoading, setSparePartsAddLoading] = useState(false);
   const [sparePartsSaveLoading, setSparePartsSaveLoading] = useState(false);
+  const [filteredSeries, setFilteredSeries] = useState([]);
 
   const updateTotalPrice = (purchase, addOn, quantity) => {
     const p = parseFloat(purchase);
@@ -183,7 +191,8 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -508,12 +517,12 @@ export default function ProductCategories({ user }) {
   // useEffect(() => {
   //   localStorage.setItem(LOCAL_KEY, JSON.stringify(options));
   // }, [options]);
-  
-const formatPartNumber = (value) => {
-  if (!value) return "";
-  const trimmed = value.trim();
-  return trimmed.startsWith("ME-") ? trimmed : `ME-${trimmed}`;
-};
+
+  const formatPartNumber = (value) => {
+    if (!value) return "";
+    const trimmed = value.trim();
+    return trimmed.startsWith("ME-") ? trimmed : `ME-${trimmed}`;
+  };
   const handleAuxiliariesChange = (value) => {
     setSelectedPath(value);
     setSelectedAuxiliaries(value);
@@ -827,7 +836,7 @@ const formatPartNumber = (value) => {
   //   })
   //     .then((res) => res.json())
   //     .then((data) => {
-  //       console.log("Fetched Machine Series Data:", data); // 👈 View results here
+  //       console.log("Fetched Machine Series Data:", data); //
 
   //       if (data.success) {
   //         setSeriesModels(data.data || []);
@@ -865,15 +874,17 @@ const formatPartNumber = (value) => {
         //   else setSeriesModels([]);
         // })
         // inside useEffect that fetches series (you already have this)
-.then((data) => {
-  if (data.success) {
-    // remove empty and '-' placeholders
-    const cleaned = (data.data || []).filter((m) => m && String(m).trim() !== "-");
-    setSeriesModels(cleaned);
-  } else {
-    setSeriesModels([]);
-  }
-})
+        .then((data) => {
+          if (data.success) {
+            // remove empty and '-' placeholders
+            const cleaned = (data.data || []).filter(
+              (m) => m && String(m).trim() !== "-"
+            );
+            setSeriesModels(cleaned);
+          } else {
+            setSeriesModels([]);
+          }
+        })
 
         .catch((err) => {
           if (err.name !== "AbortError") setSeriesModels([]);
@@ -1242,112 +1253,195 @@ const formatPartNumber = (value) => {
   //   };
   // }, [machineinputRow.partNumber]);
 
+  // useEffect(() => {
+  //   const part = machineinputRow.partNumber?.trim();
+  //   if (!part) return;
+
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  //   const cached = stockCache[part];
+  //   let unit = "";
+  //   let stock = "0";
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+
+  //     // ✅ category check
+  //     // const belongsToCategory = cached.categories?.includes("Machine");
+  //     // if (belongsToCategory && cached.unit) {
+  //     //   unit = cached.unit.trim();
+  //     // }
+  //     unit = cached.unit?.trim() || "";
+  //   }
+
+  //   setMachineInputRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //   }));
+
+  //   // ✅ Update dropdown options
+  //   if (unit) {
+  //     setMachineUnitOptions(
+  //       isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+  //     );
+  //   } else {
+  //     setMachineUnitOptions([...defaultUnits]);
+  //   }
+  // }, [machineinputRow.partNumber, stockCache, userRole]);
+
+  // useEffect(() => {
+  //   const part = machineinputRow.partNumber?.trim();
+  //   if (!part) return;
+
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  //   const cached = stockCache[part];
+  //   let unit = "";
+  //   let stock = "0";
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+
+  //     // ✅ category check
+  //     // const belongsToCategory = cached.categories?.includes("Machine");
+  //     // if (belongsToCategory && cached.unit) {
+  //     //   unit = cached.unit.trim();
+  //     // }
+  //     unit = cached.unit?.trim() || "";
+  //   }
+
+  //   setMachineInputRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //   }));
+
+  //   // ✅ Update dropdown options
+  //   if (unit) {
+  //     setMachineUnitOptions(
+  //       isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+  //     );
+  //   } else {
+  //     setMachineUnitOptions([...defaultUnits]);
+  //   }
+  // }, [machineinputRow.partNumber, stockCache, userRole]);
+
   useEffect(() => {
-    const part = machineinputRow.partNumber?.trim();
-    if (!part) return;
+  const part = machineinputRow.partNumber?.trim();
+  const loc  = machineinputRow.location?.trim();
 
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
-    const cached = stockCache[part];
-    let unit = "";
-    let stock = "0";
+  if (!part) return;
 
-    if (cached) {
-      stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-      // ✅ category check
-      // const belongsToCategory = cached.categories?.includes("Machine");
-      // if (belongsToCategory && cached.unit) {
-      //   unit = cached.unit.trim();
-      // }
-      unit = cached.unit?.trim() || "";
-    }
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
 
-    setMachineInputRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-    }));
+  let stock = "0";
+  let unit = "";
 
-    // ✅ Update dropdown options
-    if (unit) {
-      setMachineUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
-      );
-    } else {
-      setMachineUnitOptions([...defaultUnits]);
-    }
-  }, [machineinputRow.partNumber, stockCache, userRole]);
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+    unit = cachedLoc.unit?.trim() || "";
+  }
 
-  useEffect(() => {
-    const part = machineinputRow.partNumber?.trim();
-    if (!part) return;
+  setMachineInputRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+  }));
 
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
-    const cached = stockCache[part];
-    let unit = "";
-    let stock = "0";
-
-    if (cached) {
-      stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
-
-      // ✅ category check
-      // const belongsToCategory = cached.categories?.includes("Machine");
-      // if (belongsToCategory && cached.unit) {
-      //   unit = cached.unit.trim();
-      // }
-      unit = cached.unit?.trim() || "";
-    }
-
-    setMachineInputRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-    }));
-
-    // ✅ Update dropdown options
-    if (unit) {
-      setMachineUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
-      );
-    } else {
-      setMachineUnitOptions([...defaultUnits]);
-    }
-  }, [machineinputRow.partNumber, stockCache, userRole]);
-
-  useEffect(() => {
-    if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
-
-    const part = machinesEditRow.partNumber.trim();
-    const cached = stockCache[part];
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
-
-    let stock = "0";
-    let unit = machinesEditRow.unit?.trim() || "";
-
-    if (cached) {
-      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
-      if (!unit) unit = cached.unit?.trim() || "";
-    }
-
-    setMachinesEditRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-      machinesUnitFetched: !!unit,
-    }));
-
-    form.setFieldsValue({ unit });
-
+  // SAME BEHAVIOR AS COMMENTED CODE
+  if (unit) {
     setMachineUnitOptions(
       isFullControl
-        ? unit
-          ? [...new Set([unit, ...defaultUnits])]
-          : [...defaultUnits]
-        : unit
-        ? [unit]
-        : [...defaultUnits]
+        ? [...new Set([unit, ...defaultUnits])]
+        : [unit]
     );
-  }, [machinesEditRow?.partNumber, stockCache]);
+  } else {
+    setMachineUnitOptions([...defaultUnits]);
+  }
+}, [machineinputRow.partNumber, machineinputRow.location, stockCache, userRole]);
+
+
+  // useEffect(() => {
+  //   if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
+
+  //   const part = machinesEditRow.partNumber.trim();
+  //   const cached = stockCache[part];
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  //   let stock = "0";
+  //   let unit = machinesEditRow.unit?.trim() || "";
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+  //     if (!unit) unit = cached.unit?.trim() || "";
+  //   }
+
+  //   setMachinesEditRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //     machinesUnitFetched: !!unit,
+  //   }));
+
+  //   form.setFieldsValue({ unit });
+
+  //   setMachineUnitOptions(
+  //     isFullControl
+  //       ? unit
+  //         ? [...new Set([unit, ...defaultUnits])]
+  //         : [...defaultUnits]
+  //       : unit
+  //       ? [unit]
+  //       : [...defaultUnits]
+  //   );
+  // }, [machinesEditRow?.partNumber, stockCache]);
+
+  useEffect(() => {
+  if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
+
+  const part = machinesEditRow.partNumber.trim();
+  const loc  = machinesEditRow.location?.trim();
+
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
+
+  let stock = "0";
+  let unit  = machinesEditRow.unit?.trim() || "";
+
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+    // Same logic as COMMENTED CODE:
+    if (!unit) {
+      unit = cachedLoc.unit?.trim() || "";
+    }
+  }
+
+  setMachinesEditRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+    machinesUnitFetched: !!unit,
+  }));
+
+  form.setFieldsValue({ unit });
+
+  // SAME behavior as commented code
+  setMachineUnitOptions(
+    isFullControl
+      ? unit
+        ? [...new Set([unit, ...defaultUnits])]
+        : [...defaultUnits]
+      : unit
+      ? [unit]
+      : [...defaultUnits]
+  );
+}, [machinesEditRow?.partNumber, machinesEditRow?.location, stockCache]);
+
 
   // useEffect(() => {
   //   const controller = new AbortController();
@@ -1500,69 +1594,150 @@ const formatPartNumber = (value) => {
   //   };
   // }, [auxiliariesInputRow.partNumber]);
 
-  useEffect(() => {
-    const part = auxiliariesInputRow.partNumber?.trim();
-    if (!part) return;
+  // useEffect(() => {
+  //   const part = auxiliariesInputRow.partNumber?.trim();
+  //   if (!part) return;
 
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
-    const cached = stockCache[part];
-    let unit = "";
-    let stock = "0";
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  //   const cached = stockCache[part];
+  //   let unit = "";
+  //   let stock = "0";
 
-    if (cached) {
-      stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
-      unit = cached.unit?.trim() || "";
-    }
+  //   if (cached) {
+  //     stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+  //     unit = cached.unit?.trim() || "";
+  //   }
 
-    setAuxiliariesInputRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-    }));
+  //   setAuxiliariesInputRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //   }));
 
-    if (unit) {
-      setAuxiliariesUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
-      );
-    } else {
-      setAuxiliariesUnitOptions([...defaultUnits]);
-    }
-  }, [auxiliariesInputRow.partNumber, stockCache, userRole]);
+  //   if (unit) {
+  //     setAuxiliariesUnitOptions(
+  //       isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+  //     );
+  //   } else {
+  //     setAuxiliariesUnitOptions([...defaultUnits]);
+  //   }
+  // }, [auxiliariesInputRow.partNumber, stockCache, userRole]);
 
-  useEffect(() => {
-    if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
+useEffect(() => {
+  const part = auxiliariesInputRow.partNumber?.trim();
+  const loc  = auxiliariesInputRow.location?.trim();
 
-    const part = auxiliariesEditRow.partNumber.trim();
-    const cached = stockCache[part];
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  if (!part) return;
 
-    let stock = "0";
-    let unit = auxiliariesEditRow.unit?.trim() || "";
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-    if (cached) {
-      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
-      if (!unit) unit = cached.unit?.trim() || "";
-    }
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
 
-    setAuxiliariesEditRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-      auxiliariesUnitFetched: !!unit,
-    }));
+  let stock = "0";
+  let unit  = "";
 
-    form.setFieldsValue({ unit });
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+    unit  = cachedLoc.unit?.trim() || "";
+  }
 
+  setAuxiliariesInputRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+  }));
+
+  // 🔥 EXACTLY LIKE COMMENTED CODE
+  if (unit) {
     setAuxiliariesUnitOptions(
-      isFullControl
-        ? unit
-          ? [...new Set([unit, ...defaultUnits])]
-          : [...defaultUnits]
-        : unit
-        ? [unit]
-        : [...defaultUnits]
+      isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
     );
-  }, [auxiliariesEditRow?.partNumber, stockCache]);
+  } else {
+    setAuxiliariesUnitOptions([...defaultUnits]);
+  }
+}, [auxiliariesInputRow.partNumber, auxiliariesInputRow.location, stockCache, userRole]);
+
+
+  // useEffect(() => {
+  //   if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
+
+  //   const part = auxiliariesEditRow.partNumber.trim();
+  //   const cached = stockCache[part];
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  //   let stock = "0";
+  //   let unit = auxiliariesEditRow.unit?.trim() || "";
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+  //     if (!unit) unit = cached.unit?.trim() || "";
+  //   }
+
+  //   setAuxiliariesEditRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //     auxiliariesUnitFetched: !!unit,
+  //   }));
+
+  //   form.setFieldsValue({ unit });
+
+  //   setAuxiliariesUnitOptions(
+  //     isFullControl
+  //       ? unit
+  //         ? [...new Set([unit, ...defaultUnits])]
+  //         : [...defaultUnits]
+  //       : unit
+  //       ? [unit]
+  //       : [...defaultUnits]
+  //   );
+  // }, [auxiliariesEditRow?.partNumber, stockCache]);
+
+  useEffect(() => {
+  if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
+
+  const part = auxiliariesEditRow.partNumber.trim();
+  const loc  = auxiliariesEditRow.location?.trim();
+
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
+
+  let stock = "0";
+  let unit  = auxiliariesEditRow.unit?.trim() || ""; // user may edit unit
+
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+    // 🔥 EXACT SAME LOGIC AS COMMENTED CODE:
+    if (!unit) {
+      unit = cachedLoc.unit?.trim() || "";
+    }
+  }
+
+  setAuxiliariesEditRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+    auxiliariesUnitFetched: !!unit,
+  }));
+
+  form.setFieldsValue({ unit });
+
+  // 🔥 EXACT commented dropdown logic
+  setAuxiliariesUnitOptions(
+    isFullControl
+      ? unit
+        ? [...new Set([unit, ...defaultUnits])]
+        : [...defaultUnits]
+      : unit
+      ? [unit]
+      : [...defaultUnits]
+  );
+}, [auxiliariesEditRow?.partNumber, auxiliariesEditRow?.location, stockCache]);
+
 
   // useEffect(() => {
   //   const controller = new AbortController();
@@ -2045,60 +2220,119 @@ const formatPartNumber = (value) => {
   //   };
   // }, [inputRow.partNumber]);
 
+  // useEffect(() => {
+  //   const part = inputRow.partNumber?.trim();
+  //   if (!part) return;
+
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  //   const cached = stockCache[part];
+  //   let unit = "";
+  //   let stock = "0";
+
+  //   setSparePartsFetching(true);
+  //   setSpareUnitLoading(true);
+
+  //   try {
+  //     if (cached) {
+  //       stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+  //       unit = cached.unit?.trim() || "";
+  //     }
+
+  //     setInputRow((prev) => ({
+  //       ...prev,
+  //       stockInHand: stock,
+  //       unit,
+  //       sparePartsUnitFetched: !!unit,
+  //     }));
+
+  //     // also update the AntD form field
+  //     form.setFieldsValue({ unit });
+
+  //     // update dropdown options
+  //     setSpareUnitOptions(
+  //       isFullControl
+  //         ? unit
+  //           ? [...new Set([unit, ...defaultUnits])]
+  //           : [...defaultUnits]
+  //         : unit
+  //         ? [unit]
+  //         : [...defaultUnits]
+  //     );
+  //   } catch (err) {
+  //     // console.error("❌ Error updating spare parts from cache:", err);
+
+  //     setInputRow((prev) => ({
+  //       ...prev,
+  //       stockInHand: "0",
+  //       unit: "",
+  //       sparePartsUnitFetched: false,
+  //     }));
+  //     form.setFieldsValue({ unit: "" });
+  //     setSpareUnitOptions(defaultUnits);
+  //   } finally {
+  //     setSparePartsFetching(false);
+  //     setSpareUnitLoading(false);
+  //   }
+  // }, [inputRow.partNumber, stockCache, userRole]);
   useEffect(() => {
-    const part = inputRow.partNumber?.trim();
-    if (!part) return;
+  const part = inputRow.partNumber?.trim();
+  const loc  = inputRow.location?.trim();
 
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
-    const cached = stockCache[part];
-    let unit = "";
-    let stock = "0";
+  if (!part) return;
 
-    setSparePartsFetching(true);
-    setSpareUnitLoading(true);
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-    try {
-      if (cached) {
-        stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
-        unit = cached.unit?.trim() || "";
-      }
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
 
-      setInputRow((prev) => ({
-        ...prev,
-        stockInHand: stock,
-        unit,
-        sparePartsUnitFetched: !!unit,
-      }));
+  let stock = "0";
+  let unit  = "";
 
-      // also update the AntD form field
-      form.setFieldsValue({ unit });
+  setSparePartsFetching(true);
+  setSpareUnitLoading(true);
 
-      // update dropdown options
-      setSpareUnitOptions(
-        isFullControl
-          ? unit
-            ? [...new Set([unit, ...defaultUnits])]
-            : [...defaultUnits]
-          : unit
-          ? [unit]
-          : [...defaultUnits]
-      );
-    } catch (err) {
-      // console.error("❌ Error updating spare parts from cache:", err);
-
-      setInputRow((prev) => ({
-        ...prev,
-        stockInHand: "0",
-        unit: "",
-        sparePartsUnitFetched: false,
-      }));
-      form.setFieldsValue({ unit: "" });
-      setSpareUnitOptions(defaultUnits);
-    } finally {
-      setSparePartsFetching(false);
-      setSpareUnitLoading(false);
+  try {
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+      unit  = cachedLoc.unit?.trim() || "";
     }
-  }, [inputRow.partNumber, stockCache, userRole]);
+
+    setInputRow(prev => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      sparePartsUnitFetched: !!unit,
+    }));
+
+    // update AntD form
+    form.setFieldsValue({ unit });
+
+    // 🔥 EXACT original logic
+    setSpareUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
+        : [...defaultUnits]
+    );
+  } catch (err) {
+    setInputRow(prev => ({
+      ...prev,
+      stockInHand: "0",
+      unit: "",
+      sparePartsUnitFetched: false,
+    }));
+
+    form.setFieldsValue({ unit: "" });
+    setSpareUnitOptions(defaultUnits);
+  } finally {
+    setSparePartsFetching(false);
+    setSpareUnitLoading(false);
+  }
+}, [inputRow.partNumber, inputRow.location, stockCache, userRole]);
+
 
   // useEffect(() => {
   //   if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
@@ -2137,108 +2371,233 @@ const formatPartNumber = (value) => {
   //   );
   // }, [sparePartsEditRow?.partNumber, stockCache]);
 
+  // useEffect(() => {
+  //   if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
+
+  //   const part = sparePartsEditRow.partNumber.trim();
+  //   const cached = stockCache[part];
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  //   let stock = "0";
+  //   let unit = sparePartsEditRow.unit?.trim() || ""; // ✅ prefer row’s unit
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+  //     if (!unit) {
+  //       unit = cached.unit?.trim() || "";
+  //     }
+  //   }
+
+  //   setSparePartsEditRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //     sparePartsUnitFetched: !!unit,
+  //   }));
+
+  //   form.setFieldsValue({ unit });
+
+  //   setSpareUnitOptions(
+  //     isFullControl
+  //       ? unit
+  //         ? [...new Set([unit, ...defaultUnits])]
+  //         : [...defaultUnits]
+  //       : unit
+  //       ? [unit]
+  //       : [...defaultUnits]
+  //   );
+  // }, [sparePartsEditRow?.partNumber, stockCache]);
+
   useEffect(() => {
-    if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
+  if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
 
-    const part = sparePartsEditRow.partNumber.trim();
-    const cached = stockCache[part];
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  const part = sparePartsEditRow.partNumber.trim();
+  const loc  = sparePartsEditRow.location?.trim();
 
-    let stock = "0";
-    let unit = sparePartsEditRow.unit?.trim() || ""; // ✅ prefer row’s unit
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-    if (cached) {
-      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
-      if (!unit) {
-        unit = cached.unit?.trim() || "";
-      }
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
+
+  let stock = "0";
+  let unit  = sparePartsEditRow.unit?.trim() || ""; // allow user override
+
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+    // 🔥 EXACT original behavior:
+    if (!unit) {
+      unit = cachedLoc.unit?.trim() || "";
     }
+  }
 
-    setSparePartsEditRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-      sparePartsUnitFetched: !!unit,
-    }));
+  setSparePartsEditRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+    sparePartsUnitFetched: !!unit,
+  }));
 
-    form.setFieldsValue({ unit });
+  form.setFieldsValue({ unit });
 
-    setSpareUnitOptions(
-      isFullControl
-        ? unit
-          ? [...new Set([unit, ...defaultUnits])]
-          : [...defaultUnits]
-        : unit
-        ? [unit]
+  setSpareUnitOptions(
+    isFullControl
+      ? unit
+        ? [...new Set([unit, ...defaultUnits])]
         : [...defaultUnits]
-    );
-  }, [sparePartsEditRow?.partNumber, stockCache]);
+      : unit
+      ? [unit]
+      : [...defaultUnits]
+  );
+}, [sparePartsEditRow?.partNumber, sparePartsEditRow?.location, stockCache]);
+
+
+  // useEffect(() => {
+  //   if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
+
+  //   const part = consumablesEditRow.partNumber.trim();
+  //   const cached = stockCache[part];
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  //   let stock = "0";
+  //   let unit = consumablesEditRow.unit?.trim() || ""; // ✅ prefer row’s unit
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
+  //     if (!unit) {
+  //       unit = cached.unit?.trim() || "";
+  //     }
+  //   }
+
+  //   setConsumablesEditRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //     consumablesUnitFetched: !!unit,
+  //   }));
+
+  //   form.setFieldsValue({ unit });
+
+  //   setConsumablesUnitOptions(
+  //     isFullControl
+  //       ? unit
+  //         ? [...new Set([unit, ...defaultUnits])]
+  //         : [...defaultUnits]
+  //       : unit
+  //       ? [unit]
+  //       : [...defaultUnits]
+  //   );
+  // }, [consumablesEditRow?.partNumber, stockCache]);
 
   useEffect(() => {
-    if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
+  if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
 
-    const part = consumablesEditRow.partNumber.trim();
-    const cached = stockCache[part];
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  const part = consumablesEditRow.partNumber.trim();
+  const loc  = consumablesEditRow.location?.trim();
 
-    let stock = "0";
-    let unit = consumablesEditRow.unit?.trim() || ""; // ✅ prefer row’s unit
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-    if (cached) {
-      stock = `${cached.stockInHand || 0} ${cached.unit || ""}`.trim();
-      if (!unit) {
-        unit = cached.unit?.trim() || "";
-      }
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
+
+  let stock = "0";
+  let unit  = consumablesEditRow.unit?.trim() || "";   // allow row override
+
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+    // 🔥 EXACT SAME BEHAVIOR AS YOUR COMMENTED CODE
+    if (!unit) {
+      unit = cachedLoc.unit?.trim() || "";
     }
+  }
 
-    setConsumablesEditRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-      consumablesUnitFetched: !!unit,
-    }));
+  setConsumablesEditRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+    consumablesUnitFetched: !!unit,
+  }));
 
-    form.setFieldsValue({ unit });
+  form.setFieldsValue({ unit });
 
+  // 🔥 EXACT old dropdown logic restored
+  setConsumablesUnitOptions(
+    isFullControl
+      ? unit
+        ? [...new Set([unit, ...defaultUnits])]
+        : [...defaultUnits]
+      : unit
+      ? [unit]
+      : [...defaultUnits]
+  );
+}, [consumablesEditRow?.partNumber, consumablesEditRow?.location, stockCache]);
+
+
+  // useEffect(() => {
+  //   const part = consumablesInputRow.partNumber?.trim();
+  //   if (!part) return;
+
+  //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+  //   const cached = stockCache[part];
+  //   let unit = "";
+  //   let stock = "0";
+
+  //   if (cached) {
+  //     stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
+  //     unit = cached.unit?.trim() || "";
+  //   }
+
+  //   setConsumablesInputRow((prev) => ({
+  //     ...prev,
+  //     stockInHand: stock,
+  //     unit,
+  //   }));
+
+  //   if (unit) {
+  //     setConsumablesUnitOptions(
+  //       isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+  //     );
+  //   } else {
+  //     setConsumablesUnitOptions([...defaultUnits]);
+  //   }
+  // }, [consumablesInputRow.partNumber, stockCache, userRole]);
+
+  useEffect(() => {
+  const part = consumablesInputRow.partNumber?.trim();
+  const loc  = consumablesInputRow.location?.trim();
+
+  if (!part) return;
+
+  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+
+  const cachedPart = stockCache[part];
+  const cachedLoc  = cachedPart?.[loc];
+
+  let stock = "0";
+  let unit  = "";
+
+  if (cachedLoc) {
+    stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+    unit  = cachedLoc.unit?.trim() || "";
+  }
+
+  setConsumablesInputRow(prev => ({
+    ...prev,
+    stockInHand: stock,
+    unit,
+  }));
+
+  // 🔥 EXACT SAME BEHAVIOR AS COMMENTED CODE
+  if (unit) {
     setConsumablesUnitOptions(
-      isFullControl
-        ? unit
-          ? [...new Set([unit, ...defaultUnits])]
-          : [...defaultUnits]
-        : unit
-        ? [unit]
-        : [...defaultUnits]
+      isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
     );
-  }, [consumablesEditRow?.partNumber, stockCache]);
+  } else {
+    setConsumablesUnitOptions([...defaultUnits]);
+  }
+}, [consumablesInputRow.partNumber, consumablesInputRow.location, stockCache, userRole]);
 
-  useEffect(() => {
-    const part = consumablesInputRow.partNumber?.trim();
-    if (!part) return;
-
-    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
-    const cached = stockCache[part];
-    let unit = "";
-    let stock = "0";
-
-    if (cached) {
-      stock = `${cached.stockInHand} ${cached.unit || ""}`.trim();
-      unit = cached.unit?.trim() || "";
-    }
-
-    setConsumablesInputRow((prev) => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-    }));
-
-    if (unit) {
-      setConsumablesUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
-      );
-    } else {
-      setConsumablesUnitOptions([...defaultUnits]);
-    }
-  }, [consumablesInputRow.partNumber, stockCache, userRole]);
 
   //   const handleSubmit = async (values) => {
   //     if (!navigator.onLine) {
@@ -2464,8 +2823,8 @@ const formatPartNumber = (value) => {
   //       setLoading(false);
   //     }
   //   };
-const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
-// console.log(userLocalDateTime);
+  const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+  // console.log(userLocalDateTime);
   const handleSubmit = async (values) => {
     if (!navigator.onLine) {
       notification.error({
@@ -2565,8 +2924,8 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
           haSeries: haSeries || "-",
 
           // Machine Details
-          // machinePartNumber: machine.partNumber || "-",
-          machinePartNumber: formatPartNumber(machine.partNumber) || "-",
+          // machinePartNumber: formatPartNumber(machine.partNumber) || "-",
+          machinePartNumber: machine.partNumber || "-",
           machineDescription: machine.description || "-",
           machineQuantity: machine.quantity || "-",
           machineStockInHand: machine.stockInHand || "0",
@@ -2577,7 +2936,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
           machineUnit: machine.unit || "-",
           machineTotalPrice: machine.totalPrice || "-",
           machineDate: machine.date || "",
-
+          machineLocation: machine.location || "-",  
           modifiedDateTime: userLocalDateTime,
           userName: user?.email || "",
 
@@ -2585,8 +2944,8 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
             ? auxiliaries.join(" / ")
             : auxiliaries || "",
 
-          // auxPartNumber: auxiliary.partNumber || "-",
-          auxPartNumber: formatPartNumber(auxiliary.partNumber) || "-",
+          auxPartNumber: auxiliary.partNumber || "-",
+          // auxPartNumber: formatPartNumber(auxiliary.partNumber) || "-",
           auxDescription: auxiliary.description || "-",
           auxQuantity: auxiliary.quantity || "-",
           auxStockInHand: auxiliary.stockInHand || "0",
@@ -2597,9 +2956,10 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
           auxUnit: auxiliary.unit || "-",
           auxTotalPrice: auxiliary.totalPrice || "-",
           auxDate: auxiliary.date || "-",
+            auxLocation: auxiliary.location || "-", 
 
-          // sparePartNumber: spare.partNumber || "-",
-          sparePartNumber: formatPartNumber(spare.partNumber) || "-",
+          sparePartNumber: spare.partNumber || "-",
+          // sparePartNumber: formatPartNumber(spare.partNumber) || "-",
           spareDescription: spare.description || "-",
           spareQuantity: spare.quantity || "-",
           spareStockInHand: spare.stockInHand || "0",
@@ -2610,10 +2970,11 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
           spareUnit: spare.unit || "-",
           spareTotalPrice: spare.totalPrice || "-",
           spareDate: spare.date || "",
+          spareLocation: spare.location || "-", 
 
           // ✅ Consumables
-          // consumablePartNumber: consumable.partNumber || "-",
-          consumablePartNumber: formatPartNumber(consumable.partNumber) || "-",
+          consumablePartNumber: consumable.partNumber || "-",
+          // consumablePartNumber: formatPartNumber(consumable.partNumber) || "-",
           consumableDescription: consumable.description || "-",
           consumableQuantity: consumable.quantity || "-",
           consumableStockInHand: consumable.stockInHand || "0",
@@ -2624,6 +2985,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
           consumableUnit: consumable.unit || "-",
           consumableTotalPrice: consumable.totalPrice || "-",
           consumableDate: consumable.date || "-",
+          consumableLocation: consumable.location || "-", 
         });
 
         // console.log(
@@ -2689,6 +3051,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       addOnCost,
       sellingCost,
       totalPrice,
+      location
     } = inputRow;
 
     if (
@@ -2700,12 +3063,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
+      !location ||
       !inputRow.date
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -2740,6 +3104,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost: "",
       totalPrice: "",
       note: "",
+      location: "",
     });
     await fetchAllStock();
   };
@@ -2774,6 +3139,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost,
       totalPrice,
       date,
+      location,
     } = sparePartsEditRow;
 
     if (
@@ -2785,12 +3151,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
-      !date
+      !date ||
+      !location
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -3555,6 +3922,51 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.date || "-"}</span>;
       },
     },
+        {
+      title: "Location",
+      dataIndex: "location",
+      width: 150,
+      render: (_, record) => {
+        // ===== INPUT ROW (new entry) =====
+        if (record.isInput) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={inputRow.location}
+              onChange={(value) =>
+                setInputRow((prev) => ({ ...prev, location: value }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
+
+        // ===== EDITING ROW =====
+        if (isSparePartsEditing(record)) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={sparePartsEditRow.location}
+              onChange={(value) =>
+                setSparePartsEditRow((prev) => ({ ...prev, location: value }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
+
+        // ===== NORMAL DISPLAY =====
+        return <span>{record.location || "-"}</span>;
+      },
+    },
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -3594,6 +4006,8 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.partNumber}</span>;
       },
     },
+
+
     {
       title: "Description",
       dataIndex: "description",
@@ -4150,6 +4564,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost,
       totalPrice,
       date,
+      location,
     } = consumablesInputRow;
 
     if (
@@ -4161,12 +4576,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
-      !date
+      !date ||
+      !location 
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -4200,6 +4616,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost: "",
       totalPrice: "",
       note: "",
+      location: "",
     });
 
     await fetchAllStock(); // ✅ same as spare parts
@@ -4230,6 +4647,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost,
       totalPrice,
       date,
+      location
     } = consumablesEditRow;
 
     if (
@@ -4241,12 +4659,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
-      !date
+      !date ||
+      !location
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -4338,6 +4757,51 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.date || "-"}</span>;
       },
     },
+        {
+  title: "Location",
+  dataIndex: "location",
+  width: 150,
+  render: (_, record) => {
+    // Input Row
+    if (record.isInput) {
+      return (
+        <Select
+          placeholder="Select Location"
+          value={consumablesInputRow.location}
+          onChange={(value) =>
+            setConsumablesInputRow((prev) => ({ ...prev, location: value }))
+          }
+          style={{ width: "100%" }}
+          options={[
+            { value: "AE", label: "AE" },
+            { value: "MEA", label: "MEA" },
+          ]}
+        />
+      );
+    }
+
+    // Edit Row
+    if (isConsumablesEditing(record)) {
+      return (
+        <Select
+          placeholder="Select Location"
+          value={consumablesEditRow.location}
+          onChange={(value) =>
+            setConsumablesEditRow((prev) => ({ ...prev, location: value }))
+          }
+          style={{ width: "100%" }}
+          options={[
+            { value: "AE", label: "AE" },
+            { value: "MEA", label: "MEA" },
+          ]}
+        />
+      );
+    }
+
+    // Display
+    return <span>{record.location || "-"}</span>;
+  },
+},
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -4379,6 +4843,8 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.partNumber}</span>;
       },
     },
+
+
     {
       title: "Description",
       dataIndex: "description",
@@ -5425,6 +5891,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       addOnCost,
       sellingCost,
       totalPrice,
+      location
     } = auxiliariesInputRow;
 
     // if (
@@ -5444,6 +5911,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
+      !location ||
       !auxiliariesInputRow.date
     ) {
       notification.error({
@@ -5485,6 +5953,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       stockUnit: "",
       totalPrice: "",
       note: "",
+      location: "",
     });
     await fetchAllStock();
   };
@@ -5518,6 +5987,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost,
       totalPrice,
       date,
+      location
     } = auxiliariesEditRow;
 
     if (
@@ -5529,12 +5999,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
-      !date
+      !date ||
+      !location
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -5627,6 +6098,58 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.date || "-"}</span>;
       },
     },
+    {
+  title: "Location",
+  dataIndex: "location",
+  width: 150,
+  render: (_, record) => {
+    // Input row
+    if (record.isInput) {
+      return (
+        <Select
+          placeholder="Select Location"
+          value={auxiliariesInputRow.location}
+          onChange={(value) =>
+            setAuxiliariesInputRow((prev) => ({
+              ...prev,
+              location: value,
+            }))
+          }
+          style={{ width: "100%" }}
+          options={[
+            { value: "AE", label: "AE" },
+            { value: "MEA", label: "MEA" },
+          ]}
+        />
+      );
+    }
+
+    // Edit row
+    if (isAuxiliariesEditing(record)) {
+      return (
+        <Select
+          placeholder="Select Location"
+          value={auxiliariesEditRow.location}
+          onChange={(value) =>
+            setAuxiliariesEditRow((prev) => ({
+              ...prev,
+              location: value,
+            }))
+          }
+          style={{ width: "100%" }}
+          options={[
+            { value: "AE", label: "AE" },
+            { value: "MEA", label: "MEA" },
+          ]}
+        />
+      );
+    }
+
+    // Display
+    return <span>{record.location || "-"}</span>;
+  },
+},
+
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -7696,6 +8219,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       addOnCost,
       sellingCost,
       totalPrice,
+       location,
     } = machineinputRow;
 
     if (
@@ -7707,12 +8231,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
+      !location ||
       !machineinputRow.date
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -7745,6 +8270,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       totalPrice: "",
       note: "",
       stockUnit: "",
+      location: "",
     });
     await fetchAllStock();
   };
@@ -7778,6 +8304,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       sellingCost,
       totalPrice,
       date,
+      location, 
     } = machinesEditRow;
 
     if (
@@ -7789,12 +8316,13 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
-      !date
+      !date||
+      !location 
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Loaction, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -7862,6 +8390,51 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.date || "-"}</span>;
       },
     },
+        {
+  title: "Location",
+  dataIndex: "location",
+  width: 150,
+  render: (_, record) => {
+    // Input Row
+    if (record.isInput) {
+      return (
+        <Select
+          placeholder="Select Location"
+          value={machineinputRow.location}
+          onChange={(value) =>
+            setMachineInputRow((prev) => ({ ...prev, location: value }))
+          }
+          style={{ width: "100%" }}
+          options={[
+            { value: "AE", label: "AE" },
+            { value: "MEA", label: "MEA" },
+          ]}
+        />
+      );
+    }
+
+    // Edit Row
+    if (isMachinesEditing(record)) {
+      return (
+        <Select
+          placeholder="Select Location"
+          value={machinesEditRow.location}
+          onChange={(value) =>
+            setMachinesEditRow((prev) => ({ ...prev, location: value }))
+          }
+          style={{ width: "100%" }}
+          options={[
+            { value: "AE", label: "AE" },
+            { value: "MEA", label: "MEA" },
+          ]}
+        />
+      );
+    }
+
+    // Display
+    return <span>{record.location || "-"}</span>;
+  },
+},
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -7894,6 +8467,8 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
         return <span>{record.partNumber}</span>;
       },
     },
+
+
     {
       title: "Description",
       dataIndex: "description",
@@ -9673,7 +10248,7 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
                                   },
                                 ]}
                               >
-                                <AutoComplete
+                             {/* //   <AutoComplete
                                   allowClear
                                   showSearch
                                   placeholder={
@@ -9745,7 +10320,39 @@ const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
                                       ?.toLowerCase()
                                       .includes(inputValue.toLowerCase())
                                   }
-                                />
+                                /> */}
+
+                                <AutoComplete
+  allowClear
+  showSearch
+  placeholder={`Enter or select ${selectedIMMSeries} series`}
+  loading={seriesLoading}
+  disabled={seriesLoading}
+  value={form.getFieldValue(`${selectedIMMSeries.toLowerCase()}Series`) || ""}
+
+  options={(filteredSeries.length ? filteredSeries : seriesModels).map(m => ({
+    label: m,
+    value: m
+  }))}
+
+  onSearch={(value) => {
+    setFilteredSeries(
+      seriesModels.filter(m =>
+        m.toLowerCase().includes(value.toLowerCase())
+      )
+    );
+  }}
+
+  onSelect={(value) => {
+    const key = `${selectedIMMSeries.toLowerCase()}Series`;
+    form.setFieldsValue({ [key]: value });
+    setMachineInputRow(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }}
+/>
+
                               </Form.Item>
                             )}
                           </>

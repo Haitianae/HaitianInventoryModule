@@ -21,12 +21,14 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import HaitianLogo from "../Images/Haitian.png";
 import { Cell, Pie, PieChart, ResponsiveContainer, Legend } from "recharts";
+import XLSX from "xlsx-js-style";
+import dayjs from "dayjs";
 
 export default function Dashboard({ user }) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [tableDataSource, setTableDataSource] = useState([]);
-  const access = user?.access?.["Add User"] || "No Access";
+  const access = user?.access?.["Dashboard"] || "No Access";
   const readOnly = access === "Read";
   const canWrite = access === "Read/Write" || access === "Full Control";
   const isFullControl = access === "Full Control";
@@ -58,7 +60,9 @@ export default function Dashboard({ user }) {
     outOfStock: 0,
   });
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
+
+    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
   const baseColumns = [
     {
       title: "Serial Number",
@@ -70,6 +74,18 @@ export default function Dashboard({ user }) {
         </Tooltip>
       ),
     },
+    {
+      title: "Location",
+      dataIndex: "location",
+      key: "location",
+      width: 120,
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -235,6 +251,7 @@ export default function Dashboard({ user }) {
   const columnMapping = {
     "Serial Number": "serialNumber",
     "Part Number": "partNumber",
+    Location: "location",
     Description: "description",
     Quantity: "quantity",
     Unit: "unit",
@@ -330,6 +347,7 @@ export default function Dashboard({ user }) {
         action: "getInventory",
         partNumber: values.partNumber || "",
         description: values.description || "",
+        location: values.location || "",
       });
 
       const res = await fetch(GAS_URL, {
@@ -396,6 +414,7 @@ export default function Dashboard({ user }) {
       description: String(item.description || ""),
       Category: String(item.Category || "Unknown").trim(),
       quantity: Number(item.quantity) || 0,
+      location: String(item.location || ""),
     }));
 
     // Text filters
@@ -413,6 +432,12 @@ export default function Dashboard({ user }) {
       );
     }
 
+    if (values.location) {
+      filtered = filtered.filter(
+        (item) => item.location.toLowerCase() === values.location.toLowerCase()
+      );
+    }
+
     // Stock status filter
     if (values.stockStatus && values.stockStatus !== "all") {
       filtered = filtered.filter((item) => {
@@ -425,6 +450,183 @@ export default function Dashboard({ user }) {
 
     setFilteredInventoryData(filtered);
   };
+
+  // const handleExportInventory = () => {
+  //   if (!filteredInventoryData || filteredInventoryData.length === 0) {
+  //     notification.warning({
+  //       message: "Export Failed",
+  //       description: "No inventory data available to export.",
+  //       placement: "bottomRight",
+  //     });
+  //     return;
+  //   }
+
+  //   const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+  //   const fileName = `Inventory_Report_${now}.xlsx`;
+
+  //   // Header style
+  //   const headerStyle = {
+  //     font: { bold: true, sz: 12 },
+  //     alignment: { horizontal: "left", vertical: "center", wrapText: true },
+  //     border: getAllBorders(),
+  //     fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+  //   };
+
+  //   const header = [
+  //     { v: "Serial Number", t: "s", s: headerStyle },
+  //     { v: "Location", t: "s", s: headerStyle },
+  //     { v: "Part Number", t: "s", s: headerStyle },
+  //     { v: "Description", t: "s", s: headerStyle },
+  //     { v: "Quantity", t: "s", s: headerStyle },
+  //     { v: "Unit", t: "s", s: headerStyle },
+  //     { v: "Category", t: "s", s: headerStyle },
+  //     { v: "Status", t: "s", s: headerStyle },
+  //   ];
+
+  //   const data = filteredInventoryData.map((row) => {
+  //     const qty = Number(row.quantity);
+  //     let status = "In Stock";
+  //     if (qty === 0) status = "Out of Stock";
+  //     else if (qty < 5) status = "Low Stock";
+
+  //     return [
+  //       { v: row.serialNumber, s: { border: getAllBorders() } },
+  //       { v: row.location || "-", s: { border: getAllBorders() } },
+  //       { v: row.partNumber || "-", s: { border: getAllBorders() } },
+  //       { v: row.description || "-", s: { border: getAllBorders() } },
+  //       { v: row.quantity ?? 0, s: { border: getAllBorders() } },
+  //       { v: row.unit || "-", s: { border: getAllBorders() } },
+  //       { v: row.Category || "-", s: { border: getAllBorders() } },
+  //       { v: status, s: { border: getAllBorders() } },
+  //     ];
+  //   });
+
+  //   // Create sheet
+  //   const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+  //   // Auto column width
+  //   const colWidths = header.map((_, colIndex) => {
+  //     let maxLength = 0;
+  //     [header, ...data].forEach((row) => {
+  //       const cell = row[colIndex];
+  //       const value = cell?.v ? String(cell.v) : "";
+  //       maxLength = Math.max(maxLength, value.length);
+  //     });
+  //     return { wch: Math.min(maxLength * 1.8, 60) };
+  //   });
+
+  //   ws["!cols"] = colWidths;
+
+  //   const wb = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+
+  //   XLSX.writeFile(wb, fileName);
+
+  //   notification.success({
+  //     message: "Export Successful",
+  //     description: "Inventory report downloaded successfully.",
+  //     placement: "bottomRight",
+  //   });
+  // };
+
+  const handleExportInventory = () => {
+  if (!filteredInventoryData || filteredInventoryData.length === 0) {
+    notification.warning({
+      message: "Export Failed",
+      description: "No inventory data available to export.",
+      placement: "bottomRight",
+    });
+    return;
+  }
+
+  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+  const fileName = `Inventory_Report_${now}.xlsx`;
+
+  const headerStyle = {
+    font: { bold: true, sz: 12 },
+    alignment: { horizontal: "left", vertical: "center", wrapText: true },
+    border: getAllBorders(),
+    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+  };
+
+  // ✅ HEADER (conditionally add Total Price)
+  const header = [
+    { v: "Serial Number", t: "s", s: headerStyle },
+    { v: "Location", t: "s", s: headerStyle },
+    { v: "Part Number", t: "s", s: headerStyle },
+    { v: "Description", t: "s", s: headerStyle },
+    { v: "Quantity", t: "s", s: headerStyle },
+    { v: "Unit", t: "s", s: headerStyle },
+    { v: "Category", t: "s", s: headerStyle },
+    { v: "Status", t: "s", s: headerStyle },
+    ...(isFullControl
+      ? [{ v: "Total Price (AED)", t: "s", s: headerStyle }]
+      : []),
+  ];
+
+  // ✅ DATA ROWS (conditionally add totalPrice)
+  const data = filteredInventoryData.map((row) => {
+    const qty = Number(row.quantity);
+    let status = "In Stock";
+
+    if (qty === 0) status = "Out of Stock";
+    else if (qty < 5) status = "Low Stock";
+
+    const baseRow = [
+      { v: row.serialNumber, s: { border: getAllBorders() } },
+      { v: row.location || "-", s: { border: getAllBorders() } },
+      { v: row.partNumber || "-", s: { border: getAllBorders() } },
+      { v: row.description || "-", s: { border: getAllBorders() } },
+      { v: row.quantity ?? 0, s: { border: getAllBorders() } },
+      { v: row.unit || "-", s: { border: getAllBorders() } },
+      { v: row.Category || "-", s: { border: getAllBorders() } },
+      { v: status, s: { border: getAllBorders() } },
+    ];
+
+    if (isFullControl) {
+      baseRow.push({
+        v: row.totalPrice ?? "-",
+        s: { border: getAllBorders() },
+      });
+    }
+
+    return baseRow;
+  });
+
+  // ✅ CREATE SHEET
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+  // ✅ AUTO COLUMN WIDTH
+  const colWidths = header.map((_, colIndex) => {
+    let maxLength = 0;
+    [header, ...data].forEach((row) => {
+      const cell = row[colIndex];
+      const value = cell?.v ? String(cell.v) : "";
+      maxLength = Math.max(maxLength, value.length);
+    });
+    return { wch: Math.min(maxLength * 1.8, 60) };
+  });
+
+  ws["!cols"] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+
+  XLSX.writeFile(wb, fileName);
+
+  notification.success({
+    message: "Export Successful",
+    description: "Inventory report downloaded successfully.",
+    placement: "bottomRight",
+  });
+};
+
+  const getAllBorders = () => ({
+    top: { style: "thin", color: { rgb: "000000" } },
+    bottom: { style: "thin", color: { rgb: "000000" } },
+    left: { style: "thin", color: { rgb: "000000" } },
+    right: { style: "thin", color: { rgb: "000000" } },
+  });
 
   useEffect(() => {
     fetchInventory(); // initial load
@@ -499,28 +701,27 @@ export default function Dashboard({ user }) {
 }
     `;
 
-    const getPercentage = (label, data) => {
-  if (!Array.isArray(data) || data.length === 0) return "0%";
+  const getPercentage = (label, data) => {
+    if (!Array.isArray(data) || data.length === 0) return "0%";
 
-  const total = data.reduce((sum, e) => sum + (e.value || 0), 0);
-  if (total === 0) return "0%";
+    const total = data.reduce((sum, e) => sum + (e.value || 0), 0);
+    if (total === 0) return "0%";
 
-  const raw = data.map(item => (item.value / total) * 100);
+    const raw = data.map((item) => (item.value / total) * 100);
 
-  // Round percentages (2 decimals)
-  const rounded = raw.map(p => Number(p.toFixed(2)));
+    // Round percentages (2 decimals)
+    const rounded = raw.map((p) => Number(p.toFixed(2)));
 
-  // Drift correction
-  const drift = Number((100 - rounded.reduce((a, b) => a + b, 0)).toFixed(2));
-  rounded[rounded.length - 1] += drift;
+    // Drift correction
+    const drift = Number((100 - rounded.reduce((a, b) => a + b, 0)).toFixed(2));
+    rounded[rounded.length - 1] += drift;
 
-  const idx = data.findIndex(
-    d => d.name.trim().toLowerCase() === label.trim().toLowerCase()
-  );
+    const idx = data.findIndex(
+      (d) => d.name.trim().toLowerCase() === label.trim().toLowerCase()
+    );
 
-  return `${rounded[idx] ?? 0}%`;
-};
-
+    return `${rounded[idx] ?? 0}%`;
+  };
 
   const CATEGORY_COLORS = {
     Machine: "#0d3984e8",
@@ -665,11 +866,11 @@ export default function Dashboard({ user }) {
 
     return {
       low: Object.entries(lowMap).map(([name, value]) => ({
-        name: `${name} - Low Stock`,
+        name: `${name}`,
         value,
       })),
       out: Object.entries(outMap).map(([name, value]) => ({
-        name: `${name} - Out of Stock`,
+        name: `${name}`,
         value,
       })),
     };
@@ -1313,8 +1514,9 @@ export default function Dashboard({ user }) {
                                   // label={({ index }) =>
                                   //   pieChartData[index].value
                                   // }
-                                  label={({ index }) => pieChartData[index]?.value ?? ""}
-
+                                  label={({ index }) =>
+                                    pieChartData[index]?.value ?? ""
+                                  }
                                 >
                                   {pieChartData.map((entry, index) => (
                                     <Cell
@@ -1410,8 +1612,12 @@ export default function Dashboard({ user }) {
                                   //   return `${value} (${percent[idx]}%)`;
                                   // }}
 
-                                  formatter={(value) => `${value} (${getPercentage(value, pieChartData)})`}
-
+                                  formatter={(value) =>
+                                    `${value} (${getPercentage(
+                                      value,
+                                      pieChartData
+                                    )})`
+                                  }
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -1835,8 +2041,10 @@ export default function Dashboard({ user }) {
                                   //   ].value.toLocaleString() + " AED"
                                   // }
                                   label={({ index }) =>
-  valueChartData[index]?.value?.toLocaleString() + " AED" || ""
-}
+                                    valueChartData[
+                                      index
+                                    ]?.value?.toLocaleString() + " AED" || ""
+                                  }
                                 >
                                   {valueChartData.map((entry, index) => (
                                     <Cell
@@ -1876,33 +2084,36 @@ export default function Dashboard({ user }) {
                                   //   return `${value} (${percent}%)`;
                                   // }}
 
-//                                   formatter={(value) => {
-//   const total = valueChartData.reduce((sum, e) => sum + e.value, 0);
-//   if (total === 0) return `${value} (0%)`;
+                                  //                                   formatter={(value) => {
+                                  //   const total = valueChartData.reduce((sum, e) => sum + e.value, 0);
+                                  //   if (total === 0) return `${value} (0%)`;
 
-//   // ✅ Step 1: get index of legend item
-//   const idx = valueChartData.findIndex(
-//     (d) => d.name.trim().toLowerCase() === value.trim().toLowerCase()
-//   );
-//   if (idx === -1) return `${value} (0%)`;
+                                  //   // ✅ Step 1: get index of legend item
+                                  //   const idx = valueChartData.findIndex(
+                                  //     (d) => d.name.trim().toLowerCase() === value.trim().toLowerCase()
+                                  //   );
+                                  //   if (idx === -1) return `${value} (0%)`;
 
-//   // ✅ Step 2: compute raw exact percentage (no rounding loss)
-//   const rawPercents = valueChartData.map((d) => (d.value / total) * 100);
+                                  //   // ✅ Step 2: compute raw exact percentage (no rounding loss)
+                                  //   const rawPercents = valueChartData.map((d) => (d.value / total) * 100);
 
-//   // ✅ Step 3: round percentages only to two decimals (to avoid 0.0 problem)
-//   const rounded = rawPercents.map((p) => Number(p.toFixed(2)));
+                                  //   // ✅ Step 3: round percentages only to two decimals (to avoid 0.0 problem)
+                                  //   const rounded = rawPercents.map((p) => Number(p.toFixed(2)));
 
-//   // ✅ Step 4: apply drift correction (ensure total = 100)
-//   const drift = Number((100 - rounded.reduce((a, b) => a + b, 0)).toFixed(2));
-//   rounded[rounded.length - 1] += drift;
+                                  //   // ✅ Step 4: apply drift correction (ensure total = 100)
+                                  //   const drift = Number((100 - rounded.reduce((a, b) => a + b, 0)).toFixed(2));
+                                  //   rounded[rounded.length - 1] += drift;
 
-//   // ✅ Step 5: Return cleaned formatting
-//   return `${value} (${rounded[idx]}%)`;
-// }}
+                                  //   // ✅ Step 5: Return cleaned formatting
+                                  //   return `${value} (${rounded[idx]}%)`;
+                                  // }}
 
-formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
-
-
+                                  formatter={(value) =>
+                                    `${value} (${getPercentage(
+                                      value,
+                                      valueChartData
+                                    )})`
+                                  }
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -2064,7 +2275,6 @@ formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
                                   isAnimationActive={false}
                                   // label={({ index }) => low[index].value}
                                   label={({ index }) => low[index]?.value ?? ""}
-
                                 >
                                   {low.map((entry, index) => {
                                     // ✅ Extract clean base name (remove " - Low Stock")
@@ -2181,8 +2391,9 @@ formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
                                   //     </span>
                                   //   );
                                   // }}
-                                  formatter={(value) => `${value} (${getPercentage(value, low)})`}
-
+                                  formatter={(value) =>
+                                    `${value} (${getPercentage(value, low)})`
+                                  }
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -2263,7 +2474,6 @@ formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
                                   paddingAngle={getPaddingAngle(out)}
                                   // label={({ index }) => out[index].value}
                                   label={({ index }) => out[index]?.value ?? ""}
-
                                 >
                                   {/* {out.map((entry, index) => (
                                     
@@ -2393,8 +2603,9 @@ formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
                                   //   );
                                   // }}
 
-                                  formatter={(value) => `${value} (${getPercentage(value, out)})`}
-
+                                  formatter={(value) =>
+                                    `${value} (${getPercentage(value, out)})`
+                                  }
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -2522,6 +2733,23 @@ formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
                           </div>
                           <div className="col-lg-2 col-md-6 col-sm-12">
                             <Form.Item
+                              name="location"
+                              style={{ marginBottom: 0 }}
+                            >
+                              <Select
+                                size="large"
+                                placeholder="Select Location"
+                                allowClear
+                                style={{ width: "100%" }}
+                              >
+                                <Option value="MEA">MEA</Option>
+                                <Option value="AE">AE</Option>
+                              </Select>
+                            </Form.Item>
+                          </div>
+
+                          <div className="col-lg-3 col-md-6 col-sm-12">
+                            <Form.Item
                               name="stockStatus"
                               style={{ marginBottom: 0 }}
                               initialValue="all"
@@ -2549,6 +2777,28 @@ formatter={(value) => `${value} (${getPercentage(value, valueChartData)})`}
                               Search Inventory Data
                             </Button>
                           </div>
+                          {/* <div className="col-lg-3 col-md-6 col-sm-12">
+                            <Button
+                              type="primary"
+                              size="large"
+                              className="resetButton"
+                              onClick={handleExportInventory}
+                            >
+                              Export
+                            </Button>
+                          </div> */}
+                          {isFullControl && (
+                            <div className="col-lg-3 col-md-6 col-sm-12">
+                              <Button
+                                type="primary"
+                                size="large"
+                                className="resetButton"
+                                onClick={handleExportInventory}
+                              >
+                                Export
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </Form>
                     </div>

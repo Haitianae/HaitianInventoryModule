@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from "react";
 import "antd/dist/reset.css";
-import { Button, Form, Input, Table, Tooltip, Modal, Tag } from "antd";
+import { Button, Form, Input, Table, Tooltip, Modal, Tag, Select } from "antd";
 import { notification } from "antd";
 // import HaitianLogo from "../Images/HaitianLogo.jpeg";
 import "../App.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMagnifyingGlass, faEye } from "@fortawesome/free-solid-svg-icons";
 import HaitianLogo from "../Images/Haitian.png";
+import XLSX from "xlsx-js-style";
+import dayjs from "dayjs";
 
 export default function Inventory({ user }) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [tableDataSource, setTableDataSource] = useState();
-  const access = user?.access?.["Add User"] || "No Access";
+  const access = user?.access?.["Inventory"] || "No Access";
   const readOnly = access === "Read";
   const canWrite = access === "Read/Write" || access === "Full Control";
   const isFullControl = access === "Full Control";
@@ -232,6 +234,17 @@ export default function Inventory({ user }) {
       ),
     },
     {
+      title: "Location",
+      dataIndex: "Location",
+      key: "location",
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+
+    {
       title: "Part Number",
       dataIndex: "partNumber",
       key: "partNumber",
@@ -271,52 +284,56 @@ export default function Inventory({ user }) {
         </Tooltip>
       ),
     },
-        {
-          title: "Category",
-          dataIndex: "Category",
-          key: "Category",
-          render: (text) => (
-            <Tooltip title={text || "Unknown"}>
-              <span>{text || "Unknown"}</span>
-            </Tooltip>
-          ),
-        },
-        // {
-        //   title: "Status",
-        //   key: "status",
-        //   render: (_, record) => {
-        //     const qty = Number(record.quantity) || 0;
-        //     let status = "In Stock";
-        //     if (qty === 0) status = "Out of Stock";
-        //     else if (qty < 5) status = "Low Stock";
-    
-        //     return (
-        //       <Tooltip title={status}>
-        //         <span>{status}</span>
-        //       </Tooltip>
-        //     );
-        //   },
-        // },
+    {
+      title: "Category",
+      dataIndex: "Category",
+      key: "Category",
+      render: (text) => (
+        <Tooltip title={text || "Unknown"}>
+          <span>{text || "Unknown"}</span>
+        </Tooltip>
+      ),
+    },
+    // {
+    //   title: "Status",
+    //   key: "status",
+    //   render: (_, record) => {
+    //     const qty = Number(record.quantity) || 0;
+    //     let status = "In Stock";
+    //     if (qty === 0) status = "Out of Stock";
+    //     else if (qty < 5) status = "Low Stock";
 
-        {
-              title: "Status",
-              key: "status",
-              render: (_, record) => {
-                const qty = Number(record.quantity) || 0;
-                let status = "In Stock";
-                let color = "green";
-        
-                if (qty === 0) {
-                  status = "Out of Stock";
-                  color = "red";
-                } else if (qty < 5) {
-                  status = "Low Stock";
-                  color = "orange";
-                }
-        
-                return <Tag color={color} className="tag-large" >{status}</Tag>;
-              },
-            },
+    //     return (
+    //       <Tooltip title={status}>
+    //         <span>{status}</span>
+    //       </Tooltip>
+    //     );
+    //   },
+    // },
+
+    {
+      title: "Status",
+      key: "status",
+      render: (_, record) => {
+        const qty = Number(record.quantity) || 0;
+        let status = "In Stock";
+        let color = "green";
+
+        if (qty === 0) {
+          status = "Out of Stock";
+          color = "red";
+        } else if (qty < 5) {
+          status = "Low Stock";
+          color = "orange";
+        }
+
+        return (
+          <Tag color={color} className="tag-large">
+            {status}
+          </Tag>
+        );
+      },
+    },
   ];
 
   // extra columns only visible to Full Control
@@ -366,9 +383,9 @@ export default function Inventory({ user }) {
   const actionColumn = {
     title: "Action",
     key: "action",
-      width: 120,
-      align: "center",
-       fixed: "right",
+    width: 120,
+    align: "center",
+    fixed: "right",
     render: (_, record) => (
       <Button
         className="addButton"
@@ -395,6 +412,7 @@ export default function Inventory({ user }) {
     Description: "description",
     Quantity: "quantity",
     Unit: "unit",
+    Location: "Location",
     "Total Price in AED": "totalPrice",
     "Purchase Cost(per item)": "purchaseCost",
     "Add On Cost": "addOnCost",
@@ -408,10 +426,13 @@ export default function Inventory({ user }) {
         action: "getInventory",
         partNumber: values.partNumber || "",
         description: values.description || "",
+        location: values.location || "",
       });
 
       const res = await fetch(
-        "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec",
+        // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec",
+
+        "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec",
         {
           method: "POST",
           body: params,
@@ -449,6 +470,107 @@ export default function Inventory({ user }) {
     const values = form.getFieldsValue();
     fetchInventory(values);
   };
+
+  const handleExportInventory = () => {
+    if (!tableDataSource || tableDataSource.length === 0) {
+      notification.warning({
+        message: "Export Failed",
+        description: "No inventory data available to export.",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+    const fileName = `Inventory_Report_${now}.xlsx`;
+
+    const headerStyle = {
+      font: { bold: true, sz: 12 },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border: getAllBorders(),
+      fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+    };
+
+    const headers = [
+      { v: "Serial Number", s: headerStyle },
+      { v: "Location", s: headerStyle },
+      { v: "Part Number", s: headerStyle },
+      { v: "Description", s: headerStyle },
+      { v: "Quantity", s: headerStyle },
+      { v: "Unit", s: headerStyle },
+      { v: "Category", s: headerStyle },
+      ...(isFullControl ? [{ v: "Total Price in AED", s: headerStyle }] : []),
+      ...(isFullControl
+        ? [{ v: "Purchase Cost (per item)", s: headerStyle }]
+        : []),
+      ...(isFullControl ? [{ v: "Add On Cost", s: headerStyle }] : []),
+      ...(isFullControl ? [{ v: "Selling Cost", s: headerStyle }] : []),
+      { v: "Status", s: headerStyle },
+    ];
+
+    const data = tableDataSource.map((row) => {
+      const qty = Number(row.quantity);
+      let status = "In Stock";
+      if (qty === 0) status = "Out of Stock";
+      else if (qty < 5) status = "Low Stock";
+
+      const rowData = [
+        { v: row.serialNumber || "-", s: { border: getAllBorders() } },
+        { v: row.Location || "-", s: { border: getAllBorders() } },
+        { v: row.partNumber || "-", s: { border: getAllBorders() } },
+        { v: row.description || "-", s: { border: getAllBorders() } },
+        { v: row.quantity ?? 0, s: { border: getAllBorders() } },
+        { v: row.unit || "-", s: { border: getAllBorders() } },
+        { v: row.Category || "-", s: { border: getAllBorders() } },
+      ];
+
+      if (isFullControl) {
+        rowData.push(
+          { v: row.totalPrice || "-", s: { border: getAllBorders() } },
+          { v: row.purchaseCost || "-", s: { border: getAllBorders() } },
+          { v: row.addOnCost || "-", s: { border: getAllBorders() } },
+          { v: row.sellingCost || "-", s: { border: getAllBorders() } }
+        );
+      }
+
+      rowData.push({ v: status, s: { border: getAllBorders() } });
+
+      return rowData;
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+    // Auto column width
+    const colWidths = headers.map((_, colIndex) => {
+      let maxLength = 0;
+      [headers, ...data].forEach((row) => {
+        const cell = row[colIndex];
+        const value = cell?.v ? String(cell.v) : "";
+        maxLength = Math.max(maxLength, value.length);
+      });
+      return { wch: Math.min(maxLength * 1.8, 60) };
+    });
+
+    ws["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory Report");
+
+    XLSX.writeFile(wb, fileName);
+
+    notification.success({
+      message: "Export Successful",
+      description: "Inventory Excel report downloaded.",
+      placement: "bottomRight",
+    });
+  };
+
+  const getAllBorders = () => ({
+    top: { style: "thin", color: { rgb: "000000" } },
+    bottom: { style: "thin", color: { rgb: "000000" } },
+    left: { style: "thin", color: { rgb: "000000" } },
+    right: { style: "thin", color: { rgb: "000000" } },
+  });
 
   useEffect(() => {
     fetchInventory(); // initial load
@@ -610,6 +732,25 @@ export default function Inventory({ user }) {
                     <Input placeholder="Enter Description" />
                   </Form.Item>
 
+                  <Form.Item
+                    label={
+                      <span style={{ color: "#0D3884", fontWeight: "bold" }}>
+                        Location
+                      </span>
+                    }
+                    name="location"
+                  >
+                    <Select
+                      allowClear
+                      placeholder="Select Location"
+                      style={{ width: "100%" }}
+                      options={[
+                        { label: "AE", value: "AE" },
+                        { label: "MEA", value: "MEA" },
+                      ]}
+                    />
+                  </Form.Item>
+
                   <div
                     style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}
                     className="col-8 m-auto"
@@ -633,6 +774,16 @@ export default function Inventory({ user }) {
                     >
                       Clear Search
                     </Button>
+
+                    {isFullControl && (
+                      <Button
+                        size="large"
+                        className="submitButton"
+                        onClick={handleExportInventory}
+                      >
+                        Export Inventory Data
+                      </Button>
+                    )}
                   </div>
                 </Form>
 
@@ -716,6 +867,15 @@ export default function Inventory({ user }) {
                         <Form.Item
                           label="Serial Number"
                           name="serialNumber"
+                          className="fw-bold"
+                        >
+                          <Input readOnly />
+                        </Form.Item>
+                      </div>
+                      <div className="col-12">
+                        <Form.Item
+                          label="Location"
+                          name="Location"
                           className="fw-bold"
                         >
                           <Input readOnly />
