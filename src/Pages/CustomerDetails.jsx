@@ -61,9 +61,7 @@ export default function CustomerDetails({ user }) {
   const [searchText, setSearchText] = useState("");
 
   const GAS_URL =
-    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
-
-    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
+    "https://script.google.com/macros/s/AKfycbyx9LSk_2PSiYvVPKkXcKtYRs1Xa8gotQYJW1NAZGi2_E4TCUgkyWn4nccmsNFngONI/exec";
 
   useEffect(() => {
     fetchCustomerOwners();

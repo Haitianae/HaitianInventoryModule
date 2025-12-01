@@ -132,9 +132,7 @@ export default function PurchaseRequest({ user }) {
   const [partMap, setPartMap] = useState({});
   const [descMap, setDescMap] = useState({});
   const GAS_URL =
-    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
-
-    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
+    "https://script.google.com/macros/s/AKfycbyx9LSk_2PSiYvVPKkXcKtYRs1Xa8gotQYJW1NAZGi2_E4TCUgkyWn4nccmsNFngONI/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -153,110 +151,193 @@ export default function PurchaseRequest({ user }) {
     throw new Error("Failed after retries");
   }
 
+  // const fetchInitialData = async () => {
+  //   try {
+  //     setLoadingPurchaseRequestNumber(true);
+  //     setLoadingCustomerName(true);
+  //     setLoadingDescription(true);
+
+  //     const [requestNum, customers, descriptions] = await Promise.allSettled([
+  //       fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
+  //       fetchWithRetry({ action: "getCustomerDetails" }),
+  //       fetchWithRetry({
+  //         action: "getAllDescriptionsWithPartNumbers",
+  //         location: "MEA",
+  //       }),
+  //     ]);
+
+  //     // console.log("✅ Promise.allSettled result:");
+  //     // console.log("• requestNum:", requestNum);
+  //     // console.log("• customers:", customers);
+  //     console.log("• descriptions:", descriptions);
+
+  //     if (requestNum.status === "fulfilled" && requestNum.value) {
+  //       // console.log(
+  //       //   "🔍 Raw getNextPurchaseRequestNumber response:",
+  //       //   requestNum.value
+  //       // );
+
+  //       const prNumber =
+  //         requestNum.value.requestNumber ||
+  //         requestNum.value?.data?.requestNumber ||
+  //         requestNum.value?.purchaseRequestNumber;
+
+  //       // console.log("✅ Purchase Request Number fetched:", prNumber);
+
+  //       setPurchaseRequestNumber(prNumber);
+  //       form.setFieldsValue({
+  //         purchaseRequest: prNumber, // ✅ must match form field name
+  //       });
+  //     }
+
+  //     if (customers.status === "fulfilled" && customers.value) {
+  //       setCustomerList(customers.value.customers || []);
+  //     }
+
+  //     // if (descriptions.status === "fulfilled" && descriptions.value) {
+  //     //   setDescriptionList(descriptions.value.items || []);
+  //     // }
+
+  //     if (descriptions.status === "fulfilled" && descriptions.value) {
+  //       const items = descriptions.value.items || [];
+
+  //       const filtered = items.filter(
+  //         (item) => !item.location || item.location === "MEA"
+  //       );
+
+  //       setDescriptionList(filtered);
+
+  //       const mapped = {};
+
+  //       for (let i = filtered.length - 1; i >= 0; i--) {
+  //         const item = filtered[i];
+
+  //         if (!mapped[item.partNumber]) {
+  //           mapped[item.partNumber] = {
+  //             description: item.description,
+  //             unit: item.unit,
+  //             location: item.location,
+  //           };
+  //         }
+  //       }
+
+  //       setPartMap(mapped);
+
+  //       // const descMapTemp = {};
+  //       // filtered.forEach((item) => {
+  //       //   descMapTemp[item.description] = item.partNumber;
+  //       // });
+  //       // setDescMap(descMapTemp);
+
+  //       const descMapTemp = {};
+
+  //       filtered.forEach((item) => {
+  //         if (!descMapTemp[item.description]) {
+  //           descMapTemp[item.description] = [];
+  //         }
+  //         descMapTemp[item.description].push(item.partNumber);
+  //       });
+
+  //       setDescMap(descMapTemp);
+
+  //       console.log("🔍 Final Part Mapping:", mapped);
+  //     }
+
+  //     await fetchPurchaseRequestData();
+  //   } catch (err) {
+  //     notification.error({
+  //       message: "Error",
+  //       description: "Failed to fetch initial data",
+  //     });
+  //   } finally {
+  //     setLoadingPurchaseRequestNumber(false);
+  //     setLoadingCustomerName(false);
+  //     setLoadingDescription(false);
+  //   }
+  // };
+
   const fetchInitialData = async () => {
-    try {
-      setLoadingPurchaseRequestNumber(true);
-      setLoadingCustomerName(true);
-      setLoadingDescription(true);
+  try {
+    setLoadingPurchaseRequestNumber(true);
+    setLoadingCustomerName(true);
+    setLoadingDescription(true);
 
-      const [requestNum, customers, descriptions] = await Promise.allSettled([
-        fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
-        fetchWithRetry({ action: "getCustomerDetails" }),
-        fetchWithRetry({
-          action: "getAllDescriptionsWithPartNumbers",
-          location: "MEA",
-        }),
-      ]);
+    const [requestNum, customers, descriptions] = await Promise.allSettled([
+      fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
+      fetchWithRetry({ action: "getCustomerDetails" }),
+      fetchWithRetry({
+        action: "getAllDescriptionsWithPartNumbers",
+        location: "MEA",
+      }),
+    ]);
 
-      // console.log("✅ Promise.allSettled result:");
-      // console.log("• requestNum:", requestNum);
-      // console.log("• customers:", customers);
-      console.log("• descriptions:", descriptions);
+    // 🔹 Purchase Request Number
+    if (requestNum.status === "fulfilled" && requestNum.value) {
+      const prNumber =
+        requestNum.value.requestNumber ||
+        requestNum.value?.data?.requestNumber ||
+        requestNum.value?.purchaseRequestNumber;
 
-      if (requestNum.status === "fulfilled" && requestNum.value) {
-        // console.log(
-        //   "🔍 Raw getNextPurchaseRequestNumber response:",
-        //   requestNum.value
-        // );
-
-        const prNumber =
-          requestNum.value.requestNumber ||
-          requestNum.value?.data?.requestNumber ||
-          requestNum.value?.purchaseRequestNumber;
-
-        // console.log("✅ Purchase Request Number fetched:", prNumber);
-
-        setPurchaseRequestNumber(prNumber);
-        form.setFieldsValue({
-          purchaseRequest: prNumber, // ✅ must match form field name
-        });
-      }
-
-      if (customers.status === "fulfilled" && customers.value) {
-        setCustomerList(customers.value.customers || []);
-      }
-
-      // if (descriptions.status === "fulfilled" && descriptions.value) {
-      //   setDescriptionList(descriptions.value.items || []);
-      // }
-
-      if (descriptions.status === "fulfilled" && descriptions.value) {
-        const items = descriptions.value.items || [];
-
-        const filtered = items.filter(
-          (item) => !item.location || item.location === "MEA"
-        );
-
-        setDescriptionList(filtered);
-
-        const mapped = {};
-
-        for (let i = filtered.length - 1; i >= 0; i--) {
-          const item = filtered[i];
-
-          if (!mapped[item.partNumber]) {
-            mapped[item.partNumber] = {
-              description: item.description,
-              unit: item.unit,
-              location: item.location,
-            };
-          }
-        }
-
-        setPartMap(mapped);
-
-        // const descMapTemp = {};
-        // filtered.forEach((item) => {
-        //   descMapTemp[item.description] = item.partNumber;
-        // });
-        // setDescMap(descMapTemp);
-
-        const descMapTemp = {};
-
-        filtered.forEach((item) => {
-          if (!descMapTemp[item.description]) {
-            descMapTemp[item.description] = [];
-          }
-          descMapTemp[item.description].push(item.partNumber);
-        });
-
-        setDescMap(descMapTemp);
-
-        console.log("🔍 Final Part Mapping:", mapped);
-      }
-
-      await fetchPurchaseRequestData();
-    } catch (err) {
-      notification.error({
-        message: "Error",
-        description: "Failed to fetch initial data",
+      setPurchaseRequestNumber(prNumber);
+      form.setFieldsValue({
+        purchaseRequest: prNumber,
       });
-    } finally {
-      setLoadingPurchaseRequestNumber(false);
-      setLoadingCustomerName(false);
-      setLoadingDescription(false);
     }
-  };
+
+    // 🔹 Customer List
+    if (customers.status === "fulfilled" && customers.value) {
+      setCustomerList(customers.value.customers || []);
+    }
+
+    // 🔹 Descriptions (MEA ONLY)
+    if (descriptions.status === "fulfilled" && descriptions.value) {
+      const items = descriptions.value.items || [];
+
+      // ✅ 1. Filter only MEA rows
+      const meaRows = items.filter((item) => item.location === "MEA");
+
+      // ✅ 2. Pick LAST entry per partNumber
+      const uniqueMEA = {};
+      for (let i = meaRows.length - 1; i >= 0; i--) {
+        const item = meaRows[i];
+        if (!uniqueMEA[item.partNumber]) {
+          uniqueMEA[item.partNumber] = item;
+        }
+      }
+
+      const finalMEAList = Object.values(uniqueMEA);
+
+      // Save filtered unique list
+      setDescriptionList(finalMEAList);
+
+      // ✅ 3. Build partMap (one clean entry per partNumber)
+      setPartMap(uniqueMEA);
+
+      // ✅ 4. Build descMap (description → part numbers)
+      const descMapTemp = {};
+      finalMEAList.forEach((item) => {
+        if (!descMapTemp[item.description]) {
+          descMapTemp[item.description] = [];
+        }
+        descMapTemp[item.description].push(item.partNumber);
+      });
+
+      setDescMap(descMapTemp);
+    }
+
+    await fetchPurchaseRequestData();
+  } catch (err) {
+    notification.error({
+      message: "Error",
+      description: "Failed to fetch initial data",
+    });
+  } finally {
+    setLoadingPurchaseRequestNumber(false);
+    setLoadingCustomerName(false);
+    setLoadingDescription(false);
+  }
+};
+
 
   useEffect(() => {
     fetchInitialData();

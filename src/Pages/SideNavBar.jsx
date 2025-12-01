@@ -432,7 +432,7 @@
 //       color: #fff;
 //     }
 //     .ant-tooltip .ant-tooltip-inner {
-    
+
 //     padding: 6px 8px;
 //     color: white;
 //     text-align: start;
@@ -445,7 +445,6 @@
 //     box-sizing: border-box;
 // }
 //   `;
-
 
 //   return (
 //     <>
@@ -472,7 +471,7 @@
 //               className="haitian-logo"
 //             />
 //           </div>
-          
+
 //           <div className="haitian-title mt-2">Inventory Management System</div>
 
 //           {/* email with ellipsis + tooltip */}
@@ -544,7 +543,7 @@ import {
   UnorderedListOutlined,
   LogoutOutlined,
   IdcardOutlined,
-  ShoppingCartOutlined
+  ShoppingCartOutlined,
 } from "@ant-design/icons";
 import "../App.css";
 import HaitianLogo from "../Images/HaitianLogo.png";
@@ -559,13 +558,48 @@ export default function SideNavBar({ onLogout, user }) {
   const email = user?.email || "N/A";
 
   const menuItemsConfig = [
-    { key: "/dashboard", label: "Dashboard", icon: <PieChartOutlined />, access: "Dashboard" },
-    { key: "/inventory", label: "Inventory", icon: <AppstoreOutlined />, access: "Inventory" },
-    { key: "/productCategories", label: "Product Categories", icon: <UnorderedListOutlined />, access: "Product Categories" },
-    { key: "/customerDetails", label: "Customer Details", icon: <IdcardOutlined />, access: "Customer Details" },
-    { key: "/deliveryNote", label: "Delivery Note", icon: <FileDoneOutlined />, access: "Delivery Note" },
-    { key: "/purchaseRequest", label: "Purchase Request", icon: <ShoppingCartOutlined />, access: "Purchase Request" },
-    { key: "/addUser", label: "Add New User", icon: <UserAddOutlined />, access: "Add User" },
+    {
+      key: "/dashboard",
+      label: "Dashboard",
+      icon: <PieChartOutlined />,
+      access: "Dashboard",
+    },
+    {
+      key: "/inventory",
+      label: "Inventory",
+      icon: <AppstoreOutlined />,
+      access: "Inventory",
+    },
+    {
+      key: "/productCategories",
+      label: "Product Categories",
+      icon: <UnorderedListOutlined />,
+      access: "Product Categories",
+    },
+    {
+      key: "/customerDetails",
+      label: "Customer Details",
+      icon: <IdcardOutlined />,
+      access: "Customer Details",
+    },
+    {
+      key: "/deliveryNote",
+      label: "Delivery Note",
+      icon: <FileDoneOutlined />,
+      access: "Delivery Note",
+    },
+    {
+      key: "/purchaseRequest",
+      label: "Purchase Request",
+      icon: <ShoppingCartOutlined />,
+      access: "Purchase Request",
+    },
+    {
+      key: "/addUser",
+      label: "Add New User",
+      icon: <UserAddOutlined />,
+      access: "Add User",
+    },
     // { key: "/reports", label: "Reports", icon: <BarChartOutlined />, access: "Reports" },
   ];
 
@@ -573,15 +607,18 @@ export default function SideNavBar({ onLogout, user }) {
   const visibleMenuItems = menuItemsConfig.filter(
     (item) => (access[item.access] ?? "No Access") !== "No Access"
   );
-const firstAllowedPage = visibleMenuItems.length > 0 ? visibleMenuItems[0].key : null;
+  const firstAllowedPage =
+    visibleMenuItems.length > 0 ? visibleMenuItems[0].key : null;
 
-useEffect(() => {
-  const allowed = visibleMenuItems.some((item) => item.key === location.pathname);
+  useEffect(() => {
+    const allowed = visibleMenuItems.some(
+      (item) => item.key === location.pathname
+    );
 
-  if (!allowed && firstAllowedPage) {
-    navigate(firstAllowedPage);
-  }
-}, [location.pathname, visibleMenuItems, firstAllowedPage]);
+    if (!allowed && firstAllowedPage) {
+      navigate(firstAllowedPage);
+    }
+  }, [location.pathname, visibleMenuItems, firstAllowedPage]);
 
   const customStyles = `
     .ant-menu {
@@ -697,7 +734,11 @@ useEffect(() => {
       >
         <div>
           <div className="d-flex flex-column align-items-center mt-2">
-            <img src={HaitianLogo} alt="Haitian Logo" className="haitian-logo" />
+            <img
+              src={HaitianLogo}
+              alt="Haitian Logo"
+              className="haitian-logo"
+            />
           </div>
 
           <div className="haitian-title mt-2">Inventory Management System</div>
@@ -732,7 +773,9 @@ useEffect(() => {
             mode="inline"
             theme="dark"
             selectedKeys={[location.pathname]}
-            onClick={({ key }) => (key === "logout" ? onLogout() : navigate(key))}
+            onClick={({ key }) =>
+              key === "logout" ? onLogout() : navigate(key)
+            }
             className="mt-2"
           >
             {visibleMenuItems.map((item) => (
@@ -757,4 +800,3 @@ useEffect(() => {
     </>
   );
 }
-

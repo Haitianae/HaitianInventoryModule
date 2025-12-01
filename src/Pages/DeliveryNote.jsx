@@ -150,9 +150,7 @@ export default function DeliveryNote({ user }) {
   const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    // "https://script.google.com/macros/s/AKfycbx27Dt_yQ0yjM5GAbqpw38u5LHKX4i0X7a5EN8V816qmY4ftcwoe6pmmEosddXcsVRjGg/exec";
-
-    "https://script.google.com/macros/s/AKfycbzpsSdV_tTgUtCxOkxO7z4lmdPEQV6MSiA97myj-MLu46uQ9Qll_v-5Zd7l12AbbDA_sQ/exec";
+    "https://script.google.com/macros/s/AKfycbyx9LSk_2PSiYvVPKkXcKtYRs1Xa8gotQYJW1NAZGi2_E4TCUgkyWn4nccmsNFngONI/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -229,13 +227,102 @@ export default function DeliveryNote({ user }) {
     throw new Error("Failed after retries");
   }
 
+  // const fetchInitialData = async () => {
+  //   try {
+  //     setLoadingDeliveryNumber(true);
+  //     setLoadingCustomerName(true);
+  //     setLoadingDescription(true);
+
+  //     // 🔄 Fetch in parallel with retry logic
+  //     const [deliveryNum, customers, descriptions] = await Promise.allSettled([
+  //       fetchWithRetry({ action: "getNextDeliveryNumber" }),
+  //       fetchWithRetry({ action: "getCustomerDetails" }),
+  //       fetchWithRetry({
+  //         action: "getAllDescriptionsWithPartNumbers",
+  //         location: "AE",
+  //       }),
+  //     ]);
+
+  //     if (deliveryNum.status === "fulfilled" && deliveryNum.value) {
+  //       setDeliveryNumber(deliveryNum.value.deliveryNumber);
+  //       form.setFieldsValue({
+  //         deliveryNumber: deliveryNum.value.deliveryNumber,
+  //       });
+  //     }
+
+  //     if (customers.status === "fulfilled" && customers.value) {
+  //       setCustomerList(customers.value.customers || []);
+  //     }
+
+  //     // if (descriptions.status === "fulfilled" && descriptions.value) {
+  //     //   setDescriptionList(descriptions.value.items || []);
+  //     // }
+
+  //     if (descriptions.status === "fulfilled" && descriptions.value) {
+  //       const items = descriptions.value.items || [];
+
+  //       // 🔥 Filter only AE rows
+  //       const filtered = items.filter((item) => item.location === "AE");
+
+  //       // Save full filtered list
+  //       setDescriptionList(filtered);
+
+  //       const mapped = {};
+
+  //       for (let i = filtered.length - 1; i >= 0; i--) {
+  //         const item = filtered[i];
+
+  //         if (!mapped[item.partNumber]) {
+  //           mapped[item.partNumber] = {
+  //             description: item.description,
+  //             unit: item.unit,
+  //             location: item.location,
+  //           };
+  //         }
+  //       }
+
+  //       setPartMap(mapped);
+
+  //       // const descMapTemp = {};
+  //       // filtered.forEach((item) => {
+  //       //   descMapTemp[item.description] = item.partNumber;
+  //       // });
+  //       // setDescMap(descMapTemp);
+
+  //       const descMapTemp = {};
+  //       filtered.forEach((item) => {
+  //         if (!descMapTemp[item.description]) {
+  //           descMapTemp[item.description] = [];
+  //         }
+  //         descMapTemp[item.description].push(item.partNumber);
+  //       });
+  //       setDescMap(descMapTemp);
+
+  //       console.log("🔍 Final Part Mapping:", mapped);
+  //     }
+
+  //     // ✅ Fetch delivery notes separately (doesn’t need retry)
+  //     await fetchDeliveryNotesData();
+  //     await fetchPurchaseRequestData();
+  //   } catch (err) {
+  //     // console.error("Error fetching initial data:", err);
+  //     notification.error({
+  //       message: "Error",
+  //       description: "Failed to fetch initial data",
+  //     });
+  //   } finally {
+  //     setLoadingDeliveryNumber(false);
+  //     setLoadingCustomerName(false);
+  //     setLoadingDescription(false);
+  //   }
+  // };
+
   const fetchInitialData = async () => {
     try {
       setLoadingDeliveryNumber(true);
       setLoadingCustomerName(true);
       setLoadingDescription(true);
 
-      // 🔄 Fetch in parallel with retry logic
       const [deliveryNum, customers, descriptions] = await Promise.allSettled([
         fetchWithRetry({ action: "getNextDeliveryNumber" }),
         fetchWithRetry({ action: "getCustomerDetails" }),
@@ -245,6 +332,7 @@ export default function DeliveryNote({ user }) {
         }),
       ]);
 
+      // 🔹 Delivery Number
       if (deliveryNum.status === "fulfilled" && deliveryNum.value) {
         setDeliveryNumber(deliveryNum.value.deliveryNumber);
         form.setFieldsValue({
@@ -252,62 +340,59 @@ export default function DeliveryNote({ user }) {
         });
       }
 
+      // 🔹 Customer List
       if (customers.status === "fulfilled" && customers.value) {
         setCustomerList(customers.value.customers || []);
       }
 
-      // if (descriptions.status === "fulfilled" && descriptions.value) {
-      //   setDescriptionList(descriptions.value.items || []);
-      // }
-
+      // 🔹 Description & Part Mapping
       if (descriptions.status === "fulfilled" && descriptions.value) {
         const items = descriptions.value.items || [];
+        console.log("🟦 Backend RAW items", JSON.stringify(items, null, 2));
 
-        // 🔥 Filter only AE rows
-        const filtered = items.filter((item) => item.location === "AE");
+        // ✅ 1. Filter only AE rows
+        const aeRows = items.filter((item) => item.location === "AE");
+        console.log("🟩 AE FILTERED items", JSON.stringify(aeRows, null, 2));
 
-        // Save full filtered list
-        setDescriptionList(filtered);
-
-        const mapped = {};
-
-        for (let i = filtered.length - 1; i >= 0; i--) {
-          const item = filtered[i];
-
-          if (!mapped[item.partNumber]) {
-            mapped[item.partNumber] = {
-              description: item.description,
-              unit: item.unit,
-              location: item.location,
-            };
+        // ✅ 2. Pick ONLY LAST AE ROW per partNumber
+        //    (THIS solves your H-P-1 → 100 vs Des issue)
+        const uniqueAE = {};
+        for (let i = aeRows.length - 1; i >= 0; i--) {
+          const item = aeRows[i];
+          if (!uniqueAE[item.partNumber]) {
+            uniqueAE[item.partNumber] = item; // pick latest
           }
         }
 
-        setPartMap(mapped);
+        const finalAEList = Object.values(uniqueAE);
+        console.log(
+          "🟨 FINAL AE UNIQUE LIST",
+          JSON.stringify(finalAEList, null, 2)
+        );
 
-        // const descMapTemp = {};
-        // filtered.forEach((item) => {
-        //   descMapTemp[item.description] = item.partNumber;
-        // });
-        // setDescMap(descMapTemp);
+        // Save to state
+        setDescriptionList(finalAEList);
 
+        // ✅ 3. Build partMap (part number → description, unit, location)
+        setPartMap(uniqueAE);
+        console.log("🟧 partMap BUILT", JSON.stringify(uniqueAE, null, 2));
+
+        // ✅ 4. Build descMap (description → part numbers)
         const descMapTemp = {};
-        filtered.forEach((item) => {
+        finalAEList.forEach((item) => {
           if (!descMapTemp[item.description]) {
             descMapTemp[item.description] = [];
           }
           descMapTemp[item.description].push(item.partNumber);
         });
-        setDescMap(descMapTemp);
 
-        console.log("🔍 Final Part Mapping:", mapped);
+        setDescMap(descMapTemp);
+        console.log("🟥 descMap BUILT", JSON.stringify(descMapTemp, null, 2));
       }
 
-      // ✅ Fetch delivery notes separately (doesn’t need retry)
       await fetchDeliveryNotesData();
       await fetchPurchaseRequestData();
     } catch (err) {
-      // console.error("Error fetching initial data:", err);
       notification.error({
         message: "Error",
         description: "Failed to fetch initial data",
