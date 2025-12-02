@@ -150,7 +150,7 @@ export default function DeliveryNote({ user }) {
   const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyx9LSk_2PSiYvVPKkXcKtYRs1Xa8gotQYJW1NAZGi2_E4TCUgkyWn4nccmsNFngONI/exec";
+    "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -4366,7 +4366,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       const partNo = part["Part Number"];
       const stockInfo = liveStock[partNo]?.[purchaseSelectedRow.Location] || {
         stockInHand: 0,
-        unit: part["Unit"],
+        // unit: part["Unit"],
+        unit: "",
       };
 
       return {
@@ -4375,9 +4376,13 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         partNumber: partNo,
         itemDescription: part["Item Description"] || "",
         quantity: part["Quantity"] || "",
-        unit: stockInfo.unit || part["Unit"] || "",
+        // unit: stockInfo.unit || part["Unit"] || "",
+        // stockInHand: stockInfo.stockInHand?.toString() || "0",
+        // stockUnit: stockInfo.unit || part["Unit"] || "",
+        unit: stockInfo.unit || "",
+        stockUnit: stockInfo.unit || "",
         stockInHand: stockInfo.stockInHand?.toString() || "0",
-        stockUnit: stockInfo.unit || part["Unit"] || "",
+
         location: purchaseSelectedRow?.Location || "MEA", // ← Optional (recommended)
       };
     });
