@@ -338,15 +338,29 @@ export default function Inventory({ user }) {
 
   // extra columns only visible to Full Control
   const adminColumns = [
+    // {
+    //   title: "Total Price in AED",
+    //   dataIndex: "totalPrice",
+    //   key: "totalPrice",
+    //   render: (text) => (
+    //     <Tooltip title={text}>
+    //       <span>{text}</span>
+    //     </Tooltip>
+    //   ),
+    // },
     {
       title: "Total Price in AED",
       dataIndex: "totalPrice",
       key: "totalPrice",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
+      render: (text) => {
+        const value = Number(text);
+        const formatted = isNaN(value) ? text : value.toFixed(2);
+        return (
+          <Tooltip title={formatted}>
+            <span>{formatted}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Purchase Cost (per item)",
@@ -390,8 +404,16 @@ export default function Inventory({ user }) {
       <Button
         className="addButton"
         onClick={() => {
-          setViewRecord(record);
-          viewForm.setFieldsValue(record); // ✅ preload record into form
+          const formattedRecord = {
+            ...record,
+            totalPrice: Number(record.totalPrice).toFixed(2),
+            // purchaseCost: Number(record.purchaseCost).toFixed(2),
+            // addOnCost: Number(record.addOnCost).toFixed(2),
+            // sellingCost: Number(record.sellingCost).toFixed(2),
+          };
+
+          setViewRecord(formattedRecord);
+          viewForm.setFieldsValue(formattedRecord);
           setIsViewModalVisible(true);
         }}
       >
@@ -449,7 +471,15 @@ export default function Inventory({ user }) {
           const normalizedItem = { key: idx };
           Object.keys(item).forEach((header) => {
             const newKey = columnMapping[header] || header; // map if exists, else keep original
-            normalizedItem[newKey] = item[header];
+            // normalizedItem[newKey] = item[header];
+            let value = item[header];
+
+            if (typeof value === "number") {
+              value = parseFloat(value.toFixed(2));
+            }
+
+            // save normalized
+            normalizedItem[newKey] = value;
           });
           return normalizedItem;
         });
@@ -524,7 +554,10 @@ export default function Inventory({ user }) {
 
       if (isFullControl) {
         rowData.push(
-          { v: row.totalPrice || "-", s: { border: getAllBorders() } },
+          {
+            v: row.totalPrice ? Number(row.totalPrice).toFixed(2) : "-",
+            s: { border: getAllBorders() },
+          },
           { v: row.purchaseCost || "-", s: { border: getAllBorders() } },
           { v: row.addOnCost || "-", s: { border: getAllBorders() } },
           { v: row.sellingCost || "-", s: { border: getAllBorders() } }

@@ -182,11 +182,19 @@ export default function Dashboard({ user }) {
       title: "Total Price in AED",
       dataIndex: "totalPrice",
       key: "totalPrice",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
+      // render: (text) => (
+      //   <Tooltip title={text}>
+      //     <span>{text}</span>
+      //   </Tooltip>
+      // ),
+      render: (text) => {
+        const formatted = Number(text).toFixed(2);
+        return (
+          <Tooltip title={formatted}>
+            <span>{formatted}</span>
+          </Tooltip>
+        );
+      },
     },
     //   {
     //     title: "Purchase Cost (per item)",
@@ -380,7 +388,10 @@ export default function Dashboard({ user }) {
           .replace(/\s+/g, " ");
 
         normalizedItem.quantity = Number(normalizedItem.quantity) || 0;
-        normalizedItem.totalPrice = parseFloat(normalizedItem.totalPrice) || 0;
+        // normalizedItem.totalPrice = parseFloat(normalizedItem.totalPrice) || 0;
+        normalizedItem.totalPrice = normalizedItem.totalPrice
+          ? parseFloat(Number(normalizedItem.totalPrice).toFixed(2))
+          : 0;
 
         return normalizedItem;
       });
@@ -528,96 +539,97 @@ export default function Dashboard({ user }) {
   // };
 
   const handleExportInventory = () => {
-  if (!filteredInventoryData || filteredInventoryData.length === 0) {
-    notification.warning({
-      message: "Export Failed",
-      description: "No inventory data available to export.",
-      placement: "bottomRight",
-    });
-    return;
-  }
-
-  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
-  const fileName = `Inventory_Report_${now}.xlsx`;
-
-  const headerStyle = {
-    font: { bold: true, sz: 12 },
-    alignment: { horizontal: "left", vertical: "center", wrapText: true },
-    border: getAllBorders(),
-    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
-  };
-
-  // ✅ HEADER (conditionally add Total Price)
-  const header = [
-    { v: "Serial Number", t: "s", s: headerStyle },
-    { v: "Location", t: "s", s: headerStyle },
-    { v: "Part Number", t: "s", s: headerStyle },
-    { v: "Description", t: "s", s: headerStyle },
-    { v: "Quantity", t: "s", s: headerStyle },
-    { v: "Unit", t: "s", s: headerStyle },
-    { v: "Category", t: "s", s: headerStyle },
-    { v: "Status", t: "s", s: headerStyle },
-    ...(isFullControl
-      ? [{ v: "Total Price (AED)", t: "s", s: headerStyle }]
-      : []),
-  ];
-
-  // ✅ DATA ROWS (conditionally add totalPrice)
-  const data = filteredInventoryData.map((row) => {
-    const qty = Number(row.quantity);
-    let status = "In Stock";
-
-    if (qty === 0) status = "Out of Stock";
-    else if (qty < 5) status = "Low Stock";
-
-    const baseRow = [
-      { v: row.serialNumber, s: { border: getAllBorders() } },
-      { v: row.location || "-", s: { border: getAllBorders() } },
-      { v: row.partNumber || "-", s: { border: getAllBorders() } },
-      { v: row.description || "-", s: { border: getAllBorders() } },
-      { v: row.quantity ?? 0, s: { border: getAllBorders() } },
-      { v: row.unit || "-", s: { border: getAllBorders() } },
-      { v: row.Category || "-", s: { border: getAllBorders() } },
-      { v: status, s: { border: getAllBorders() } },
-    ];
-
-    if (isFullControl) {
-      baseRow.push({
-        v: row.totalPrice ?? "-",
-        s: { border: getAllBorders() },
+    if (!filteredInventoryData || filteredInventoryData.length === 0) {
+      notification.warning({
+        message: "Export Failed",
+        description: "No inventory data available to export.",
+        placement: "bottomRight",
       });
+      return;
     }
 
-    return baseRow;
-  });
+    const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+    const fileName = `Inventory_Report_${now}.xlsx`;
 
-  // ✅ CREATE SHEET
-  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+    const headerStyle = {
+      font: { bold: true, sz: 12 },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border: getAllBorders(),
+      fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+    };
 
-  // ✅ AUTO COLUMN WIDTH
-  const colWidths = header.map((_, colIndex) => {
-    let maxLength = 0;
-    [header, ...data].forEach((row) => {
-      const cell = row[colIndex];
-      const value = cell?.v ? String(cell.v) : "";
-      maxLength = Math.max(maxLength, value.length);
+    // ✅ HEADER (conditionally add Total Price)
+    const header = [
+      { v: "Serial Number", t: "s", s: headerStyle },
+      { v: "Location", t: "s", s: headerStyle },
+      { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Description", t: "s", s: headerStyle },
+      { v: "Quantity", t: "s", s: headerStyle },
+      { v: "Unit", t: "s", s: headerStyle },
+      { v: "Category", t: "s", s: headerStyle },
+      { v: "Status", t: "s", s: headerStyle },
+      ...(isFullControl
+        ? [{ v: "Total Price (AED)", t: "s", s: headerStyle }]
+        : []),
+    ];
+
+    // ✅ DATA ROWS (conditionally add totalPrice)
+    const data = filteredInventoryData.map((row) => {
+      const qty = Number(row.quantity);
+      let status = "In Stock";
+
+      if (qty === 0) status = "Out of Stock";
+      else if (qty < 5) status = "Low Stock";
+
+      const baseRow = [
+        { v: row.serialNumber, s: { border: getAllBorders() } },
+        { v: row.location || "-", s: { border: getAllBorders() } },
+        { v: row.partNumber || "-", s: { border: getAllBorders() } },
+        { v: row.description || "-", s: { border: getAllBorders() } },
+        { v: row.quantity ?? 0, s: { border: getAllBorders() } },
+        { v: row.unit || "-", s: { border: getAllBorders() } },
+        { v: row.Category || "-", s: { border: getAllBorders() } },
+        { v: status, s: { border: getAllBorders() } },
+      ];
+
+      if (isFullControl) {
+        baseRow.push({
+          // v: row.totalPrice ?? "-",
+          v: row.totalPrice ? Number(row.totalPrice).toFixed(2) : "-",
+          s: { border: getAllBorders() },
+        });
+      }
+
+      return baseRow;
     });
-    return { wch: Math.min(maxLength * 1.8, 60) };
-  });
 
-  ws["!cols"] = colWidths;
+    // ✅ CREATE SHEET
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+    // ✅ AUTO COLUMN WIDTH
+    const colWidths = header.map((_, colIndex) => {
+      let maxLength = 0;
+      [header, ...data].forEach((row) => {
+        const cell = row[colIndex];
+        const value = cell?.v ? String(cell.v) : "";
+        maxLength = Math.max(maxLength, value.length);
+      });
+      return { wch: Math.min(maxLength * 1.8, 60) };
+    });
 
-  XLSX.writeFile(wb, fileName);
+    ws["!cols"] = colWidths;
 
-  notification.success({
-    message: "Export Successful",
-    description: "Inventory report downloaded successfully.",
-    placement: "bottomRight",
-  });
-};
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+
+    XLSX.writeFile(wb, fileName);
+
+    notification.success({
+      message: "Export Successful",
+      description: "Inventory report downloaded successfully.",
+      placement: "bottomRight",
+    });
+  };
 
   const getAllBorders = () => ({
     top: { style: "thin", color: { rgb: "000000" } },
