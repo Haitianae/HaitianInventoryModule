@@ -60,8 +60,11 @@ export default function ProductCategories({ user }) {
     addOnCost: "",
     totalPrice: "",
     location: "",
+    name: "",
+    weight: "",
   });
   const [machineinputRow, setMachineInputRow] = useState({
+    name: "",
     partNumber: "",
     description: "",
     quantity: "",
@@ -74,7 +77,7 @@ export default function ProductCategories({ user }) {
     addOnCost: "",
     totalPrice: "",
     location: "",
-
+    weight: "",
   });
   // const [selectedAssets, setSelectedAssets] = useState(null);
   const [selectedAuxiliaries, setSelectedAuxiliaries] = useState(null);
@@ -91,7 +94,8 @@ export default function ProductCategories({ user }) {
     addOnCost: "",
     totalPrice: "",
     location: "",
-
+    name: "",
+    weight: "",
   });
   // const [assetsInputRow, setAssetsInputRow] = useState({
   //   partNumber: "",
@@ -157,7 +161,8 @@ export default function ProductCategories({ user }) {
     totalPrice: "",
     note: "",
     location: "",
-
+    name: "",
+    weight: "",
   });
 
   const [consumablesDataSource, setConsumablesDataSource] = useState([]);
@@ -176,6 +181,8 @@ export default function ProductCategories({ user }) {
   const [sparePartsSaveLoading, setSparePartsSaveLoading] = useState(false);
   const [filteredSeries, setFilteredSeries] = useState([]);
 
+  const safeTrim = (v) => (typeof v === "string" ? v.trim() : "");
+
   const updateTotalPrice = (purchase, addOn, quantity) => {
     const p = parseFloat(purchase);
     const a = parseFloat(addOn);
@@ -191,7 +198,7 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec";
+    "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec";
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -915,6 +922,8 @@ export default function ProductCategories({ user }) {
       stockUnit: "",
       addOnCost: "",
       totalPrice: "",
+      name: "",
+      weight: "",
     });
   }, [selectedMachine, selectedIMMSeries]);
 
@@ -1026,6 +1035,8 @@ export default function ProductCategories({ user }) {
         stockUnit: "",
         addOnCost: "",
         totalPrice: "",
+        name: "",
+        weight: "",
       });
     }
 
@@ -1046,6 +1057,8 @@ export default function ProductCategories({ user }) {
         stockUnit: "",
         addOnCost: "",
         totalPrice: "",
+        name: "",
+        weight: "",
       });
     }
 
@@ -1066,6 +1079,8 @@ export default function ProductCategories({ user }) {
         stockUnit: "",
         addOnCost: "",
         totalPrice: "",
+        name: "",
+        weight: "",
       });
     }
 
@@ -1087,6 +1102,8 @@ export default function ProductCategories({ user }) {
         sellingCost: "",
         totalPrice: "",
         note: "",
+        name: "",
+        weight: "",
       });
     }
   }, [selectedCategory]);
@@ -1325,42 +1342,48 @@ export default function ProductCategories({ user }) {
   // }, [machineinputRow.partNumber, stockCache, userRole]);
 
   useEffect(() => {
-  const part = machineinputRow.partNumber?.trim();
-  const loc  = machineinputRow.location?.trim();
+    // const part = machineinputRow.partNumber?.trim();
+    // const loc  = machineinputRow.location?.trim();
 
-  if (!part) return;
+    const part = safeTrim(machineinputRow.partNumber);
+    const loc = safeTrim(machineinputRow.location);
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    if (!part) return;
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  let stock = "0";
-  let unit = "";
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
-    unit = cachedLoc.unit?.trim() || "";
-  }
+    let stock = "0";
+    let unit = "";
 
-  setMachineInputRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-  }));
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+      // unit = cachedLoc.unit?.trim() || "";
+      unit = safeTrim(cachedLoc?.unit);
+    }
 
-  // SAME BEHAVIOR AS COMMENTED CODE
-  if (unit) {
-    setMachineUnitOptions(
-      isFullControl
-        ? [...new Set([unit, ...defaultUnits])]
-        : [unit]
-    );
-  } else {
-    setMachineUnitOptions([...defaultUnits]);
-  }
-}, [machineinputRow.partNumber, machineinputRow.location, stockCache, userRole]);
+    setMachineInputRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+    }));
 
+    // SAME BEHAVIOR AS COMMENTED CODE
+    if (unit) {
+      setMachineUnitOptions(
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+      );
+    } else {
+      setMachineUnitOptions([...defaultUnits]);
+    }
+  }, [
+    machineinputRow.partNumber,
+    machineinputRow.location,
+    stockCache,
+    userRole,
+  ]);
 
   // useEffect(() => {
   //   if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
@@ -1398,49 +1421,55 @@ export default function ProductCategories({ user }) {
   // }, [machinesEditRow?.partNumber, stockCache]);
 
   useEffect(() => {
-  if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
+    // if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
+    if (!machinesEditRow || !safeTrim(machinesEditRow.partNumber)) return;
 
-  const part = machinesEditRow.partNumber.trim();
-  const loc  = machinesEditRow.location?.trim();
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    // const part = machinesEditRow.partNumber.trim();
+    // const loc  = machinesEditRow.location?.trim();
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const part = safeTrim(machinesEditRow.partNumber);
+    const loc = safeTrim(machinesEditRow.location);
 
-  let stock = "0";
-  let unit  = machinesEditRow.unit?.trim() || "";
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-    // Same logic as COMMENTED CODE:
-    if (!unit) {
-      unit = cachedLoc.unit?.trim() || "";
+    let stock = "0";
+    // let unit  = machinesEditRow.unit?.trim() || "";
+    let unit = safeTrim(machinesEditRow.unit);
+
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+      // Same logic as COMMENTED CODE:
+      if (!unit) {
+        // unit = cachedLoc.unit?.trim() || "";
+        unit = safeTrim(cachedLoc?.unit);
+      }
     }
-  }
 
-  setMachinesEditRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-    machinesUnitFetched: !!unit,
-  }));
+    setMachinesEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      machinesUnitFetched: !!unit,
+    }));
 
-  form.setFieldsValue({ unit });
+    form.setFieldsValue({ unit });
 
-  // SAME behavior as commented code
-  setMachineUnitOptions(
-    isFullControl
-      ? unit
-        ? [...new Set([unit, ...defaultUnits])]
+    // SAME behavior as commented code
+    setMachineUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
         : [...defaultUnits]
-      : unit
-      ? [unit]
-      : [...defaultUnits]
-  );
-}, [machinesEditRow?.partNumber, machinesEditRow?.location, stockCache]);
-
+    );
+  }, [machinesEditRow?.partNumber, machinesEditRow?.location, stockCache]);
 
   // useEffect(() => {
   //   const controller = new AbortController();
@@ -1622,41 +1651,49 @@ export default function ProductCategories({ user }) {
   //   }
   // }, [auxiliariesInputRow.partNumber, stockCache, userRole]);
 
-useEffect(() => {
-  const part = auxiliariesInputRow.partNumber?.trim();
-  const loc  = auxiliariesInputRow.location?.trim();
+  useEffect(() => {
+    // const part = auxiliariesInputRow.partNumber?.trim();
+    // const loc  = auxiliariesInputRow.location?.trim();
 
-  if (!part) return;
+    const part = safeTrim(auxiliariesInputRow.partNumber);
+    const loc = safeTrim(auxiliariesInputRow.location);
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    if (!part) return;
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  let stock = "0";
-  let unit  = "";
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
-    unit  = cachedLoc.unit?.trim() || "";
-  }
+    let stock = "0";
+    let unit = "";
 
-  setAuxiliariesInputRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-  }));
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+      // unit  = cachedLoc.unit?.trim() || "";
+      unit = safeTrim(cachedLoc?.unit);
+    }
 
-  // 🔥 EXACTLY LIKE COMMENTED CODE
-  if (unit) {
-    setAuxiliariesUnitOptions(
-      isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
-    );
-  } else {
-    setAuxiliariesUnitOptions([...defaultUnits]);
-  }
-}, [auxiliariesInputRow.partNumber, auxiliariesInputRow.location, stockCache, userRole]);
+    setAuxiliariesInputRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+    }));
 
+    // 🔥 EXACTLY LIKE COMMENTED CODE
+    if (unit) {
+      setAuxiliariesUnitOptions(
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+      );
+    } else {
+      setAuxiliariesUnitOptions([...defaultUnits]);
+    }
+  }, [
+    auxiliariesInputRow.partNumber,
+    auxiliariesInputRow.location,
+    stockCache,
+    userRole,
+  ]);
 
   // useEffect(() => {
   //   if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
@@ -1694,49 +1731,59 @@ useEffect(() => {
   // }, [auxiliariesEditRow?.partNumber, stockCache]);
 
   useEffect(() => {
-  if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
+    // if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
+    if (!auxiliariesEditRow || !safeTrim(auxiliariesEditRow.partNumber)) return;
 
-  const part = auxiliariesEditRow.partNumber.trim();
-  const loc  = auxiliariesEditRow.location?.trim();
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    // const part = auxiliariesEditRow.partNumber.trim();
+    // const loc  = auxiliariesEditRow.location?.trim();
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const part = safeTrim(auxiliariesEditRow.partNumber);
+    const loc = safeTrim(auxiliariesEditRow.location);
 
-  let stock = "0";
-  let unit  = auxiliariesEditRow.unit?.trim() || ""; // user may edit unit
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-    // 🔥 EXACT SAME LOGIC AS COMMENTED CODE:
-    if (!unit) {
-      unit = cachedLoc.unit?.trim() || "";
+    let stock = "0";
+    // let unit  = auxiliariesEditRow.unit?.trim() || "";
+    let unit = safeTrim(auxiliariesEditRow.unit);
+
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+      // 🔥 EXACT SAME LOGIC AS COMMENTED CODE:
+      if (!unit) {
+        // unit = cachedLoc.unit?.trim() || "";
+        unit = safeTrim(cachedLoc?.unit);
+      }
     }
-  }
 
-  setAuxiliariesEditRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-    auxiliariesUnitFetched: !!unit,
-  }));
+    setAuxiliariesEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      auxiliariesUnitFetched: !!unit,
+    }));
 
-  form.setFieldsValue({ unit });
+    form.setFieldsValue({ unit });
 
-  // 🔥 EXACT commented dropdown logic
-  setAuxiliariesUnitOptions(
-    isFullControl
-      ? unit
-        ? [...new Set([unit, ...defaultUnits])]
+    // 🔥 EXACT commented dropdown logic
+    setAuxiliariesUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
         : [...defaultUnits]
-      : unit
-      ? [unit]
-      : [...defaultUnits]
-  );
-}, [auxiliariesEditRow?.partNumber, auxiliariesEditRow?.location, stockCache]);
-
+    );
+  }, [
+    auxiliariesEditRow?.partNumber,
+    auxiliariesEditRow?.location,
+    stockCache,
+  ]);
 
   // useEffect(() => {
   //   const controller = new AbortController();
@@ -2273,65 +2320,69 @@ useEffect(() => {
   //     setSpareUnitLoading(false);
   //   }
   // }, [inputRow.partNumber, stockCache, userRole]);
+
   useEffect(() => {
-  const part = inputRow.partNumber?.trim();
-  const loc  = inputRow.location?.trim();
+    // const part = inputRow.partNumber?.trim();
+    // const loc  = inputRow.location?.trim();
 
-  if (!part) return;
+    const part = safeTrim(inputRow.partNumber);
+    const loc = safeTrim(inputRow.location);
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    if (!part) return;
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  let stock = "0";
-  let unit  = "";
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-  setSparePartsFetching(true);
-  setSpareUnitLoading(true);
+    let stock = "0";
+    let unit = "";
 
-  try {
-    if (cachedLoc) {
-      stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
-      unit  = cachedLoc.unit?.trim() || "";
-    }
+    setSparePartsFetching(true);
+    setSpareUnitLoading(true);
 
-    setInputRow(prev => ({
-      ...prev,
-      stockInHand: stock,
-      unit,
-      sparePartsUnitFetched: !!unit,
-    }));
+    try {
+      if (cachedLoc) {
+        stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+        // unit  = cachedLoc.unit?.trim() || "";
+        unit = safeTrim(cachedLoc?.unit);
+      }
 
-    // update AntD form
-    form.setFieldsValue({ unit });
+      setInputRow((prev) => ({
+        ...prev,
+        stockInHand: stock,
+        unit,
+        sparePartsUnitFetched: !!unit,
+      }));
 
-    // 🔥 EXACT original logic
-    setSpareUnitOptions(
-      isFullControl
-        ? unit
-          ? [...new Set([unit, ...defaultUnits])]
+      // update AntD form
+      form.setFieldsValue({ unit });
+
+      // 🔥 EXACT original logic
+      setSpareUnitOptions(
+        isFullControl
+          ? unit
+            ? [...new Set([unit, ...defaultUnits])]
+            : [...defaultUnits]
+          : unit
+          ? [unit]
           : [...defaultUnits]
-        : unit
-        ? [unit]
-        : [...defaultUnits]
-    );
-  } catch (err) {
-    setInputRow(prev => ({
-      ...prev,
-      stockInHand: "0",
-      unit: "",
-      sparePartsUnitFetched: false,
-    }));
+      );
+    } catch (err) {
+      setInputRow((prev) => ({
+        ...prev,
+        stockInHand: "0",
+        unit: "",
+        sparePartsUnitFetched: false,
+      }));
 
-    form.setFieldsValue({ unit: "" });
-    setSpareUnitOptions(defaultUnits);
-  } finally {
-    setSparePartsFetching(false);
-    setSpareUnitLoading(false);
-  }
-}, [inputRow.partNumber, inputRow.location, stockCache, userRole]);
-
+      form.setFieldsValue({ unit: "" });
+      setSpareUnitOptions(defaultUnits);
+    } finally {
+      setSparePartsFetching(false);
+      setSpareUnitLoading(false);
+    }
+  }, [inputRow.partNumber, inputRow.location, stockCache, userRole]);
 
   // useEffect(() => {
   //   if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
@@ -2408,48 +2459,54 @@ useEffect(() => {
   // }, [sparePartsEditRow?.partNumber, stockCache]);
 
   useEffect(() => {
-  if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
+    // if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
+    if (!sparePartsEditRow || !safeTrim(sparePartsEditRow.partNumber)) return;
 
-  const part = sparePartsEditRow.partNumber.trim();
-  const loc  = sparePartsEditRow.location?.trim();
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    // const part = sparePartsEditRow.partNumber.trim();
+    // const loc  = sparePartsEditRow.location?.trim();
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const part = safeTrim(sparePartsEditRow.partNumber);
+    const loc = safeTrim(sparePartsEditRow.location);
 
-  let stock = "0";
-  let unit  = sparePartsEditRow.unit?.trim() || ""; // allow user override
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-    // 🔥 EXACT original behavior:
-    if (!unit) {
-      unit = cachedLoc.unit?.trim() || "";
+    let stock = "0";
+    // let unit  = sparePartsEditRow.unit?.trim() || "";
+    let unit = safeTrim(sparePartsEditRow.unit);
+
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+      // 🔥 EXACT original behavior:
+      if (!unit) {
+        // unit = cachedLoc.unit?.trim() || "";
+        unit = safeTrim(cachedLoc?.unit);
+      }
     }
-  }
 
-  setSparePartsEditRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-    sparePartsUnitFetched: !!unit,
-  }));
+    setSparePartsEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      sparePartsUnitFetched: !!unit,
+    }));
 
-  form.setFieldsValue({ unit });
+    form.setFieldsValue({ unit });
 
-  setSpareUnitOptions(
-    isFullControl
-      ? unit
-        ? [...new Set([unit, ...defaultUnits])]
+    setSpareUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
         : [...defaultUnits]
-      : unit
-      ? [unit]
-      : [...defaultUnits]
-  );
-}, [sparePartsEditRow?.partNumber, sparePartsEditRow?.location, stockCache]);
-
+    );
+  }, [sparePartsEditRow?.partNumber, sparePartsEditRow?.location, stockCache]);
 
   // useEffect(() => {
   //   if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
@@ -2489,49 +2546,59 @@ useEffect(() => {
   // }, [consumablesEditRow?.partNumber, stockCache]);
 
   useEffect(() => {
-  if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
+    // if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
+    if (!consumablesEditRow || !safeTrim(consumablesEditRow.partNumber)) return;
 
-  const part = consumablesEditRow.partNumber.trim();
-  const loc  = consumablesEditRow.location?.trim();
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    // const part = consumablesEditRow.partNumber.trim();
+    // const loc  = consumablesEditRow.location?.trim();
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const part = safeTrim(consumablesEditRow.partNumber);
+    const loc = safeTrim(consumablesEditRow.location);
 
-  let stock = "0";
-  let unit  = consumablesEditRow.unit?.trim() || "";   // allow row override
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-    // 🔥 EXACT SAME BEHAVIOR AS YOUR COMMENTED CODE
-    if (!unit) {
-      unit = cachedLoc.unit?.trim() || "";
+    let stock = "0";
+    // let unit  = consumablesEditRow.unit?.trim() || "";
+    let unit = safeTrim(consumablesEditRow.unit);
+
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand || 0} ${cachedLoc.unit || ""}`.trim();
+
+      // 🔥 EXACT SAME BEHAVIOR AS YOUR COMMENTED CODE
+      if (!unit) {
+        // unit = cachedLoc.unit?.trim() || "";
+        unit = safeTrim(cachedLoc?.unit);
+      }
     }
-  }
 
-  setConsumablesEditRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-    consumablesUnitFetched: !!unit,
-  }));
+    setConsumablesEditRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+      consumablesUnitFetched: !!unit,
+    }));
 
-  form.setFieldsValue({ unit });
+    form.setFieldsValue({ unit });
 
-  // 🔥 EXACT old dropdown logic restored
-  setConsumablesUnitOptions(
-    isFullControl
-      ? unit
-        ? [...new Set([unit, ...defaultUnits])]
+    // 🔥 EXACT old dropdown logic restored
+    setConsumablesUnitOptions(
+      isFullControl
+        ? unit
+          ? [...new Set([unit, ...defaultUnits])]
+          : [...defaultUnits]
+        : unit
+        ? [unit]
         : [...defaultUnits]
-      : unit
-      ? [unit]
-      : [...defaultUnits]
-  );
-}, [consumablesEditRow?.partNumber, consumablesEditRow?.location, stockCache]);
-
+    );
+  }, [
+    consumablesEditRow?.partNumber,
+    consumablesEditRow?.location,
+    stockCache,
+  ]);
 
   // useEffect(() => {
   //   const part = consumablesInputRow.partNumber?.trim();
@@ -2563,40 +2630,49 @@ useEffect(() => {
   // }, [consumablesInputRow.partNumber, stockCache, userRole]);
 
   useEffect(() => {
-  const part = consumablesInputRow.partNumber?.trim();
-  const loc  = consumablesInputRow.location?.trim();
+    // const part = consumablesInputRow.partNumber?.trim();
+    // const loc = consumablesInputRow.location?.trim();
 
-  if (!part) return;
+    const part = safeTrim(consumablesInputRow.partNumber);
+const loc  = safeTrim(consumablesInputRow.location);
 
-  const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
+    if (!part) return;
 
-  const cachedPart = stockCache[part];
-  const cachedLoc  = cachedPart?.[loc];
+    const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
 
-  let stock = "0";
-  let unit  = "";
+    const cachedPart = stockCache[part];
+    const cachedLoc = cachedPart?.[loc];
 
-  if (cachedLoc) {
-    stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
-    unit  = cachedLoc.unit?.trim() || "";
-  }
+    let stock = "0";
+    let unit = "";
 
-  setConsumablesInputRow(prev => ({
-    ...prev,
-    stockInHand: stock,
-    unit,
-  }));
+    if (cachedLoc) {
+      stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
+      // unit = cachedLoc.unit?.trim() || "";
+          unit = safeTrim(cachedLoc?.unit);
 
-  // 🔥 EXACT SAME BEHAVIOR AS COMMENTED CODE
-  if (unit) {
-    setConsumablesUnitOptions(
-      isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
-    );
-  } else {
-    setConsumablesUnitOptions([...defaultUnits]);
-  }
-}, [consumablesInputRow.partNumber, consumablesInputRow.location, stockCache, userRole]);
+    }
 
+    setConsumablesInputRow((prev) => ({
+      ...prev,
+      stockInHand: stock,
+      unit,
+    }));
+
+    // 🔥 EXACT SAME BEHAVIOR AS COMMENTED CODE
+    if (unit) {
+      setConsumablesUnitOptions(
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+      );
+    } else {
+      setConsumablesUnitOptions([...defaultUnits]);
+    }
+  }, [
+    consumablesInputRow.partNumber,
+    consumablesInputRow.location,
+    stockCache,
+    userRole,
+  ]);
 
   //   const handleSubmit = async (values) => {
   //     if (!navigator.onLine) {
@@ -2925,9 +3001,11 @@ useEffect(() => {
           // Machine Details
           // machinePartNumber: formatPartNumber(machine.partNumber) || "-",
           machinePartNumber: machine.partNumber || "-",
+          machineName: machine.name || "-",
           machineDescription: machine.description || "-",
           machineQuantity: machine.quantity || "-",
           machineStockInHand: machine.stockInHand || "0",
+          machineWeight: machine.weight || "-",
           machineNote: machine.note || "-",
           machinePurchaseCost: machine.purchaseCost || "-",
           machineAddOnCost: machine.addOnCost || "-",
@@ -2935,7 +3013,7 @@ useEffect(() => {
           machineUnit: machine.unit || "-",
           machineTotalPrice: machine.totalPrice || "-",
           machineDate: machine.date || "",
-          machineLocation: machine.location || "-",  
+          machineLocation: machine.location || "-",
           modifiedDateTime: userLocalDateTime,
           userName: user?.email || "",
 
@@ -2945,9 +3023,11 @@ useEffect(() => {
 
           auxPartNumber: auxiliary.partNumber || "-",
           // auxPartNumber: formatPartNumber(auxiliary.partNumber) || "-",
+          auxName: auxiliary.name || "-",
           auxDescription: auxiliary.description || "-",
           auxQuantity: auxiliary.quantity || "-",
           auxStockInHand: auxiliary.stockInHand || "0",
+          auxWeight: auxiliary.weight || "-",
           auxNote: auxiliary.note || "-",
           auxPurchaseCost: auxiliary.purchaseCost || "-",
           auxAddOnCost: auxiliary.addOnCost || "-",
@@ -2955,13 +3035,15 @@ useEffect(() => {
           auxUnit: auxiliary.unit || "-",
           auxTotalPrice: auxiliary.totalPrice || "-",
           auxDate: auxiliary.date || "-",
-            auxLocation: auxiliary.location || "-", 
+          auxLocation: auxiliary.location || "-",
 
           sparePartNumber: spare.partNumber || "-",
           // sparePartNumber: formatPartNumber(spare.partNumber) || "-",
+          spareName: spare.name || "-",
           spareDescription: spare.description || "-",
           spareQuantity: spare.quantity || "-",
           spareStockInHand: spare.stockInHand || "0",
+          spareWeight: spare.weight || "-",
           spareNote: spare.note || "-",
           sparePurchaseCost: spare.purchaseCost || "-",
           spareAddOnCost: spare.addOnCost || "-",
@@ -2969,14 +3051,16 @@ useEffect(() => {
           spareUnit: spare.unit || "-",
           spareTotalPrice: spare.totalPrice || "-",
           spareDate: spare.date || "",
-          spareLocation: spare.location || "-", 
+          spareLocation: spare.location || "-",
 
           // ✅ Consumables
           consumablePartNumber: consumable.partNumber || "-",
           // consumablePartNumber: formatPartNumber(consumable.partNumber) || "-",
+          consumableName: consumable.name || "-",
           consumableDescription: consumable.description || "-",
           consumableQuantity: consumable.quantity || "-",
           consumableStockInHand: consumable.stockInHand || "0",
+          consumableWeight: consumable.weight || "-",
           consumableNote: consumable.note || "-",
           consumablePurchaseCost: consumable.purchaseCost || "-",
           consumableAddOnCost: consumable.addOnCost || "-",
@@ -2984,7 +3068,7 @@ useEffect(() => {
           consumableUnit: consumable.unit || "-",
           consumableTotalPrice: consumable.totalPrice || "-",
           consumableDate: consumable.date || "-",
-          consumableLocation: consumable.location || "-", 
+          consumableLocation: consumable.location || "-",
         });
 
         // console.log(
@@ -3050,11 +3134,14 @@ useEffect(() => {
       addOnCost,
       sellingCost,
       totalPrice,
-      location
+      location,
+      name,
+      weight,
     } = inputRow;
 
     if (
       !partNumber ||
+      !name ||
       !description ||
       !quantity ||
       !unit ||
@@ -3063,12 +3150,13 @@ useEffect(() => {
       !sellingCost ||
       !totalPrice ||
       !location ||
+      !name ||
       !inputRow.date
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Name, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -3104,6 +3192,8 @@ useEffect(() => {
       totalPrice: "",
       note: "",
       location: "",
+      name: "",
+      weight: "",
     });
     await fetchAllStock();
   };
@@ -3130,6 +3220,7 @@ useEffect(() => {
 
     const {
       partNumber,
+      name,
       description,
       quantity,
       unit,
@@ -3143,6 +3234,7 @@ useEffect(() => {
 
     if (
       !partNumber ||
+      !name ||
       !description ||
       !quantity ||
       !unit ||
@@ -3156,7 +3248,7 @@ useEffect(() => {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Name, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -3921,7 +4013,7 @@ useEffect(() => {
         return <span>{record.date || "-"}</span>;
       },
     },
-        {
+    {
       title: "Location",
       dataIndex: "location",
       width: 150,
@@ -4006,6 +4098,46 @@ useEffect(() => {
       },
     },
 
+    {
+      title: "Name",
+      dataIndex: "name",
+      width: 300,
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, name: value }));
+
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={inputRow.name}
+              onChange={(e) => handleChange(e.target.value, setInputRow)}
+            />
+          );
+        }
+
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={sparePartsEditRow.name}
+              onChange={(e) =>
+                handleChange(e.target.value, setSparePartsEditRow)
+              }
+            />
+          );
+        }
+
+        return (
+          <span>
+            {record.name?.length > 150
+              ? `${record.name.slice(0, 150)}...`
+              : record.name}
+          </span>
+        );
+      },
+    },
 
     {
       title: "Description",
@@ -4380,6 +4512,40 @@ useEffect(() => {
       },
     },
     {
+      title: "Weight",
+      dataIndex: "weight",
+      width: 200,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, weight: value }));
+
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={inputRow.weight}
+              onChange={(e) => handleChange(e.target.value, setInputRow)}
+            />
+          );
+        }
+
+        if (isSparePartsEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={sparePartsEditRow.weight}
+              onChange={(e) =>
+                handleChange(e.target.value, setSparePartsEditRow)
+              }
+            />
+          );
+        }
+
+        return <span>{record.weight || "-"}</span>;
+      },
+    },
+
+    {
       title: "Note",
       dataIndex: "note",
       ellipsis: true,
@@ -4564,10 +4730,13 @@ useEffect(() => {
       totalPrice,
       date,
       location,
+      name,
+      weight,
     } = consumablesInputRow;
 
     if (
       !partNumber ||
+      !name ||
       !description ||
       !quantity ||
       !unit ||
@@ -4576,12 +4745,12 @@ useEffect(() => {
       !sellingCost ||
       !totalPrice ||
       !date ||
-      !location 
+      !location
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Name, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -4616,6 +4785,8 @@ useEffect(() => {
       totalPrice: "",
       note: "",
       location: "",
+      name: "",
+      weight: "",
     });
 
     await fetchAllStock(); // ✅ same as spare parts
@@ -4638,6 +4809,7 @@ useEffect(() => {
 
     const {
       partNumber,
+      name,
       description,
       quantity,
       unit,
@@ -4646,11 +4818,12 @@ useEffect(() => {
       sellingCost,
       totalPrice,
       date,
-      location
+      location,
     } = consumablesEditRow;
 
     if (
       !partNumber ||
+      !name ||
       !description ||
       !quantity ||
       !unit ||
@@ -4664,7 +4837,7 @@ useEffect(() => {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Name, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -4756,51 +4929,51 @@ useEffect(() => {
         return <span>{record.date || "-"}</span>;
       },
     },
-        {
-  title: "Location",
-  dataIndex: "location",
-  width: 150,
-  render: (_, record) => {
-    // Input Row
-    if (record.isInput) {
-      return (
-        <Select
-          placeholder="Select Location"
-          value={consumablesInputRow.location}
-          onChange={(value) =>
-            setConsumablesInputRow((prev) => ({ ...prev, location: value }))
-          }
-          style={{ width: "100%" }}
-          options={[
-            { value: "AE", label: "AE" },
-            { value: "MEA", label: "MEA" },
-          ]}
-        />
-      );
-    }
+    {
+      title: "Location",
+      dataIndex: "location",
+      width: 150,
+      render: (_, record) => {
+        // Input Row
+        if (record.isInput) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={consumablesInputRow.location}
+              onChange={(value) =>
+                setConsumablesInputRow((prev) => ({ ...prev, location: value }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
 
-    // Edit Row
-    if (isConsumablesEditing(record)) {
-      return (
-        <Select
-          placeholder="Select Location"
-          value={consumablesEditRow.location}
-          onChange={(value) =>
-            setConsumablesEditRow((prev) => ({ ...prev, location: value }))
-          }
-          style={{ width: "100%" }}
-          options={[
-            { value: "AE", label: "AE" },
-            { value: "MEA", label: "MEA" },
-          ]}
-        />
-      );
-    }
+        // Edit Row
+        if (isConsumablesEditing(record)) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={consumablesEditRow.location}
+              onChange={(value) =>
+                setConsumablesEditRow((prev) => ({ ...prev, location: value }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
 
-    // Display
-    return <span>{record.location || "-"}</span>;
-  },
-},
+        // Display
+        return <span>{record.location || "-"}</span>;
+      },
+    },
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -4843,6 +5016,48 @@ useEffect(() => {
       },
     },
 
+    {
+      title: "Name",
+      dataIndex: "name",
+      width: 300,
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, name: value }));
+
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={consumablesInputRow.name}
+              onChange={(e) =>
+                handleChange(e.target.value, setConsumablesInputRow)
+              }
+            />
+          );
+        }
+
+        if (isConsumablesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={consumablesEditRow.name}
+              onChange={(e) =>
+                handleChange(e.target.value, setConsumablesEditRow)
+              }
+            />
+          );
+        }
+
+        return (
+          <span>
+            {record.name?.length > 150
+              ? `${record.name.slice(0, 150)}...`
+              : record.name}
+          </span>
+        );
+      },
+    },
 
     {
       title: "Description",
@@ -5212,6 +5427,42 @@ useEffect(() => {
         return <span>{record.totalPrice || "-"}</span>;
       },
     },
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      width: 200,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, weight: value }));
+
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={consumablesInputRow.weight}
+              onChange={(e) =>
+                handleChange(e.target.value, setConsumablesInputRow)
+              }
+            />
+          );
+        }
+
+        if (isConsumablesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={consumablesEditRow.weight}
+              onChange={(e) =>
+                handleChange(e.target.value, setConsumablesEditRow)
+              }
+            />
+          );
+        }
+
+        return <span>{record.weight || "-"}</span>;
+      },
+    },
+
     {
       title: "Note",
       dataIndex: "note",
@@ -5883,6 +6134,7 @@ useEffect(() => {
     }
     const {
       partNumber,
+      name,
       description,
       quantity,
       unit,
@@ -5890,7 +6142,7 @@ useEffect(() => {
       addOnCost,
       sellingCost,
       totalPrice,
-      location
+      location,
     } = auxiliariesInputRow;
 
     // if (
@@ -5903,6 +6155,7 @@ useEffect(() => {
     // )
     if (
       !partNumber ||
+      !name ||
       !description ||
       !quantity ||
       !unit ||
@@ -5916,7 +6169,7 @@ useEffect(() => {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Name, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -5953,6 +6206,8 @@ useEffect(() => {
       totalPrice: "",
       note: "",
       location: "",
+      name: "",
+      weight: "",
     });
     await fetchAllStock();
   };
@@ -5978,6 +6233,7 @@ useEffect(() => {
 
     const {
       partNumber,
+      name,
       description,
       quantity,
       unit,
@@ -5986,11 +6242,12 @@ useEffect(() => {
       sellingCost,
       totalPrice,
       date,
-      location
+      location,
     } = auxiliariesEditRow;
 
     if (
       !partNumber ||
+      !name ||
       !description ||
       !quantity ||
       !unit ||
@@ -6004,7 +6261,7 @@ useEffect(() => {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Date, Part Number, Location, Name, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -6098,56 +6355,56 @@ useEffect(() => {
       },
     },
     {
-  title: "Location",
-  dataIndex: "location",
-  width: 150,
-  render: (_, record) => {
-    // Input row
-    if (record.isInput) {
-      return (
-        <Select
-          placeholder="Select Location"
-          value={auxiliariesInputRow.location}
-          onChange={(value) =>
-            setAuxiliariesInputRow((prev) => ({
-              ...prev,
-              location: value,
-            }))
-          }
-          style={{ width: "100%" }}
-          options={[
-            { value: "AE", label: "AE" },
-            { value: "MEA", label: "MEA" },
-          ]}
-        />
-      );
-    }
+      title: "Location",
+      dataIndex: "location",
+      width: 150,
+      render: (_, record) => {
+        // Input row
+        if (record.isInput) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={auxiliariesInputRow.location}
+              onChange={(value) =>
+                setAuxiliariesInputRow((prev) => ({
+                  ...prev,
+                  location: value,
+                }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
 
-    // Edit row
-    if (isAuxiliariesEditing(record)) {
-      return (
-        <Select
-          placeholder="Select Location"
-          value={auxiliariesEditRow.location}
-          onChange={(value) =>
-            setAuxiliariesEditRow((prev) => ({
-              ...prev,
-              location: value,
-            }))
-          }
-          style={{ width: "100%" }}
-          options={[
-            { value: "AE", label: "AE" },
-            { value: "MEA", label: "MEA" },
-          ]}
-        />
-      );
-    }
+        // Edit row
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={auxiliariesEditRow.location}
+              onChange={(value) =>
+                setAuxiliariesEditRow((prev) => ({
+                  ...prev,
+                  location: value,
+                }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
 
-    // Display
-    return <span>{record.location || "-"}</span>;
-  },
-},
+        // Display
+        return <span>{record.location || "-"}</span>;
+      },
+    },
 
     {
       title: "Part Number",
@@ -6190,6 +6447,49 @@ useEffect(() => {
         return <span>{record.partNumber}</span>;
       },
     },
+    {
+      title: "Name",
+      dataIndex: "name",
+      width: 300,
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, name: value }));
+
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={auxiliariesInputRow.name}
+              onChange={(e) =>
+                handleChange(e.target.value, setAuxiliariesInputRow)
+              }
+            />
+          );
+        }
+
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={auxiliariesEditRow.name}
+              onChange={(e) =>
+                handleChange(e.target.value, setAuxiliariesEditRow)
+              }
+            />
+          );
+        }
+
+        return (
+          <span>
+            {record.name?.length > 150
+              ? `${record.name.slice(0, 150)}...`
+              : record.name}
+          </span>
+        );
+      },
+    },
+
     {
       title: "Description",
       dataIndex: "description",
@@ -6548,6 +6848,42 @@ useEffect(() => {
         return <span>{record.totalPrice || "-"}</span>;
       },
     },
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      width: 200,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, weight: value }));
+
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={auxiliariesInputRow.weight}
+              onChange={(e) =>
+                handleChange(e.target.value, setAuxiliariesInputRow)
+              }
+            />
+          );
+        }
+
+        if (isAuxiliariesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={auxiliariesEditRow.weight}
+              onChange={(e) =>
+                handleChange(e.target.value, setAuxiliariesEditRow)
+              }
+            />
+          );
+        }
+
+        return <span>{record.weight || "-"}</span>;
+      },
+    },
+
     {
       title: "Note",
       dataIndex: "note",
@@ -8210,6 +8546,7 @@ useEffect(() => {
       return;
     }
     const {
+      name,
       partNumber,
       description,
       quantity,
@@ -8218,10 +8555,12 @@ useEffect(() => {
       addOnCost,
       sellingCost,
       totalPrice,
-       location,
+      location,
+      weight,
     } = machineinputRow;
 
     if (
+      !name ||
       !partNumber ||
       !description ||
       !quantity ||
@@ -8236,7 +8575,7 @@ useEffect(() => {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Name, Date, Part Number, Location, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -8258,6 +8597,7 @@ useEffect(() => {
     // setMachineDataSource([...machineDataSource, newData]);
     setMachineDataSource((prev) => [...prev, newData]);
     setMachineInputRow({
+      name: "",
       partNumber: "",
       description: "",
       quantity: "",
@@ -8270,6 +8610,7 @@ useEffect(() => {
       note: "",
       stockUnit: "",
       location: "",
+      weight: "",
     });
     await fetchAllStock();
   };
@@ -8294,6 +8635,7 @@ useEffect(() => {
     if (!machinesEditRow) return;
 
     const {
+      name,
       partNumber,
       description,
       quantity,
@@ -8303,10 +8645,11 @@ useEffect(() => {
       sellingCost,
       totalPrice,
       date,
-      location, 
+      location,
     } = machinesEditRow;
 
     if (
+      !name ||
       !partNumber ||
       !description ||
       !quantity ||
@@ -8315,13 +8658,13 @@ useEffect(() => {
       !addOnCost ||
       !sellingCost ||
       !totalPrice ||
-      !date||
-      !location 
+      !date ||
+      !location
     ) {
       notification.error({
         message: "Error",
         description:
-          "Please fill in Date, Part Number, Loaction, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
+          "Please fill in Name, Date, Part Number, Loaction, Description, Quantity, Unit, Purchase Cost, Add On Cost and ensure Selling Cost & Total Price is calculated",
       });
       return;
     }
@@ -8389,51 +8732,51 @@ useEffect(() => {
         return <span>{record.date || "-"}</span>;
       },
     },
-        {
-  title: "Location",
-  dataIndex: "location",
-  width: 150,
-  render: (_, record) => {
-    // Input Row
-    if (record.isInput) {
-      return (
-        <Select
-          placeholder="Select Location"
-          value={machineinputRow.location}
-          onChange={(value) =>
-            setMachineInputRow((prev) => ({ ...prev, location: value }))
-          }
-          style={{ width: "100%" }}
-          options={[
-            { value: "AE", label: "AE" },
-            { value: "MEA", label: "MEA" },
-          ]}
-        />
-      );
-    }
+    {
+      title: "Location",
+      dataIndex: "location",
+      width: 150,
+      render: (_, record) => {
+        // Input Row
+        if (record.isInput) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={machineinputRow.location}
+              onChange={(value) =>
+                setMachineInputRow((prev) => ({ ...prev, location: value }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
 
-    // Edit Row
-    if (isMachinesEditing(record)) {
-      return (
-        <Select
-          placeholder="Select Location"
-          value={machinesEditRow.location}
-          onChange={(value) =>
-            setMachinesEditRow((prev) => ({ ...prev, location: value }))
-          }
-          style={{ width: "100%" }}
-          options={[
-            { value: "AE", label: "AE" },
-            { value: "MEA", label: "MEA" },
-          ]}
-        />
-      );
-    }
+        // Edit Row
+        if (isMachinesEditing(record)) {
+          return (
+            <Select
+              placeholder="Select Location"
+              value={machinesEditRow.location}
+              onChange={(value) =>
+                setMachinesEditRow((prev) => ({ ...prev, location: value }))
+              }
+              style={{ width: "100%" }}
+              options={[
+                { value: "AE", label: "AE" },
+                { value: "MEA", label: "MEA" },
+              ]}
+            />
+          );
+        }
 
-    // Display
-    return <span>{record.location || "-"}</span>;
-  },
-},
+        // Display
+        return <span>{record.location || "-"}</span>;
+      },
+    },
     {
       title: "Part Number",
       dataIndex: "partNumber",
@@ -8467,7 +8810,48 @@ useEffect(() => {
       },
     },
 
+    {
+      title: "Name",
+      dataIndex: "name",
+      width: 300,
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, name: value }));
 
+        // Input row
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={machineinputRow.name}
+              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
+            />
+          );
+        }
+
+        // Edit row
+        if (isMachinesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter name"
+              value={machinesEditRow.name}
+              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+            />
+          );
+        }
+
+        // Display
+
+        return (
+          <span>
+            {record.name?.length > 150
+              ? `${record.name.slice(0, 150)}...`
+              : record.name}
+          </span>
+        );
+      },
+    },
     {
       title: "Description",
       dataIndex: "description",
@@ -8878,6 +9262,40 @@ useEffect(() => {
         if (isMachinesEditing(record))
           return <Input readOnly value={machinesEditRow.totalPrice || ""} />;
         return <span>{record.totalPrice || "-"}</span>;
+      },
+    },
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      width: 200,
+      ellipsis: true,
+      render: (_, record) => {
+        const handleChange = (value, setRow) =>
+          setRow((prev) => ({ ...prev, weight: value }));
+
+        // Input row
+        if (record.isInput) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={machineinputRow.weight}
+              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
+            />
+          );
+        }
+
+        // Edit row
+        if (isMachinesEditing(record)) {
+          return (
+            <Input
+              placeholder="Enter weight"
+              value={machinesEditRow.weight}
+              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+            />
+          );
+        }
+
+        return <span>{record.weight || "-"}</span>;
       },
     },
     {
@@ -10247,7 +10665,7 @@ useEffect(() => {
                                   },
                                 ]}
                               >
-                             {/* //   <AutoComplete
+                                {/* //   <AutoComplete
                                   allowClear
                                   showSearch
                                   placeholder={
@@ -10322,36 +10740,41 @@ useEffect(() => {
                                 /> */}
 
                                 <AutoComplete
-  allowClear
-  showSearch
-  placeholder={`Enter or select ${selectedIMMSeries} series`}
-  loading={seriesLoading}
-  disabled={seriesLoading}
-  value={form.getFieldValue(`${selectedIMMSeries.toLowerCase()}Series`) || ""}
-
-  options={(filteredSeries.length ? filteredSeries : seriesModels).map(m => ({
-    label: m,
-    value: m
-  }))}
-
-  onSearch={(value) => {
-    setFilteredSeries(
-      seriesModels.filter(m =>
-        m.toLowerCase().includes(value.toLowerCase())
-      )
-    );
-  }}
-
-  onSelect={(value) => {
-    const key = `${selectedIMMSeries.toLowerCase()}Series`;
-    form.setFieldsValue({ [key]: value });
-    setMachineInputRow(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  }}
-/>
-
+                                  allowClear
+                                  showSearch
+                                  placeholder={`Enter or select ${selectedIMMSeries} series`}
+                                  loading={seriesLoading}
+                                  disabled={seriesLoading}
+                                  value={
+                                    form.getFieldValue(
+                                      `${selectedIMMSeries.toLowerCase()}Series`
+                                    ) || ""
+                                  }
+                                  options={(filteredSeries.length
+                                    ? filteredSeries
+                                    : seriesModels
+                                  ).map((m) => ({
+                                    label: m,
+                                    value: m,
+                                  }))}
+                                  onSearch={(value) => {
+                                    setFilteredSeries(
+                                      seriesModels.filter((m) =>
+                                        m
+                                          .toLowerCase()
+                                          .includes(value.toLowerCase())
+                                      )
+                                    );
+                                  }}
+                                  onSelect={(value) => {
+                                    const key = `${selectedIMMSeries.toLowerCase()}Series`;
+                                    form.setFieldsValue({ [key]: value });
+                                    setMachineInputRow((prev) => ({
+                                      ...prev,
+                                      [key]: value,
+                                    }));
+                                  }}
+                                />
                               </Form.Item>
                             )}
                           </>

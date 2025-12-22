@@ -60,7 +60,7 @@ export default function Dashboard({ user }) {
     outOfStock: 0,
   });
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec";
+    "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec";
   const baseColumns = [
     {
       title: "Serial Number",
@@ -73,9 +73,9 @@ export default function Dashboard({ user }) {
       ),
     },
     {
-      title: "Location",
-      dataIndex: "location",
-      key: "location",
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
       width: 120,
       render: (text) => (
         <Tooltip title={text}>
@@ -84,16 +84,6 @@ export default function Dashboard({ user }) {
       ),
     },
 
-    {
-      title: "Part Number",
-      dataIndex: "partNumber",
-      key: "partNumber",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
-    },
     {
       title: "Description",
       dataIndex: "description",
@@ -104,6 +94,17 @@ export default function Dashboard({ user }) {
         </Tooltip>
       ),
     },
+    {
+      title: "Part Number",
+      dataIndex: "partNumber",
+      key: "partNumber",
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+
     {
       title: "Quantity",
       dataIndex: "quantity",
@@ -124,16 +125,7 @@ export default function Dashboard({ user }) {
         </Tooltip>
       ),
     },
-    {
-      title: "Category",
-      dataIndex: "Category",
-      key: "Category",
-      render: (text) => (
-        <Tooltip title={text || "Unknown"}>
-          <span>{text || "Unknown"}</span>
-        </Tooltip>
-      ),
-    },
+
     // {
     //   title: "Status",
     //   key: "status",
@@ -173,6 +165,49 @@ export default function Dashboard({ user }) {
           </Tag>
         );
       },
+    },
+    {
+      title: "Category",
+      dataIndex: "Category",
+      key: "Category",
+      render: (text) => (
+        <Tooltip title={text || "Unknown"}>
+          <span>{text || "Unknown"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Location",
+      dataIndex: "location",
+      key: "location",
+      width: 120,
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      key: "weight",
+      width: 120,
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Note",
+      dataIndex: "note",
+      key: "note",
+      width: 120,
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
     },
   ];
 
@@ -257,10 +292,13 @@ export default function Dashboard({ user }) {
   const columnMapping = {
     "Serial Number": "serialNumber",
     "Part Number": "partNumber",
+    Name: "name",
     Location: "location",
     Description: "description",
     Quantity: "quantity",
     Unit: "unit",
+    Weight: "weight",
+    Note: "note",
     "Total Price in AED": "totalPrice",
     "Purchase Cost(per item)": "purchaseCost",
     "Add On Cost": "addOnCost",
@@ -354,12 +392,13 @@ export default function Dashboard({ user }) {
         partNumber: values.partNumber || "",
         description: values.description || "",
         location: values.location || "",
+        name: values.name || "",
       });
 
       const res = await fetch(GAS_URL, {
         method: "POST",
         body: params,
-        signal: inventoryRequestController.signal, // ✅ allow aborting
+        signal: inventoryRequestController.signal,
       });
 
       if (!res.ok) {
@@ -421,6 +460,7 @@ export default function Dashboard({ user }) {
       ...item,
       partNumber: String(item.partNumber || ""),
       description: String(item.description || ""),
+      name: String(item.name || ""),
       Category: String(item.Category || "Unknown").trim(),
       quantity: Number(item.quantity) || 0,
       location: String(item.location || ""),
@@ -440,7 +480,13 @@ export default function Dashboard({ user }) {
         item.description.toLowerCase().includes(descFilter)
       );
     }
+    if (values.name) {
+      const nameFilter = values.name.toLowerCase();
 
+      filtered = filtered.filter((item) =>
+        item.name.toLowerCase().includes(nameFilter)
+      );
+    }
     if (values.location) {
       filtered = filtered.filter(
         (item) => item.location.toLowerCase() === values.location.toLowerCase()
@@ -561,13 +607,16 @@ export default function Dashboard({ user }) {
     // ✅ HEADER (conditionally add Total Price)
     const header = [
       { v: "Serial Number", t: "s", s: headerStyle },
-      { v: "Location", t: "s", s: headerStyle },
-      { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Name", t: "s", s: headerStyle },
       { v: "Description", t: "s", s: headerStyle },
+      { v: "Part Number", t: "s", s: headerStyle },
       { v: "Quantity", t: "s", s: headerStyle },
       { v: "Unit", t: "s", s: headerStyle },
-      { v: "Category", t: "s", s: headerStyle },
       { v: "Status", t: "s", s: headerStyle },
+      { v: "Category", t: "s", s: headerStyle },
+      { v: "Location", t: "s", s: headerStyle },
+      { v: "Weight", t: "s", s: headerStyle },
+      { v: "Note", t: "s", s: headerStyle },
       ...(isFullControl
         ? [{ v: "Total Price (AED)", t: "s", s: headerStyle }]
         : []),
@@ -582,14 +631,17 @@ export default function Dashboard({ user }) {
       else if (qty < 5) status = "Low Stock";
 
       const baseRow = [
-        { v: row.serialNumber, s: { border: getAllBorders() } },
-        { v: row.location || "-", s: { border: getAllBorders() } },
-        { v: row.partNumber || "-", s: { border: getAllBorders() } },
+        { v: row.serialNumber || "-", s: { border: getAllBorders() } },
+        { v: row.name || "-", s: { border: getAllBorders() } },
         { v: row.description || "-", s: { border: getAllBorders() } },
+        { v: row.partNumber || "-", s: { border: getAllBorders() } },
         { v: row.quantity ?? 0, s: { border: getAllBorders() } },
         { v: row.unit || "-", s: { border: getAllBorders() } },
-        { v: row.Category || "-", s: { border: getAllBorders() } },
         { v: status, s: { border: getAllBorders() } },
+        { v: row.Category || "-", s: { border: getAllBorders() } },
+        { v: row.location || "-", s: { border: getAllBorders() } },
+        { v: row.weight || "-", s: { border: getAllBorders() } },
+        { v: row.note || "-", s: { border: getAllBorders() } },
       ];
 
       if (isFullControl) {
@@ -2677,8 +2729,8 @@ export default function Dashboard({ user }) {
                           className="m-0 p-0"
                           style={{ fontSize: "14px", color: "#0D3884" }}
                         >
-                          Search item in the inventory by part number or
-                          description
+                          Search item in the inventory by name, location, part
+                          number or description
                         </div>
                       </div>
                     </div>
@@ -2690,15 +2742,27 @@ export default function Dashboard({ user }) {
                         layout="vertical"
                         className="mt-3"
                         style={{ width: "100%" }}
+                        onValuesChange={(changedValues, allValues) => {
+                          const { partNumber, description, name, location } =
+                            allValues;
+
+                          const isAllEmpty =
+                            !partNumber && !description && !name && !location;
+
+                          if (isAllEmpty) {
+                            form.setFieldValue("stockStatus", "all");
+                            fetchInventory();
+                          }
+                        }}
                       >
                         <div className="row align-items-end g-3">
-                          <div className="col-lg-3 col-md-6 col-sm-12">
+                          <div className="col-lg-6 col-md-6 col-sm-12">
                             <Form.Item
                               name="partNumber"
                               style={{ marginBottom: 0 }}
                             >
                               <Input
-                                placeholder="Enter Part Number"
+                                placeholder="Enter part number"
                                 allowClear
                                 size="large"
                                 style={{ width: "100%" }}
@@ -2716,14 +2780,13 @@ export default function Dashboard({ user }) {
                               />
                             </Form.Item>
                           </div>
-
-                          <div className="col-lg-4 col-md-6 col-sm-12">
+                          <div className="col-lg-6 col-md-6 col-sm-12">
                             <Form.Item
                               name="description"
                               style={{ marginBottom: 0 }}
                             >
                               <Input
-                                placeholder="Enter Description"
+                                placeholder="Enter description"
                                 allowClear
                                 size="large"
                                 style={{ width: "100%" }}
@@ -2741,14 +2804,35 @@ export default function Dashboard({ user }) {
                               />
                             </Form.Item>
                           </div>
-                          <div className="col-lg-2 col-md-6 col-sm-12">
+                          <div className="col-lg-4 col-md-6 col-sm-12">
+                            <Form.Item name="name" style={{ marginBottom: 0 }}>
+                              <Input
+                                placeholder="Enter name"
+                                allowClear
+                                size="large"
+                                style={{ width: "100%" }}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (
+                                    !value &&
+                                    !form.getFieldValue("partNumber")
+                                  ) {
+                                    // Reset table when both inputs are empty
+                                    form.setFieldValue("stockStatus", "all");
+                                    fetchInventory();
+                                  }
+                                }}
+                              />
+                            </Form.Item>
+                          </div>
+                          <div className="col-lg-4 col-md-6 col-sm-12">
                             <Form.Item
                               name="location"
                               style={{ marginBottom: 0 }}
                             >
                               <Select
                                 size="large"
-                                placeholder="Select Location"
+                                placeholder="Select location"
                                 allowClear
                                 style={{ width: "100%" }}
                               >
@@ -2758,7 +2842,7 @@ export default function Dashboard({ user }) {
                             </Form.Item>
                           </div>
 
-                          <div className="col-lg-3 col-md-6 col-sm-12">
+                          <div className="col-lg-4 col-md-6 col-sm-12">
                             <Form.Item
                               name="stockStatus"
                               style={{ marginBottom: 0 }}
@@ -2766,7 +2850,7 @@ export default function Dashboard({ user }) {
                             >
                               <Select
                                 size="large"
-                                placeholder="Select Stock Status"
+                                placeholder="Select stock status"
                                 allowClear={false}
                                 style={{ width: "100%" }}
                               >
@@ -2805,7 +2889,7 @@ export default function Dashboard({ user }) {
                                 className="resetButton"
                                 onClick={handleExportInventory}
                               >
-                                Export
+                                Export Inventory Data
                               </Button>
                             </div>
                           )}

@@ -46,7 +46,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec",
+        "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec",
         {
           method: "POST",
           body: new URLSearchParams({

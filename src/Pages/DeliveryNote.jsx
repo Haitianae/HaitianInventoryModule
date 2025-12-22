@@ -99,6 +99,8 @@ export default function DeliveryNote({ user }) {
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState([]);
   const [deliveryDate, setDeliveryDate] = useState("");
+  const quantityDebounceRef = React.useRef(null);
+
   const [loadingDeliveryNumber, setLoadingDeliveryNumber] = useState(true);
   const [loadingCustomerName, setLoadingCustomerName] = useState(true);
   const [loadingDescription, setLoadingDescription] = useState(true);
@@ -115,18 +117,23 @@ export default function DeliveryNote({ user }) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [purchaseSelectedRow, setPurchaseSelectedRow] = useState(null);
-
+  const [nameMap, setNameMap] = useState({});
+  const [loadingName, setLoadingName] = useState(false);
   const [paymentTerms, setPaymentTerms] = useState("");
   const [stockMap, setStockMap] = useState({});
   const [inputRow, setInputRow] = useState({
     serialNumber: "",
     partNumber: "",
+    name: "",
     itemDescription: "",
     quantity: "",
     stockInHand: "",
     unit: "",
     stockUnit: "",
     location: purchaseSelectedRow?.Location || "AE",
+    category: "",
+    weight: "",
+    note: "",
   });
   const [downloading, setDownloading] = useState(false);
   const [purchaseRequestDownloading, setPurchaseRequestDownloading] =
@@ -150,7 +157,7 @@ export default function DeliveryNote({ user }) {
   const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec";
+    "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -322,6 +329,7 @@ export default function DeliveryNote({ user }) {
       setLoadingDeliveryNumber(true);
       setLoadingCustomerName(true);
       setLoadingDescription(true);
+      setLoadingName(true);
 
       const [deliveryNum, customers, descriptions] = await Promise.allSettled([
         fetchWithRetry({ action: "getNextDeliveryNumber" }),
@@ -348,11 +356,11 @@ export default function DeliveryNote({ user }) {
       // 🔹 Description & Part Mapping
       if (descriptions.status === "fulfilled" && descriptions.value) {
         const items = descriptions.value.items || [];
-        console.log("🟦 Backend RAW items", JSON.stringify(items, null, 2));
+        // console.log("🟦 Backend RAW items", JSON.stringify(items, null, 2));
 
         // ✅ 1. Filter only AE rows
         const aeRows = items.filter((item) => item.location === "AE");
-        console.log("🟩 AE FILTERED items", JSON.stringify(aeRows, null, 2));
+        // console.log("🟩 AE FILTERED items", JSON.stringify(aeRows, null, 2));
 
         // ✅ 2. Pick ONLY LAST AE ROW per partNumber
         //    (THIS solves your H-P-1 → 100 vs Des issue)
@@ -365,17 +373,17 @@ export default function DeliveryNote({ user }) {
         }
 
         const finalAEList = Object.values(uniqueAE);
-        console.log(
-          "🟨 FINAL AE UNIQUE LIST",
-          JSON.stringify(finalAEList, null, 2)
-        );
+        // console.log(
+        //   "FINAL AE UNIQUE LIST",
+        //   JSON.stringify(finalAEList, null, 2)
+        // );
 
         // Save to state
         setDescriptionList(finalAEList);
 
         // ✅ 3. Build partMap (part number → description, unit, location)
         setPartMap(uniqueAE);
-        console.log("🟧 partMap BUILT", JSON.stringify(uniqueAE, null, 2));
+        // console.log("partMap BUILT", JSON.stringify(uniqueAE, null, 2));
 
         // ✅ 4. Build descMap (description → part numbers)
         const descMapTemp = {};
@@ -387,7 +395,16 @@ export default function DeliveryNote({ user }) {
         });
 
         setDescMap(descMapTemp);
-        console.log("🟥 descMap BUILT", JSON.stringify(descMapTemp, null, 2));
+        // console.log(" descMap BUILT", JSON.stringify(descMapTemp, null, 2));
+
+        const nameMapTemp = {};
+        for (let i = finalAEList.length - 1; i >= 0; i--) {
+          const item = finalAEList[i];
+          if (item.name && !nameMapTemp[item.name]) {
+            nameMapTemp[item.name] = item; // name → full object
+          }
+        }
+        setNameMap(nameMapTemp);
       }
 
       await fetchDeliveryNotesData();
@@ -401,6 +418,7 @@ export default function DeliveryNote({ user }) {
       setLoadingDeliveryNumber(false);
       setLoadingCustomerName(false);
       setLoadingDescription(false);
+      setLoadingName(false);
     }
   };
 
@@ -624,15 +642,55 @@ export default function DeliveryNote({ user }) {
           </Tooltip>
         ),
     },
+
     {
-      title: "Location",
-      dataIndex: "location",
-      width: 120,
+      title: "Name",
+      dataIndex: "name",
+      width: 260,
       render: (_, record) =>
         record.isInput ? (
-          <Input value={inputRow.location} readOnly />
+          <Select
+            showSearch
+            placeholder="Select Name"
+            loading={loadingName}
+            disabled={loadingName}
+            value={inputRow.name || undefined}
+            filterOption={(input, option) =>
+              String(option.children)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
+            onChange={(value) => {
+              const selected = nameMap[value];
+              if (!selected) return;
+
+              const cachedStock = stockMap[selected.partNumber] || {
+                stockInHand: 0,
+                unit: "",
+              };
+
+              setInputRow((prev) => ({
+                ...prev,
+                name: value,
+                partNumber: selected.partNumber,
+                itemDescription: selected.description,
+                unit: selected.unit,
+                stockInHand: safeToString(cachedStock.stockInHand),
+                stockUnit: selected.unit,
+                category: selected.category || "",
+                weight: selected.weight || "",
+              }));
+            }}
+            style={{ width: "100%" }}
+          >
+            {Object.keys(nameMap).map((name) => (
+              <Select.Option key={name} value={name}>
+                {name}
+              </Select.Option>
+            ))}
+          </Select>
         ) : (
-          <span>{record.location}</span>
+          <span>{record.name}</span>
         ),
     },
 
@@ -785,11 +843,14 @@ export default function DeliveryNote({ user }) {
                 setInputRow((prev) => ({
                   ...prev,
                   partNumber: value,
+                  name: selected?.name || "",
                   itemDescription:
                     selected?.description || prev.itemDescription,
                   unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: selected?.unit,
+                  category: selected?.category || "",
+                  weight: selected?.weight || "",
                 }));
               }}
               style={{ width: "100%" }}
@@ -815,7 +876,7 @@ export default function DeliveryNote({ user }) {
                 }
 
                 return (
-                  <Select.Option key={i} value={part} style={style}>
+                  <Select.Option key={part} value={part} style={style}>
                     {part}
                   </Select.Option>
                 );
@@ -966,9 +1027,13 @@ export default function DeliveryNote({ user }) {
                   ...prev,
                   itemDescription: value,
                   partNumber,
+                  name: selected?.name || "",
                   unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: selected?.unit,
+                 
+                  category: selected?.category || "",
+                  weight: selected?.weight || "",
                 }));
               }}
               style={{ width: "100%" }}
@@ -1053,8 +1118,8 @@ export default function DeliveryNote({ user }) {
                 const value = e.target.value.trim();
                 setInputRow((prev) => ({ ...prev, quantity: value }));
 
-                clearTimeout(window.quantityDebounce);
-                window.quantityDebounce = setTimeout(() => {
+                clearTimeout(quantityDebounceRef.current);
+                quantityDebounceRef.current = setTimeout(() => {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
@@ -1204,6 +1269,63 @@ export default function DeliveryNote({ user }) {
         ),
     },
 
+    {
+      title: "Category",
+      dataIndex: "category",
+      width: 180,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input value={inputRow.category} readOnly />
+        ) : (
+          <span>{record.category}</span>
+        ),
+    },
+
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      width: 150,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input value={inputRow.weight} readOnly />
+        ) : (
+          <span>{record.weight}</span>
+        ),
+    },
+    {
+      title: "Location",
+      dataIndex: "location",
+      width: 120,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input value={inputRow.location} readOnly />
+        ) : (
+          <span>{record.location}</span>
+        ),
+    },
+    {
+      title: "Note",
+      dataIndex: "note",
+      width: 300,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input
+            placeholder="Enter note"
+            value={inputRow.note}
+            onChange={(e) =>
+              setInputRow((prev) => ({
+                ...prev,
+                note: e.target.value,
+              }))
+            }
+          />
+        ) : (
+          <Tooltip title={record.note}>
+            <span>{record.note || "-"}</span>
+          </Tooltip>
+        ),
+    },
+
     // {
     //   title: "Action",
     //   width: 120,
@@ -1248,14 +1370,20 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Serial Number", // must match your actual key
       render: (text) => <span>{text}</span>,
     },
-    {
-      title: "Part Number",
-      dataIndex: "Part Number",
+      {
+      title: "Name",
+      dataIndex: "Name",
       render: (text) => <span>{text}</span>,
     },
+
     {
       title: "Item Description",
       dataIndex: "Item Description",
+      render: (text) => <span>{text}</span>,
+    },
+        {
+      title: "Part Number",
+      dataIndex: "Part Number",
       render: (text) => <span>{text}</span>,
     },
     {
@@ -1267,6 +1395,26 @@ export default function DeliveryNote({ user }) {
     {
       title: "Stock In Hand",
       dataIndex: "Stock In Hand",
+      render: (text) => <span>{text}</span>,
+    },
+    {
+      title: "Category",
+      dataIndex: "Category",
+      render: (text) => <span>{text}</span>,
+    },
+        {
+      title: "Weight",
+      dataIndex: "Weight",
+      render: (text) => <span>{text}</span>,
+    },
+     {
+      title: "Note",
+      dataIndex: "Note",
+      render: (text) => <span>{text}</span>,
+    },
+         {
+      title: "Location",
+      dataIndex: "Location",
       render: (text) => <span>{text}</span>,
     },
   ];
@@ -1277,14 +1425,20 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Serial Number", // must match your actual key
       render: (text) => <span>{text}</span>,
     },
+    
     {
-      title: "Part Number",
-      dataIndex: "Part Number",
+      title: "Name",
+      dataIndex: "Name",
       render: (text) => <span>{text}</span>,
     },
     {
       title: "Item Description",
       dataIndex: "Item Description",
+      render: (text) => <span>{text}</span>,
+    },
+    {
+      title: "Part Number",
+      dataIndex: "Part Number",
       render: (text) => <span>{text}</span>,
     },
     {
@@ -1296,6 +1450,26 @@ export default function DeliveryNote({ user }) {
     {
       title: "Stock In Hand",
       dataIndex: "Stock In Hand",
+      render: (text) => <span>{text}</span>,
+    },
+        {
+      title: "Category",
+      dataIndex: "Category",
+      render: (text) => <span>{text}</span>,
+    },
+      {
+      title: "Location",
+      dataIndex: "Location",
+      render: (text) => <span>{text}</span>,
+    },
+     {
+      title: "Weight",
+      dataIndex: "Weight",
+      render: (text) => <span>{text}</span>,
+    },
+      {
+      title: "Note",
+      dataIndex: "Note",
       render: (text) => <span>{text}</span>,
     },
   ];
@@ -1356,19 +1530,30 @@ export default function DeliveryNote({ user }) {
       ),
     },
     {
-      title: "Part Number",
-      dataIndex: "Part Number",
-      width: 130,
+      title: "Name",
+      dataIndex: "Name",
+      width: 200,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
         </Tooltip>
       ),
     },
+
     {
       title: "Item Description",
       dataIndex: "Item Description",
       width: 300,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+        {
+      title: "Part Number",
+      dataIndex: "Part Number",
+      width: 130,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
@@ -1398,10 +1583,50 @@ export default function DeliveryNote({ user }) {
     {
       title: "Stock In Hand",
       dataIndex: "Stock In Hand",
-      width: 130,
+      width: 200,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Category",
+      dataIndex: "Category",
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Location",
+      dataIndex: "Location",
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Weight",
+      dataIndex: "Weight",
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Note",
+      dataIndex: "Note",
+      width: 300,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
         </Tooltip>
       ),
     },
@@ -1452,6 +1677,16 @@ export default function DeliveryNote({ user }) {
           </Tooltip>
         );
       },
+    },
+    {
+      title: "Rejection Reason",
+      dataIndex: "Rejection Reason",
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
     },
     {
       title: "Status",
@@ -1525,10 +1760,15 @@ export default function DeliveryNote({ user }) {
       acc[purchaseNo].partsUsed.push({
         "Serial Number": item["Serial Number"],
         "Part Number": item["Part Number"],
+        "Name": item["Name"],
         "Item Description": item["Item Description"],
         Quantity: item["Quantity"],
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
+        "Location": item["Location"],
+        "Category": item["Category"],
+        "Weight": item["Weight"],
+        "Note": item["Note"],
       });
       return acc;
     }, {})
@@ -1590,6 +1830,10 @@ export default function DeliveryNote({ user }) {
         unit: "",
         stockInHand: "",
         location: "AE",
+        name: "",
+        category: "",
+        weight: "",
+        note: "",
       });
 
       // Clear specific fields but keep delivery number & date
@@ -1658,12 +1902,16 @@ export default function DeliveryNote({ user }) {
       key: Date.now(),
       serialNumber: dataSource.length + 1,
       location: inputRow.location,
+      name: inputRow.name,
       partNumber,
       itemDescription,
       quantity,
       stockInHand: inputRow.stockInHand || "0",
       unit: inputRow.unit || "",
       stockUnit: inputRow.stockUnit || "",
+      category: inputRow.category,
+      weight: inputRow.weight,
+      note: inputRow.note,
     };
 
     const updatedData = [...dataSource, newData].map((item, index) => ({
@@ -1680,6 +1928,10 @@ export default function DeliveryNote({ user }) {
       quantity: "",
       stockInHand: "",
       unit: "",
+      name: "",
+      category: "",
+      weight: "",
+      note: "",
     });
   };
 
@@ -2456,6 +2708,10 @@ export default function DeliveryNote({ user }) {
         unit: "",
         stockInHand: "",
         location: "AE",
+        name: "",
+        category: "",
+        weight: "",
+        note: "",
       });
 
       // Reset AntD form fields
@@ -2588,20 +2844,31 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-    {
-      title: "Part Number",
-      dataIndex: "Part Number",
-      width: 130,
+      {
+      title: "Name",
+      dataIndex: "Name",
+      width: 200,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
         </Tooltip>
       ),
     },
+  
     {
       title: "Item Description",
       dataIndex: "Item Description",
       width: 300,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+      {
+      title: "Part Number",
+      dataIndex: "Part Number",
+      width: 130,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
@@ -2631,7 +2898,48 @@ export default function DeliveryNote({ user }) {
     {
       title: "Stock In Hand",
       dataIndex: "Stock In Hand",
+      width: 200,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+      {
+      title: "Category",
+      dataIndex: "Category",
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+      
+         {
+      title: "Location",
+      dataIndex: "Location",
       width: 130,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Weight",
+      dataIndex: "Weight",
+      width: 130,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+       {
+      title: "Note",
+      dataIndex: "Note",
+      width: 300,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
@@ -2651,7 +2959,7 @@ export default function DeliveryNote({ user }) {
     {
       title: "Modified Date & Time",
       dataIndex: "Modified Date & Time",
-      width: 180,
+      width: 200,
       render: (date) => {
         const d = parseToDayjs(date);
         const formatted = d ? d.format("DD-MM-YYYY HH:mm:ss") : "";
@@ -2699,6 +3007,10 @@ export default function DeliveryNote({ user }) {
               unit: "",
               stockInHand: "",
               location: preserved.location || "AE",
+              name: "",
+              category: "",
+              weight: "",
+              note: "",
             });
 
             setIsPrefilledFromPurchase(false);
@@ -2738,11 +3050,16 @@ export default function DeliveryNote({ user }) {
       }
       acc[deliveryNo].partsUsed.push({
         "Serial Number": item["Serial Number"],
+        "Name": item["Name"],    
         "Part Number": item["Part Number"],
         "Item Description": item["Item Description"],
         Quantity: item["Quantity"],
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
+         "Category": item["Category"],  
+                "Weight": item["Weight"],         
+      "Note": item["Note"],             
+      "Location": item["Location"],     
       });
       return acc;
     }, {})
@@ -2783,11 +3100,16 @@ export default function DeliveryNote({ user }) {
       { v: "Mode of delivery", t: "s", s: headerStyle },
       { v: "Reference", t: "s", s: headerStyle },
       { v: "Serial Number", t: "s", s: headerStyle },
-      { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Name", s: headerStyle },
       { v: "Item Description", t: "s", s: headerStyle },
+        { v: "Part Number", t: "s", s: headerStyle },
       { v: "Quantity", t: "s", s: headerStyle },
       { v: "Unit", t: "s", s: headerStyle },
       { v: "Stock In Hand", t: "s", s: headerStyle },
+      { v: "Category", s: headerStyle },
+      { v: "Location", t: "s", s: headerStyle },
+    { v: "Weight", s: headerStyle },
+  { v: "Note", s: headerStyle },
       { v: "Modified User", t: "s", s: headerStyle },
       { v: "Modified Date & Time", t: "s", s: headerStyle },
     ];
@@ -2803,11 +3125,16 @@ export default function DeliveryNote({ user }) {
           { v: item["Mode of delivery"], s: { border: getAllBorders() } },
           { v: item["Reference"], s: { border: getAllBorders() } },
           { v: part["Serial Number"], s: { border: getAllBorders() } },
-          { v: part["Part Number"], s: { border: getAllBorders() } },
+          { v: part["Name"], s: { border: getAllBorders() } },
           { v: part["Item Description"], s: { border: getAllBorders() } },
+             { v: part["Part Number"], s: { border: getAllBorders() } },
           { v: part["Quantity"], s: { border: getAllBorders() } },
           { v: part["Unit"], s: { border: getAllBorders() } },
           { v: part["Stock In Hand"], s: { border: getAllBorders() } },
+         { v: part["Category"], s: { border: getAllBorders() } },
+         { v: part["Location"], s: { border: getAllBorders() } },
+        { v: part["Weight"], s: { border: getAllBorders() } },
+        { v: part["Note"], s: { border: getAllBorders() }},
           { v: item["Modified User"], s: { border: getAllBorders() } },
           { v: item["Modified Date & Time"], s: { border: getAllBorders() } },
         ]);
@@ -4078,11 +4405,13 @@ export default function DeliveryNote({ user }) {
 
     // Table
     autoTable(doc, {
-      head: [["S.No", "Item & Description", "Qty"]],
+      head: [["S.No", "Loc", "Name, Description & Item", "Qty"]],
       body: items.map((item, idx) => [
         idx + 1,
         // `${item.itemDescription || ""}\n${item.partNumber || ""}`,
-        [item.itemDescription || "", item.partNumber || ""].join("\n"),
+                item.location || "",
+
+        [item.name || "", item.itemDescription || "", item.partNumber || ""].join("\n"),
         item.quantity || "",
       ]),
       margin: { top: HEADER_HEIGHT, bottom: BOTTOM_MARGIN },
@@ -4111,10 +4440,12 @@ export default function DeliveryNote({ user }) {
       alternateRowStyles: { fillColor: [255, 255, 255] },
       columnStyles: {
         0: { halign: "center", cellWidth: 15 },
-        1: { halign: "left" },
+           1: { halign: "center", cellWidth: 15 },
+        2: { halign: "left" },
         // 1: { halign: "left", cellWidth: 145 },
 
-        2: { halign: "center", cellWidth: 21 },
+            3: { halign: "center", cellWidth: 22 },
+        4: { halign: "center", cellWidth: 20 },
       },
       pageBreak: "auto",
       didDrawPage: () => {
@@ -4329,19 +4660,19 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       address: purchaseSelectedRow["Address"] || "",
       reference: purchaseSelectedRow["Purchase Request Number"] || "",
     });
-    console.log("📍 Purchase Request Location:", purchaseSelectedRow.Location);
+    // console.log("Purchase Request Location:", purchaseSelectedRow.Location);
 
     setInputRow((prev) => ({
       ...prev,
       location: purchaseSelectedRow?.Location || "MEA",
     }));
-    console.log("Input Row After Setting Location:", {
-      ...inputRow,
-      location: purchaseSelectedRow?.Location,
-    });
+    // console.log("Input Row After Setting Location:", {
+    //   ...inputRow,
+    //   location: purchaseSelectedRow?.Location,
+    // });
     // Get parts list from the purchase request
     const parts = purchaseSelectedRow.partsUsed || [];
-    console.log("🧩 Parts From Purchase Request:", parts);
+    // console.log("🧩 Parts From Purchase Request:", parts);
 
     // --- Fetch live stock from backend ---
     let liveStock = {};
@@ -4352,7 +4683,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         body: new URLSearchParams({ action: "getAllStockData" }),
       });
       const json = await res.json();
-      console.log("📦 Live Stock Returned From Apps Script:", json);
+      // console.log("📦 Live Stock Returned From Apps Script:", json);
 
       if (json.success && json.data) {
         liveStock = json.data; // { partNumber: { stockInHand, unit } }
@@ -4364,6 +4695,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
     // --- Match each part with its live stock ---
     const items = parts.map((part, idx) => {
       const partNo = part["Part Number"];
+
       const stockInfo = liveStock[partNo]?.[purchaseSelectedRow.Location] || {
         stockInHand: 0,
         // unit: part["Unit"],
@@ -4374,6 +4706,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         key: Date.now() + idx,
         serialNumber: idx + 1,
         partNumber: partNo,
+            name: part["Name"] || "",
         itemDescription: part["Item Description"] || "",
         quantity: part["Quantity"] || "",
         // unit: stockInfo.unit || part["Unit"] || "",
@@ -4382,6 +4715,9 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         unit: stockInfo.unit || "",
         stockUnit: stockInfo.unit || "",
         stockInHand: stockInfo.stockInHand?.toString() || "0",
+    category:  part["Category"] || "",
+    weight: part["Weight"] || "",
+        note: part["Note"] || "",
 
         location: purchaseSelectedRow?.Location || "MEA", // ← Optional (recommended)
       };
@@ -4389,7 +4725,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
 
     // --- Update the Delivery Note table ---
     setDataSource(items);
-    console.log("📋 Final Table Rows:", items);
+    // console.log("📋 Final Table Rows:", items);
 
     setStockMap(liveStock);
     setIsPrefilledFromPurchase(true);
@@ -4418,7 +4754,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
           userName: user?.email || "",
           dateTime: deliveryDate,
           status: "Denied",
-          note: rejectionNote || "-",
+          rejectionReason: rejectionNote || "-",
         }),
       });
 
@@ -4530,6 +4866,10 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       unit: "",
       stockInHand: "",
       location: "AE",
+      name: "",
+      category: "",
+      weight: "",
+      note: "",
     });
 
     // Correct API to clear form fields
@@ -5705,12 +6045,13 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
 
                       <div className="row">
                         <div className="col-md-12">
-                          <Form.Item label="Rejection Note">
+                          <Form.Item label="Rejection Reason">
                             <Input.TextArea
                               value={
                                 purchaseSelectedRow?.Status === "Denied" ||
                                 purchaseSelectedRow?.Status === "Approved"
-                                  ? purchaseSelectedRow?.Note || "-"
+                                  ? purchaseSelectedRow?.["Rejection Reason"] ||
+                                    "-"
                                   : rejectionNote
                               }
                               onChange={(e) => setRejectionNote(e.target.value)}
@@ -5776,7 +6117,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               <Button
                                 className="closeModalButton"
                                 size="large"
-                                // ❗ Disable only if status = Denied
+                                // Disable only if status = Denied
                                 disabled={
                                   purchaseSelectedRow?.Status === "Denied" ||
                                   purchaseSelectedRow?.Status === "Approved"

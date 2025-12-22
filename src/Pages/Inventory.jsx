@@ -22,206 +22,7 @@ export default function Inventory({ user }) {
   const [viewRecord, setViewRecord] = useState(null);
   const [viewForm] = Form.useForm();
 
-  // const columns = [
-  //   {
-  //     title: "Serial Number",
-  //     dataIndex: "Serial Number",
-  //     key: "serial",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Part Number",
-  //     dataIndex: "Part Number",
-  //     key: "partNumber",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Description",
-  //     dataIndex: "Description",
-  //     key: "description",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Quantity",
-  //     dataIndex: "Quantity",
-  //     key: "quantity",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Unit",
-  //     dataIndex: "Unit",
-  //     key: "unit",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-
-  //   // {
-  //   //   title: "Total Price in AED",
-  //   //   dataIndex: "Total Price in AED",
-  //   //   key: "totalPrice",
-  //   //   render: (text) => (
-  //   //     <Tooltip title={text}>
-  //   //       <span>{text}</span>
-  //   //     </Tooltip>
-  //   //   ),
-  //   // },
-  //   // {
-  //   //   title: "Purchase Cost(per item)",
-  //   //   dataIndex: "Purchase Cost(per item)",
-  //   //   key: "purchaseCost",
-  //   //   render: (text) => (
-  //   //     <Tooltip title={text}>
-  //   //       <span>{text}</span>
-  //   //     </Tooltip>
-  //   //   ),
-  //   // },
-  //   // {
-  //   //   title: "Add On Cost",
-  //   //   dataIndex: "Add On Cost",
-  //   //   key: "addOnCost",
-  //   //   render: (text) => (
-  //   //     <Tooltip title={text}>
-  //   //       <span>{text}</span>
-  //   //     </Tooltip>
-  //   //   ),
-  //   // },
-  //   // {
-  //   //   title: "Selling Cost",
-  //   //   dataIndex: "Selling Cost",
-  //   //   key: "sellingCost",
-  //   //   render: (text) => (
-  //   //     <Tooltip title={text}>
-  //   //       <span>{text}</span>
-  //   //     </Tooltip>
-  //   //   ),
-  //   // },
-
-  //    ...(username === "Admin"
-  //       ? [
-  //       {
-  //     title: "Total Price in AED",
-  //     dataIndex: "Total Price in AED",
-  //     key: "totalPrice",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Purchase Cost(per item)",
-  //     dataIndex: "Purchase Cost(per item)",
-  //     key: "purchaseCost",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Add On Cost",
-  //     dataIndex: "Add On Cost",
-  //     key: "addOnCost",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //   {
-  //     title: "Selling Cost",
-  //     dataIndex: "Selling Cost",
-  //     key: "sellingCost",
-  //     render: (text) => (
-  //       <Tooltip title={text}>
-  //         <span>{text}</span>
-  //       </Tooltip>
-  //     ),
-  //   },
-  //       ]
-  //       : []),
-
-  // ];
-
-  // const columns = [
-  //   {
-  //     title: "Serial Number",
-  //     dataIndex: "serialNumber",
-  //     key: "serial",
-  //     render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //   },
-  //   {
-  //     title: "Part Number",
-  //     dataIndex: "partNumber",
-  //     key: "partNumber",
-  //     render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //   },
-  //   {
-  //     title: "Description",
-  //     dataIndex: "description",
-  //     key: "description",
-  //     render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //   },
-  //   {
-  //     title: "Quantity",
-  //     dataIndex: "quantity",
-  //     key: "quantity",
-  //     render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //   },
-  //   {
-  //     title: "Unit",
-  //     dataIndex: "unit",
-  //     key: "unit",
-  //     render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //   },
-  //   ...(username === "Admin"
-  //     ? [
-  //         {
-  //           title: "Total Price in AED",
-  //           dataIndex: "totalPrice",
-  //           key: "totalPrice",
-  //           render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //         },
-  //         {
-  //           title: "Purchase Cost(per item)",
-  //           dataIndex: "purchaseCost",
-  //           key: "purchaseCost",
-  //           render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //         },
-  //         {
-  //           title: "Add On Cost",
-  //           dataIndex: "addOnCost",
-  //           key: "addOnCost",
-  //           render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //         },
-  //         {
-  //           title: "Selling Cost",
-  //           dataIndex: "sellingCost",
-  //           key: "sellingCost",
-  //           render: (text) => <Tooltip title={text}><span>{text}</span></Tooltip>,
-  //         },
-  //       ]
-  //     : []),
-  // ];
+ 
   const baseColumns = [
     {
       title: "Serial Number",
@@ -233,21 +34,11 @@ export default function Inventory({ user }) {
         </Tooltip>
       ),
     },
-    {
-      title: "Location",
-      dataIndex: "Location",
-      key: "location",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
-    },
 
     {
-      title: "Part Number",
-      dataIndex: "partNumber",
-      key: "partNumber",
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
       render: (text) => (
         <Tooltip title={text}>
           <span>{text}</span>
@@ -258,6 +49,16 @@ export default function Inventory({ user }) {
       title: "Description",
       dataIndex: "description",
       key: "description",
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Part Number",
+      dataIndex: "partNumber",
+      key: "partNumber",
       render: (text) => (
         <Tooltip title={text}>
           <span>{text}</span>
@@ -285,33 +86,6 @@ export default function Inventory({ user }) {
       ),
     },
     {
-      title: "Category",
-      dataIndex: "Category",
-      key: "Category",
-      render: (text) => (
-        <Tooltip title={text || "Unknown"}>
-          <span>{text || "Unknown"}</span>
-        </Tooltip>
-      ),
-    },
-    // {
-    //   title: "Status",
-    //   key: "status",
-    //   render: (_, record) => {
-    //     const qty = Number(record.quantity) || 0;
-    //     let status = "In Stock";
-    //     if (qty === 0) status = "Out of Stock";
-    //     else if (qty < 5) status = "Low Stock";
-
-    //     return (
-    //       <Tooltip title={status}>
-    //         <span>{status}</span>
-    //       </Tooltip>
-    //     );
-    //   },
-    // },
-
-    {
       title: "Status",
       key: "status",
       render: (_, record) => {
@@ -334,6 +108,47 @@ export default function Inventory({ user }) {
         );
       },
     },
+    {
+      title: "Category",
+      dataIndex: "Category",
+      key: "Category",
+      render: (text) => (
+        <Tooltip title={text || "Unknown"}>
+          <span>{text || "Unknown"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Location",
+      dataIndex: "Location",
+      key: "location",
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      key: "weight",
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Note",
+      dataIndex: "note",
+      key: "note",
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+   
   ];
 
   // extra columns only visible to Full Control
@@ -362,36 +177,36 @@ export default function Inventory({ user }) {
         );
       },
     },
-    {
-      title: "Purchase Cost (per item)",
-      dataIndex: "purchaseCost",
-      key: "purchaseCost",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: "Add On Cost",
-      dataIndex: "addOnCost",
-      key: "addOnCost",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: "Selling Cost",
-      dataIndex: "sellingCost",
-      key: "sellingCost",
-      render: (text) => (
-        <Tooltip title={text}>
-          <span>{text}</span>
-        </Tooltip>
-      ),
-    },
+    // {
+    //   title: "Purchase Cost (per item)",
+    //   dataIndex: "purchaseCost",
+    //   key: "purchaseCost",
+    //   render: (text) => (
+    //     <Tooltip title={text}>
+    //       <span>{text}</span>
+    //     </Tooltip>
+    //   ),
+    // },
+    // {
+    //   title: "Add On Cost",
+    //   dataIndex: "addOnCost",
+    //   key: "addOnCost",
+    //   render: (text) => (
+    //     <Tooltip title={text}>
+    //       <span>{text}</span>
+    //     </Tooltip>
+    //   ),
+    // },
+    // {
+    //   title: "Selling Cost",
+    //   dataIndex: "sellingCost",
+    //   key: "sellingCost",
+    //   render: (text) => (
+    //     <Tooltip title={text}>
+    //       <span>{text}</span>
+    //     </Tooltip>
+    //   ),
+    // },
   ];
 
   const actionColumn = {
@@ -431,10 +246,13 @@ export default function Inventory({ user }) {
   const columnMapping = {
     "Serial Number": "serialNumber",
     "Part Number": "partNumber",
+    Name: "name",
     Description: "description",
     Quantity: "quantity",
     Unit: "unit",
     Location: "Location",
+    Weight: "weight",
+    Note: "note",
     "Total Price in AED": "totalPrice",
     "Purchase Cost(per item)": "purchaseCost",
     "Add On Cost": "addOnCost",
@@ -447,12 +265,13 @@ export default function Inventory({ user }) {
       const params = new URLSearchParams({
         action: "getInventory",
         partNumber: values.partNumber || "",
+        name: values.name || "", 
         description: values.description || "",
         location: values.location || "",
       });
 
       const res = await fetch(
-        "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec",
+        "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec",
         {
           method: "POST",
           body: params,
@@ -460,6 +279,7 @@ export default function Inventory({ user }) {
       );
 
       const data = await res.json();
+
       // if (data.success) {
       //   setTableDataSource(data.data);
       // } else {
@@ -467,6 +287,8 @@ export default function Inventory({ user }) {
       // }
 
       if (data.success) {
+        // console.log("🟢 Inventory rows from backend:", data.data);
+
         const normalizedData = data.data.map((item, idx) => {
           const normalizedItem = { key: idx };
           Object.keys(item).forEach((header) => {
@@ -521,19 +343,25 @@ export default function Inventory({ user }) {
 
     const headers = [
       { v: "Serial Number", s: headerStyle },
-      { v: "Location", s: headerStyle },
-      { v: "Part Number", s: headerStyle },
+      { v: "Name", s: headerStyle },
       { v: "Description", s: headerStyle },
+      { v: "Part Number", s: headerStyle },
+
       { v: "Quantity", s: headerStyle },
       { v: "Unit", s: headerStyle },
-      { v: "Category", s: headerStyle },
-      ...(isFullControl ? [{ v: "Total Price in AED", s: headerStyle }] : []),
-      ...(isFullControl
-        ? [{ v: "Purchase Cost (per item)", s: headerStyle }]
-        : []),
-      ...(isFullControl ? [{ v: "Add On Cost", s: headerStyle }] : []),
-      ...(isFullControl ? [{ v: "Selling Cost", s: headerStyle }] : []),
       { v: "Status", s: headerStyle },
+
+      { v: "Category", s: headerStyle },
+      { v: "Location", s: headerStyle },
+      { v: "Weight", s: headerStyle },
+      { v: "Note", s: headerStyle },
+
+      ...(isFullControl ? [{ v: "Total Price in AED", s: headerStyle }] : []),
+      // ...(isFullControl
+      //   ? [{ v: "Purchase Cost (per item)", s: headerStyle }]
+      //   : []),
+      // ...(isFullControl ? [{ v: "Add On Cost", s: headerStyle }] : []),
+      // ...(isFullControl ? [{ v: "Selling Cost", s: headerStyle }] : []),
     ];
 
     const data = tableDataSource.map((row) => {
@@ -544,27 +372,35 @@ export default function Inventory({ user }) {
 
       const rowData = [
         { v: row.serialNumber || "-", s: { border: getAllBorders() } },
-        { v: row.Location || "-", s: { border: getAllBorders() } },
-        { v: row.partNumber || "-", s: { border: getAllBorders() } },
+        { v: row.name || "-", s: { border: getAllBorders() } },
         { v: row.description || "-", s: { border: getAllBorders() } },
+        { v: row.partNumber || "-", s: { border: getAllBorders() } },
         { v: row.quantity ?? 0, s: { border: getAllBorders() } },
         { v: row.unit || "-", s: { border: getAllBorders() } },
+        { v: status, s: { border: getAllBorders() } },
+
         { v: row.Category || "-", s: { border: getAllBorders() } },
       ];
+
+      // rowData.push({ v: status, s: { border: getAllBorders() } });
+      rowData.push(
+        { v: row.Location || "-", s: { border: getAllBorders() } },
+
+        { v: row.weight || "-", s: { border: getAllBorders() } },
+        { v: row.note || "-", s: { border: getAllBorders() } }
+      );
 
       if (isFullControl) {
         rowData.push(
           {
             v: row.totalPrice ? Number(row.totalPrice).toFixed(2) : "-",
             s: { border: getAllBorders() },
-          },
-          { v: row.purchaseCost || "-", s: { border: getAllBorders() } },
-          { v: row.addOnCost || "-", s: { border: getAllBorders() } },
-          { v: row.sellingCost || "-", s: { border: getAllBorders() } }
+          }
+          // { v: row.purchaseCost || "-", s: { border: getAllBorders() } },
+          // { v: row.addOnCost || "-", s: { border: getAllBorders() } },
+          // { v: row.sellingCost || "-", s: { border: getAllBorders() } }
         );
       }
-
-      rowData.push({ v: status, s: { border: getAllBorders() } });
 
       return rowData;
     });
@@ -733,7 +569,7 @@ export default function Inventory({ user }) {
                       className="m-0 p-0"
                       style={{ fontSize: "14px", color: "#0D3884" }}
                     >
-                      Search item in the inventory by part number or description
+                      Search item in the inventory by part number, description, name or location
                     </div>
                   </div>
                 </div>
@@ -749,7 +585,7 @@ export default function Inventory({ user }) {
                     }
                     name="partNumber"
                   >
-                    <Input placeholder="Enter Part Number" />
+                    <Input placeholder="Enter part number" />
                   </Form.Item>
 
                   <Form.Item
@@ -760,7 +596,18 @@ export default function Inventory({ user }) {
                     }
                     name="description"
                   >
-                    <Input placeholder="Enter Description" />
+                    <Input placeholder="Enter description" />
+                  </Form.Item>
+
+                     <Form.Item
+                    label={
+                      <span style={{ color: "#0D3884", fontWeight: "bold" }}>
+                        Name
+                      </span>
+                    }
+                    name="name"
+                  >
+                    <Input placeholder="Enter name" />
                   </Form.Item>
 
                   <Form.Item
@@ -773,7 +620,7 @@ export default function Inventory({ user }) {
                   >
                     <Select
                       allowClear
-                      placeholder="Select Location"
+                      placeholder="Select location"
                       style={{ width: "100%" }}
                       options={[
                         { label: "AE", value: "AE" },
@@ -803,7 +650,7 @@ export default function Inventory({ user }) {
                         fetchInventory();
                       }}
                     >
-                      Clear Search
+                      Clear / Refresh
                     </Button>
 
                     {isFullControl && (
@@ -912,12 +759,19 @@ export default function Inventory({ user }) {
                           <Input readOnly />
                         </Form.Item>
                       </div>
+
                       <div className="col-12">
                         <Form.Item
                           label="Part Number"
                           name="partNumber"
                           className="fw-bold"
                         >
+                          <Input readOnly />
+                        </Form.Item>
+                      </div>
+
+                      <div className="col-12">
+                        <Form.Item label="Name" name="name" className="fw-bold">
                           <Input readOnly />
                         </Form.Item>
                       </div>
@@ -945,6 +799,22 @@ export default function Inventory({ user }) {
                         </Form.Item>
                       </div>
 
+                      <div className="col-12">
+                        <Form.Item
+                          label="Weight"
+                          name="weight"
+                          className="fw-bold"
+                        >
+                          <Input readOnly />
+                        </Form.Item>
+                      </div>
+
+                      <div className="col-12">
+                        <Form.Item label="Note" name="note" className="fw-bold">
+                          <Input readOnly />
+                        </Form.Item>
+                      </div>
+
                       {/* Admin-only fields */}
                       {isFullControl && (
                         <>
@@ -957,7 +827,7 @@ export default function Inventory({ user }) {
                               <Input readOnly />
                             </Form.Item>
                           </div>
-                          <div className="col-12">
+                          {/* <div className="col-12">
                             <Form.Item
                               label="Purchase Cost (per item)"
                               name="purchaseCost"
@@ -965,8 +835,8 @@ export default function Inventory({ user }) {
                             >
                               <Input readOnly />
                             </Form.Item>
-                          </div>
-                          <div className="col-12">
+                          </div> */}
+                          {/* <div className="col-12">
                             <Form.Item
                               label="Add On Cost"
                               name="addOnCost"
@@ -974,8 +844,8 @@ export default function Inventory({ user }) {
                             >
                               <Input readOnly />
                             </Form.Item>
-                          </div>
-                          <div className="col-12">
+                          </div> */}
+                          {/* <div className="col-12">
                             <Form.Item
                               label="Selling Cost"
                               name="sellingCost"
@@ -983,7 +853,7 @@ export default function Inventory({ user }) {
                             >
                               <Input readOnly />
                             </Form.Item>
-                          </div>
+                          </div> */}
                         </>
                       )}
 

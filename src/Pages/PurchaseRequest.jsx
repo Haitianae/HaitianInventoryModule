@@ -100,6 +100,7 @@ export default function PurchaseRequest({ user }) {
     useState(true);
   const [loadingCustomerName, setLoadingCustomerName] = useState(true);
   const [loadingDescription, setLoadingDescription] = useState(true);
+  const [loadingName, setLoadingName] = useState(true);
   const [loadingPartNumber, setLoadingPartNumber] = useState(true);
   const [fetchingData, setFetchingData] = useState(false);
   const [descriptionList, setDescriptionList] = useState([]);
@@ -114,15 +115,21 @@ export default function PurchaseRequest({ user }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const [paymentTerms, setPaymentTerms] = useState("");
   const [stockMap, setStockMap] = useState({});
+  const [nameMap, setNameMap] = useState({});
+const quantityDebounceRef = React.useRef(null);
   const [inputRow, setInputRow] = useState({
     serialNumber: "",
     partNumber: "",
+    name: "",  
     itemDescription: "",
     quantity: "",
     stockInHand: "",
     unit: "",
     stockUnit: "",
     location: "MEA",
+    note:"",
+    category: "", 
+    weight: "", 
   });
   const [downloading, setDownloading] = useState(false);
   const [isStockLoading, setIsStockLoading] = useState(false);
@@ -132,7 +139,7 @@ export default function PurchaseRequest({ user }) {
   const [partMap, setPartMap] = useState({});
   const [descMap, setDescMap] = useState({});
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyEI_eZ7HaN9CLJRea1p-8qrKf-9latecnifqANau_4-MYjQaUivyGseidrfuHXyZ3a/exec";
+    "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -261,6 +268,7 @@ export default function PurchaseRequest({ user }) {
     setLoadingPurchaseRequestNumber(true);
     setLoadingCustomerName(true);
     setLoadingDescription(true);
+    setLoadingName(true);
 
     const [requestNum, customers, descriptions] = await Promise.allSettled([
       fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
@@ -323,6 +331,15 @@ export default function PurchaseRequest({ user }) {
       });
 
       setDescMap(descMapTemp);
+
+      const nameMapTemp = {};
+      for (let i = finalMEAList.length - 1; i >= 0; i--) {
+        const item = finalMEAList[i];
+        if (item.name && !nameMapTemp[item.name]) {
+          nameMapTemp[item.name] = item;
+        }
+      }
+      setNameMap(nameMapTemp);
     }
 
     await fetchPurchaseRequestData();
@@ -335,6 +352,8 @@ export default function PurchaseRequest({ user }) {
     setLoadingPurchaseRequestNumber(false);
     setLoadingCustomerName(false);
     setLoadingDescription(false);
+    setLoadingName(false);
+
   }
 };
 
@@ -385,7 +404,7 @@ export default function PurchaseRequest({ user }) {
           throw new Error("Network error");
         }
           const result = await res.json();
-          console.log("Backend Stock Response:", result);
+          // console.log("Backend Stock Response:", result);
 
           if (result.success) {
             setInputRow((prev) => ({
@@ -464,12 +483,172 @@ export default function PurchaseRequest({ user }) {
           </Tooltip>
         ),
     },
+   
     {
-      title: "Location",
-      dataIndex: "location",
-      width: 120,
+  title: "Name",
+  dataIndex: "name",
+  width: 260,
+  render: (_, record) =>
+    record.isInput ? (
+      <Select
+        showSearch
+        placeholder="Select Name"
+         loading={loadingName}
+              disabled={loadingName}
+        value={inputRow.name || undefined}
+        filterOption={(input, option) =>
+          option.children.toLowerCase().includes(input.toLowerCase())
+        }
+        onChange={(value) => {
+          const selected = nameMap[value];
+          if (!selected) return;
+
+          const cachedStock = stockMap[selected.partNumber] || {
+            stockInHand: 0,
+            unit: "",
+          };
+
+          setInputRow((prev) => ({
+            ...prev,
+            name: value,
+            partNumber: selected.partNumber,
+            itemDescription: selected.description,
+            unit: selected.unit,
+            stockInHand: safeToString(cachedStock.stockInHand),
+            stockUnit: selected.unit,
+             category: selected.category || "",
+                   weight: selected.weight || "",
+          }));
+        }}
+        style={{ width: "100%" }}
+      >
+        {Object.keys(nameMap).map((name) => (
+          <Select.Option key={name} value={name}>
+            {name}
+          </Select.Option>
+        ))}
+      </Select>
+    ) : (
+      <span>{record.name}</span>
+    ),
+},
+    {
+      title: "Item Description",
+      dataIndex: "itemDescription",
+      width: 500,
+      ellipsis: true,
       render: (_, record) =>
-        record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
+        record.isInput ? (
+          <Tooltip>
+            <Select
+              showSearch
+              placeholder="Select Description"
+              value={inputRow.itemDescription || undefined}
+              loading={loadingDescription}
+              disabled={loadingDescription}
+              // filterOption={(input, option) =>
+              //   option.children.toLowerCase().includes(input.toLowerCase())
+              // }
+
+              filterOption={(input, option) =>
+                String(option.children)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              // onChange={(value) => {
+              //   const partNumber = descMap[value]; // 🔥 Get linked partNumber
+              //   const selected = partMap[partNumber]; // 🔥 Get AE mapped row
+
+              //   console.log("🔍 Description Selected:", value, selected);
+
+              //   setInputRow((prev) => ({
+              //     ...prev,
+              //     itemDescription: value,
+              //     partNumber,
+              //     unit: selected?.unit || "",
+              //     stockUnit: selected?.unit || "",
+              //   }));
+              // }}
+
+              onChange={(value) => {
+                // const partNumber = descMap[value];
+                const matchedParts = descMap[value] || [];
+                const partNumber = matchedParts[0] || "";
+                const selected = partMap[partNumber];
+                const cachedStock = stockMap[partNumber] || {
+                  stockInHand: 0,
+                  unit: "",
+                };
+
+                setInputRow((prev) => ({
+                  ...prev,
+                   name: selected?.name || "",  
+                  itemDescription: value,
+                  partNumber,
+                  unit: selected?.unit,
+                  stockInHand: safeToString(cachedStock.stockInHand),
+                  stockUnit: selected?.unit,
+                   category: selected.category || "",
+                   weight: selected.weight || "",
+                }));
+
+                const currentPart = partNumber;
+
+                // 🔄 Background live stock fetch (RESTORED)
+                (async () => {
+                  setStockLoading(true);
+                  try {
+                    const res = await fetch(GAS_URL, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                      },
+                      body: new URLSearchParams({
+                        action: "getStockForPartNumber",
+                        partNumber: currentPart,
+                        location: "MEA",
+                      }),
+                    });
+                    const result = await res.json();
+
+                    setInputRow((prev) => {
+                      if (prev.partNumber !== currentPart) return prev;
+                      return {
+                        ...prev,
+                        stockInHand: safeToString(result.stockInHand),
+                        // stockUnit: selected?.unit,
+                        stockUnit: selected?.unit || prev.stockUnit, // trust frontend mapping
+                        unit: selected?.unit || prev.unit,
+                      };
+                    });
+
+                    setStockMap((prev) => ({
+                      ...prev,
+                      [currentPart]: {
+                        // stockInHand: result.stockInHand,
+                        // unit: selected?.unit,
+                        stockUnit: selected?.unit,
+                      },
+                    }));
+                  } finally {
+                    setStockLoading(false);
+                  }
+                })();
+              }}
+              style={{ width: "100%" }}
+            >
+              {Object.keys(descMap).map((desc, idx) => (
+                <Select.Option key={idx} value={desc}>
+                  {desc}
+                </Select.Option>
+              ))}
+            </Select>
+          </Tooltip>
+        ) : (
+          <Tooltip title={record.itemDescription}>
+            {record.itemDescription}
+          </Tooltip>
+        ),
     },
 
     // {
@@ -847,11 +1026,14 @@ export default function PurchaseRequest({ user }) {
                 setInputRow((prev) => ({
                   ...prev,
                   partNumber: value,
+                   name: selected?.name || "",  
                   itemDescription:
                     selected?.description || prev.itemDescription,
                   unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: selected?.unit,
+                    category: selected?.category || "",
+                     weight: selected?.weight || "",
                 }));
 
                 const currentPart = value;
@@ -936,121 +1118,7 @@ export default function PurchaseRequest({ user }) {
       },
     },
 
-    {
-      title: "Item Description",
-      dataIndex: "itemDescription",
-      width: 500,
-      ellipsis: true,
-      render: (_, record) =>
-        record.isInput ? (
-          <Tooltip>
-            <Select
-              showSearch
-              placeholder="Select Description"
-              value={inputRow.itemDescription || undefined}
-              loading={loadingDescription}
-              disabled={loadingDescription}
-              // filterOption={(input, option) =>
-              //   option.children.toLowerCase().includes(input.toLowerCase())
-              // }
 
-              filterOption={(input, option) =>
-                String(option.children)
-                  .toLowerCase()
-                  .includes(input.toLowerCase())
-              }
-              // onChange={(value) => {
-              //   const partNumber = descMap[value]; // 🔥 Get linked partNumber
-              //   const selected = partMap[partNumber]; // 🔥 Get AE mapped row
-
-              //   console.log("🔍 Description Selected:", value, selected);
-
-              //   setInputRow((prev) => ({
-              //     ...prev,
-              //     itemDescription: value,
-              //     partNumber,
-              //     unit: selected?.unit || "",
-              //     stockUnit: selected?.unit || "",
-              //   }));
-              // }}
-
-              onChange={(value) => {
-                // const partNumber = descMap[value];
-                const matchedParts = descMap[value] || [];
-                const partNumber = matchedParts[0] || "";
-                const selected = partMap[partNumber];
-                const cachedStock = stockMap[partNumber] || {
-                  stockInHand: 0,
-                  unit: "",
-                };
-
-                setInputRow((prev) => ({
-                  ...prev,
-                  itemDescription: value,
-                  partNumber,
-                  unit: selected?.unit,
-                  stockInHand: safeToString(cachedStock.stockInHand),
-                  stockUnit: selected?.unit,
-                }));
-
-                const currentPart = partNumber;
-
-                // 🔄 Background live stock fetch (RESTORED)
-                (async () => {
-                  setStockLoading(true);
-                  try {
-                    const res = await fetch(GAS_URL, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                      },
-                      body: new URLSearchParams({
-                        action: "getStockForPartNumber",
-                        partNumber: currentPart,
-                        location: "MEA",
-                      }),
-                    });
-                    const result = await res.json();
-
-                    setInputRow((prev) => {
-                      if (prev.partNumber !== currentPart) return prev;
-                      return {
-                        ...prev,
-                        stockInHand: safeToString(result.stockInHand),
-                        // stockUnit: selected?.unit,
-                        stockUnit: selected?.unit || prev.stockUnit, // trust frontend mapping
-                        unit: selected?.unit || prev.unit,
-                      };
-                    });
-
-                    setStockMap((prev) => ({
-                      ...prev,
-                      [currentPart]: {
-                        // stockInHand: result.stockInHand,
-                        // unit: selected?.unit,
-                        stockUnit: selected?.unit,
-                      },
-                    }));
-                  } finally {
-                    setStockLoading(false);
-                  }
-                })();
-              }}
-              style={{ width: "100%" }}
-            >
-              {Object.keys(descMap).map((desc, idx) => (
-                <Select.Option key={idx} value={desc}>
-                  {desc}
-                </Select.Option>
-              ))}
-            </Select>
-          </Tooltip>
-        ) : (
-          <Tooltip title={record.itemDescription}>
-            {record.itemDescription}
-          </Tooltip>
-        ),
-    },
     {
       title: "Quantity",
       dataIndex: "quantity",
@@ -1068,8 +1136,8 @@ export default function PurchaseRequest({ user }) {
                 const value = e.target.value.trim();
                 setInputRow((prev) => ({ ...prev, quantity: value }));
 
-                clearTimeout(window.quantityDebounce);
-                window.quantityDebounce = setTimeout(() => {
+                clearTimeout(quantityDebounceRef.current);
+                 quantityDebounceRef.current = setTimeout(() => {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
@@ -1115,6 +1183,7 @@ export default function PurchaseRequest({ user }) {
           </Tooltip>
         ),
     },
+    
 
     {
       title: "Unit",
@@ -1175,6 +1244,59 @@ export default function PurchaseRequest({ user }) {
           </Tooltip>
         ),
     },
+    {
+  title: "Category",
+  dataIndex: "category",
+  width: 180,
+  render: (_, record) =>
+    record.isInput ? (
+      <Input value={inputRow.category} readOnly />
+    ) : (
+      <span>{record.category}</span>
+    ),
+},
+
+
+     {
+      title: "Location",
+      dataIndex: "location",
+      width: 120,
+      render: (_, record) =>
+        record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
+    },
+{
+  title: "Weight",
+  dataIndex: "weight",
+  width: 150,
+  render: (_, record) =>
+    record.isInput ? (
+      <Input value={inputRow.weight} readOnly />
+    ) : (
+      <span>{record.weight}</span>
+    ),
+},
+    {
+  title: "Note",
+  dataIndex: "note",
+  width: 300,
+  render: (_, record) =>
+    record.isInput ? (
+      <Input
+        placeholder="Enter note"
+        value={inputRow.note}
+        onChange={(e) =>
+          setInputRow((prev) => ({
+            ...prev,
+            note: e.target.value,
+          }))
+        }
+      />
+    ) : (
+      <Tooltip title={record.note}>
+        <span>{record.note || "-"}</span>
+      </Tooltip>
+    ),
+},
 
     {
       title: "Action",
@@ -1206,22 +1328,24 @@ export default function PurchaseRequest({ user }) {
   const modalColumns = [
     {
       title: "Serial Number",
-      dataIndex: "Serial Number", // must match your actual key
+      dataIndex: "Serial Number", 
       render: (text) => <span>{text}</span>,
     },
-    {
-      title: "Location",
-      dataIndex: "Location",
-      render: (text) => <span>{text || "MEA"}</span>,
-    },
-    {
-      title: "Part Number",
-      dataIndex: "Part Number",
+   
+     {
+      title: "Name",
+      dataIndex: "Name",
       render: (text) => <span>{text}</span>,
     },
+
     {
       title: "Item Description",
       dataIndex: "Item Description",
+      render: (text) => <span>{text}</span>,
+    },
+        {
+      title: "Part Number",
+      dataIndex: "Part Number",
       render: (text) => <span>{text}</span>,
     },
     {
@@ -1233,6 +1357,26 @@ export default function PurchaseRequest({ user }) {
     {
       title: "Stock In Hand",
       dataIndex: "Stock In Hand",
+      render: (text) => <span>{text}</span>,
+    },
+       {
+      title: "Category",
+      dataIndex: "Category",
+      render: (text) => <span>{text}</span>,
+    },
+     {
+      title: "Location",
+      dataIndex: "Location",
+      render: (text) => <span>{text || "MEA"}</span>,
+    },
+     {
+      title: "Weight",
+      dataIndex: "Weight",
+      render: (text) => <span>{text || "MEA"}</span>,
+    },
+     {
+      title: "Note",
+      dataIndex: "Note",
       render: (text) => <span>{text}</span>,
     },
   ];
@@ -1289,6 +1433,7 @@ export default function PurchaseRequest({ user }) {
     const newData = {
       key: Date.now(),
       serialNumber: dataSource.length + 1,
+       name: inputRow.name,  
       partNumber,
       itemDescription,
       quantity,
@@ -1296,6 +1441,9 @@ export default function PurchaseRequest({ user }) {
       unit: inputRow.unit || "",
       stockUnit: inputRow.stockUnit || "",
       location: inputRow.location || "MEA",
+        note: inputRow.note,  
+          category: inputRow.category, 
+          weight: inputRow.weight, 
     };
 
     const updatedData = [...dataSource, newData].map((item, index) => ({
@@ -1307,11 +1455,15 @@ export default function PurchaseRequest({ user }) {
 
     setInputRow({
       partNumber: "",
+      name: "",  
       itemDescription: "",
       quantity: "",
       stockInHand: "",
       unit: "",
       location: "MEA",
+      note: "",
+      category: "", 
+      weight: "", 
     });
   };
 
@@ -1462,7 +1614,7 @@ export default function PurchaseRequest({ user }) {
       });
 
       const result = await response.json();
-      console.log("Result:", result);
+      // console.log("Result:", result);
       if (!result.success)
         throw new Error(result.message || "Failed to add purchase request.");
 
@@ -1529,11 +1681,15 @@ export default function PurchaseRequest({ user }) {
       setDataSource([]);
       setInputRow({
         partNumber: "",
+        name:"",
         itemDescription: "",
         quantity: "",
         unit: "",
         stockInHand: "",
         location: "MEA",
+        note: "",
+        category: "", 
+        weight: "", 
       });
 
       form.resetFields();
@@ -1637,18 +1793,8 @@ export default function PurchaseRequest({ user }) {
       ),
     },
     {
-      title: "Location",
-      dataIndex: "Location", // make sure your data has a 'Location' key
-      width: 150,
-      render: (text) => (
-        <Tooltip title={text || "-"}>
-          <span>{text || "-"}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: "Part Number",
-      dataIndex: "Part Number",
+      title: "Name",
+      dataIndex: "Name",
       width: 130,
       render: (text) => (
         <Tooltip title={text || ""}>
@@ -1656,10 +1802,21 @@ export default function PurchaseRequest({ user }) {
         </Tooltip>
       ),
     },
+    
     {
       title: "Item Description",
       dataIndex: "Item Description",
       width: 300,
+      render: (text) => (
+        <Tooltip title={text || ""}>
+          <span>{text || ""}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Part Number",
+      dataIndex: "Part Number",
+      width: 130,
       render: (text) => (
         <Tooltip title={text || ""}>
           <span>{text || ""}</span>
@@ -1696,7 +1853,46 @@ export default function PurchaseRequest({ user }) {
         </Tooltip>
       ),
     },
-
+        {
+      title: "Category",
+      dataIndex: "Category", 
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text}>
+          <span>{text}</span>
+        </Tooltip>
+      ),
+    },
+        {
+      title: "Location",
+      dataIndex: "Location", 
+      width: 150,
+      render: (text) => (
+        <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Weight",
+      dataIndex: "Weight", 
+      width: 150,
+      render: (text) => (
+         <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Note",
+      dataIndex: "Note", 
+      width: 150,
+      render: (text) => (
+          <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
     {
       title: "Request Created By",
       dataIndex: "Request Created By",
@@ -1746,6 +1942,16 @@ export default function PurchaseRequest({ user }) {
       },
     },
     {
+      title: "Rejection Reason",
+      dataIndex: "Rejection Reason", 
+      width: 150,
+      render: (text) => (
+             <Tooltip title={text || "-"}>
+          <span>{text || "-"}</span>
+        </Tooltip>
+      ),
+    },
+    {
       title: "Status",
       dataIndex: "Status",
       width: 120,
@@ -1780,7 +1986,7 @@ export default function PurchaseRequest({ user }) {
 
             // Keep the full partsUsed array from groupedData
             setSelectedRow(record);
-
+// console.log("Selected Row:", record);
             setIsModalVisible(true);
 
             const preserved = {
@@ -1797,11 +2003,15 @@ export default function PurchaseRequest({ user }) {
             setDataSource([]);
             setInputRow({
               partNumber: "",
+              name:"",
               itemDescription: "",
               quantity: "",
               unit: "",
               stockInHand: "",
               location: preserved.location || "MEA",
+              note: "",
+              category: "", 
+              weight: "", 
             });
           }}
         >
@@ -1824,6 +2034,8 @@ export default function PurchaseRequest({ user }) {
     : fetchedData.filter(
         (item) => (item["Request Created By"] || "").toLowerCase() === userEmail
       );
+// console.log("🔐 Accessible Data:", accessibleData);
+
 
   const filteredData = accessibleData.filter((item) => {
     const matchesSearch =
@@ -1853,6 +2065,7 @@ export default function PurchaseRequest({ user }) {
       }
       acc[purchaseNo].partsUsed.push({
         "Serial Number": item["Serial Number"],
+         "Name": item["Name"], 
         Location: item["Location"] || "MEA",
         "Part Number": item["Part Number"],
         "Item Description": item["Item Description"],
@@ -1860,6 +2073,9 @@ export default function PurchaseRequest({ user }) {
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
         Location: item["Location"] || "MEA",
+           "Note": item["Note"],  
+           "Category": item["Category"],
+             "Weight": item["Weight"],          
       });
       return acc;
     }, {})
@@ -1875,7 +2091,7 @@ export default function PurchaseRequest({ user }) {
     if (!groupedData || groupedData.length === 0) {
       notification.warning({
         message: "Export Failed",
-        description: "No purchase request data available to export.",
+        description: "No data available to export.",
         placement: "bottomRight",
       });
       return;
@@ -1898,18 +2114,24 @@ export default function PurchaseRequest({ user }) {
       { v: "Customer Name", t: "s", s: headerStyle },
       { v: "Address", t: "s", s: headerStyle },
       { v: "Serial Number", t: "s", s: headerStyle },
-      { v: "Location", t: "s", s: headerStyle },
-      { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Name", s: headerStyle },
       { v: "Item Description", t: "s", s: headerStyle },
+
+      { v: "Part Number", t: "s", s: headerStyle },
       { v: "Quantity", t: "s", s: headerStyle },
       { v: "Unit", t: "s", s: headerStyle },
       { v: "Stock In Hand", t: "s", s: headerStyle },
+        { v: "Category", s: headerStyle },
+        { v: "Location", t: "s", s: headerStyle },
+        { v: "Weight", s: headerStyle },
+  { v: "Note", s: headerStyle },
       { v: "Request Created By", t: "s", s: headerStyle },
       { v: "Requested Date & Time", t: "s", s: headerStyle },
       { v: "Approved/Denied By", t: "s", s: headerStyle },
       { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
+        { v: "Rejection Reason", s: headerStyle },
+
       { v: "Status", t: "s", s: headerStyle },
-      { v: "Note", t: "s", s: headerStyle },
     ];
 
     const data = [];
@@ -1932,74 +2154,90 @@ export default function PurchaseRequest({ user }) {
       (item.partsUsed || []).forEach((part) => {
         data.push([
           {
-            v: item["Purchase Request Number"],
+            v: item["Purchase Request Number"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Date"],
+            v: item["Date"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Customer Name"],
+            v: item["Customer Name"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Address"],
+            v: item["Address"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: part["Serial Number"],
+            v: part["Serial Number"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: part["Location"] || item["Location"] || "-",
-            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
-          },
-
-          {
-            v: part["Part Number"],
+            v: part["Name"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: part["Item Description"],
+            v: part["Item Description"] || "-",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+             {
+            v: part["Part Number"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: part["Quantity"],
+            v: part["Quantity"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: part["Unit"],
+            v: part["Unit"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: part["Stock In Hand"],
+            v: part["Stock In Hand"] || "-",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+           {
+            v: part["Category"] || "-",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+           {
+            v: part["Location"] || item["Location"] || "MEA",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+           {
+            v: part["Weight"] || "-",
+            s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+          },
+           {
+            v: part["Note"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Request Created By"],
+            v: item["Request Created By"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Requested Date & Time"],
+            v: item["Requested Date & Time"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Approved/Denied By"],
+            v: item["Approved/Denied By"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Approved/Denied Date & Time"],
+            v: item["Approved/Denied Date & Time"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Status"],
+            v: item["Rejection Reason"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
           {
-            v: item["Note"] || "-",
+            v: item["Status"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
+          
         ]);
       });
     });
@@ -2015,7 +2253,7 @@ export default function PurchaseRequest({ user }) {
         const value = cell && cell.v != null ? String(cell.v) : "";
         maxLength = Math.max(maxLength, value.length);
       });
-      return { wch: Math.min(maxLength * 1.8, 60) };
+return { wch: Math.min(Math.max(maxLength * 1.5, 12), 60) };
     });
     ws["!cols"] = colWidths;
 
@@ -2098,11 +2336,15 @@ export default function PurchaseRequest({ user }) {
       setDataSource([]);
       setInputRow({
         partNumber: "",
+        name:"",
         itemDescription: "",
         quantity: "",
         unit: "",
         stockInHand: "",
         location: "MEA",
+         note: "",
+         category: "", 
+          weight: "", 
       });
 
       // correct API to CLEAR specific fields
@@ -2251,15 +2493,14 @@ export default function PurchaseRequest({ user }) {
 
     // Table
     autoTable(doc, {
-      head: [["S.No", "Loc", "Item & Description", "Qty", "Unit"]],
+      head: [["S.No", "Loc", "Name, Description & Item", "Qty"]],
       body: items.map((item, idx) => [
         idx + 1,
         // `${item.itemDescription || ""}\n${item.partNumber || ""}`,
         item.location || "",
 
-        [item.itemDescription || "", item.partNumber || ""].join("\n"),
+        [item.name || "", item.itemDescription || "", item.partNumber || ""].join("\n"),
         item.quantity || "",
-        item.unit || "",
       ]),
       margin: { top: HEADER_HEIGHT, bottom: BOTTOM_MARGIN },
       styles: {
@@ -3248,9 +3489,9 @@ export default function PurchaseRequest({ user }) {
 
                       <div className="row">
                         <div className="col-md-12">
-                          <Form.Item label="Rejection Note">
+                          <Form.Item label="Rejection Reason">
                             <Input.TextArea
-                              value={selectedRow?.Note || "-"}
+                            value={selectedRow?.["Rejection Reason"] || "-"}
                               autoSize={{ minRows: 2, maxRows: 4 }}
                               readOnly
                             />
