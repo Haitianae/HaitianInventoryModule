@@ -139,7 +139,7 @@ const quantityDebounceRef = React.useRef(null);
   const [partMap, setPartMap] = useState({});
   const [descMap, setDescMap] = useState({});
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec";
+    "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {

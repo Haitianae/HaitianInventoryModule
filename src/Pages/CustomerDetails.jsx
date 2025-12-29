@@ -61,7 +61,7 @@ export default function CustomerDetails({ user }) {
   const [searchText, setSearchText] = useState("");
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxK5N6UsoB2ocXok9DFGZvYkI8awN2hnVRYFpOGew09SVH5JtrGV3upfPN58niU0OOW/exec";
+    "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
 
   useEffect(() => {
     fetchCustomerOwners();
@@ -717,11 +717,11 @@ const handleClearForm = () => {
                           required: true,
                           message: "Please input customer name!",
                         },
-                        {
-                          pattern: /^[A-Za-z\s.]+$/,
-                          message:
-                            "Customer name should not contain numbers or special characters!",
-                        },
+                        // {
+                        //   pattern: /^[A-Za-z\s.]+$/,
+                        //   message:
+                        //     "Customer name should not contain numbers or special characters!",
+                        // },
                       ]}
                     >
                       <Input placeholder="Enter Customer Name" />
@@ -1724,11 +1724,11 @@ const handleClearForm = () => {
                             required: true,
                             message: "Please input customer name!",
                           },
-                          {
-                            pattern: /^[A-Za-z\s.]+$/,
-                            message:
-                              "Customer name should not contain numbers or special characters!",
-                          },
+                          // {
+                          //   pattern: /^[A-Za-z\s.]+$/,
+                          //   message:
+                          //     "Customer name should not contain numbers or special characters!",
+                          // },
                         ]}
                       >
                         <Input placeholder="Enter Customer Name" />
