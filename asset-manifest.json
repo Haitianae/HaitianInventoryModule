@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/HaitianInventoryModule/static/css/main.2b372f32.css",
-    "main.js": "/HaitianInventoryModule/static/js/main.930bd11a.js",
+    "main.css": "/HaitianInventoryModule/static/css/main.8bd48afa.css",
+    "main.js": "/HaitianInventoryModule/static/js/main.cdfe5865.js",
     "static/js/239.00603e74.chunk.js": "/HaitianInventoryModule/static/js/239.00603e74.chunk.js",
     "static/js/977.6bcba40c.chunk.js": "/HaitianInventoryModule/static/js/977.6bcba40c.chunk.js",
     "static/js/667.aec7d901.chunk.js": "/HaitianInventoryModule/static/js/667.aec7d901.chunk.js",
@@ -9,18 +9,18 @@
     "static/media/HaitianMachine.png": "/HaitianInventoryModule/static/media/HaitianMachine.d05e15d4114893f407f5.png",
     "static/media/HaitianBanner.png": "/HaitianInventoryModule/static/media/HaitianBanner.0082d73a22facdc1c871.png",
     "static/media/Dirham.png": "/HaitianInventoryModule/static/media/Dirham.bb8aecdcdad3679997f8.png",
-    "static/media/Haitian.png": "/HaitianInventoryModule/static/media/Haitian.2580847cf46662192dce.png",
-    "static/media/HaitianLogo.png": "/HaitianInventoryModule/static/media/HaitianLogo.c60ee5c77c77973ffb22.png",
+    "static/media/Haitian.png": "/HaitianInventoryModule/static/media/Haitian.b0c2bfe95a0a0107a94b.png",
+    "static/media/HaitianLogo.png": "/HaitianInventoryModule/static/media/HaitianLogo.ca194f136ec2806ce8e0.png",
     "index.html": "/HaitianInventoryModule/index.html",
-    "main.2b372f32.css.map": "/HaitianInventoryModule/static/css/main.2b372f32.css.map",
-    "main.930bd11a.js.map": "/HaitianInventoryModule/static/js/main.930bd11a.js.map",
+    "main.8bd48afa.css.map": "/HaitianInventoryModule/static/css/main.8bd48afa.css.map",
+    "main.cdfe5865.js.map": "/HaitianInventoryModule/static/js/main.cdfe5865.js.map",
     "239.00603e74.chunk.js.map": "/HaitianInventoryModule/static/js/239.00603e74.chunk.js.map",
     "977.6bcba40c.chunk.js.map": "/HaitianInventoryModule/static/js/977.6bcba40c.chunk.js.map",
     "667.aec7d901.chunk.js.map": "/HaitianInventoryModule/static/js/667.aec7d901.chunk.js.map",
     "453.225d8625.chunk.js.map": "/HaitianInventoryModule/static/js/453.225d8625.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.2b372f32.css",
-    "static/js/main.930bd11a.js"
+    "static/css/main.8bd48afa.css",
+    "static/js/main.cdfe5865.js"
   ]
 }
