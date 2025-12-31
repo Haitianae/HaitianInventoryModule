@@ -43,7 +43,7 @@ import {
 export default function CustomerDetails({ user }) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-    const [editLoading, setEditLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -59,14 +59,23 @@ export default function CustomerDetails({ user }) {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editForm] = Form.useForm();
   const [searchText, setSearchText] = useState("");
+  const [allCustomers, setAllCustomers] = useState([]);
+
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
+    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
 
   useEffect(() => {
     fetchCustomerOwners();
     fetchCustomers();
   }, []);
+
+  
+
+  const locationOptions = [
+    { label: "MEA", value: "MEA" },
+    { label: "AE", value: "AE" },
+  ];
 
   const fetchCustomerOwners = async () => {
     setOwnerLoading(true);
@@ -88,34 +97,85 @@ export default function CustomerDetails({ user }) {
     }
   };
 
-  const fetchCustomers = async () => {
-    setFetching(true);
-    try {
-      const response = await fetch(GAS_URL, {
-        method: "POST",
-        body: new URLSearchParams({ action: "getAllCustomerDetails" }),
-      });
+ const fetchCustomers = async () => {
+  setFetching(true);
+  try {
+    // console.log("📡 fetchCustomers() called");
 
-      const result = await response.json();
-      // console.log("Fetched Customers:", result);
-      if (result.success) {
-        setCustomers(result.customers || []);
-      }
-    } catch (err) {
-      notification.error({
-        message: "Error",
-        description: "Failed to fetch customers",
-      });
-    } finally {
-      setFetching(false);
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      body: new URLSearchParams({ action: "getAllCustomerDetails" }),
+    });
+
+    const result = await response.json();
+
+    // console.log("✅ Raw customer API response:", result);
+
+    if (result.success) {
+      // console.log("📦 Customers received:", result.customers);
+      // console.log(
+      //   "📦 Customer locations:",
+      //   result.customers.map(c => c.Location)
+      // );
+
+      setAllCustomers(result.customers || []);
     }
-  };
+  } catch (err) {
+    console.error("❌ fetchCustomers error:", err);
+  } finally {
+    setFetching(false);
+  }
+};
+
+
+useEffect(() => {
+  // console.log("🧠 Filter useEffect triggered");
+
+  // console.log("👤 User object:", user);
+  // console.log("📍 user.location:", user?.location);
+  // console.log("📍 user.access.Location:", user?.access?.Location);
+
+  // console.log("📦 allCustomers length:", allCustomers.length);
+
+  if (!user || !allCustomers.length) {
+    // console.log("⛔ Skipping filter (user or customers missing)");
+    return;
+  }
+
+  const userLocation = String(
+    user?.location || user?.access?.Location || ""
+  ).toUpperCase();
+
+  // console.log("📍 FINAL userLocation USED:", userLocation);
+
+  let visibleCustomers = allCustomers;
+
+  if (userLocation === "MEA") {
+    visibleCustomers = allCustomers.filter((c, index) => {
+      // console.log(
+      //   `🔍 Customer ${index}:`,
+      //   c["Customer Name"],
+      //   "| Location:",
+      //   c.Location
+      // );
+
+      return String(c.Location || "").toUpperCase() === "MEA";
+    });
+  }
+
+  // console.log("✅ Visible customers after filter:", visibleCustomers);
+  // console.log("✅ Visible customers count:", visibleCustomers.length);
+
+  setCustomers(visibleCustomers);
+}, [user, allCustomers]);
+
+
 
   const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
   // console.log(userLocalDateTime);
 
   const handleView = (record) => {
-form.resetFields(); 
+    form.resetFields();
     setSelectedCustomer(record);
 
     // Preload all fields into the form
@@ -132,6 +192,8 @@ form.resetFields();
       viewOwner: record["Customer Owner"],
 
       viewAddress: record["Address"],
+      viewLocation: record["Location"],
+
       viewVAT: record["VAT/TAX ID"],
       viewCurrency: record["Currency"],
       viewPaymentTerms: record["Payment Terms"],
@@ -142,9 +204,9 @@ form.resetFields();
 
     setIsViewModalVisible(true);
   };
-  
+
   // const handleEdit = (record) => {
-  //   form.resetFields(); 
+  //   form.resetFields();
   //   setSelectedCustomer(record);
 
   //   editForm.setFieldsValue({
@@ -177,66 +239,64 @@ form.resetFields();
   //   setIsEditModalVisible(true);
   // };
 
-
-const safeValue = (val) => {
-  if (!val || val === "-" || val === "'-" || val.trim() === "-") return undefined;
-  return val;
-};
-
-
-const splitName = (name = "") => {
-  if (!name || name === "-" || name === "- - -" || name.trim() === "") {
-    return { salutation: undefined, first: "", last: "" };
-  }
-
-  const parts = name.split(" ");
-
-  return {
-    salutation: safeValue(parts[0]),
-    first: safeValue(parts[1]) || "",
-    last: safeValue(parts[2]) || "",
+  const safeValue = (val) => {
+    if (!val || val === "-" || val === "'-" || val.trim() === "-")
+      return undefined;
+    return val;
   };
-};
 
+  const splitName = (name = "") => {
+    if (!name || name === "-" || name === "- - -" || name.trim() === "") {
+      return { salutation: undefined, first: "", last: "" };
+    }
 
-const handleEdit = (record) => {
-  form.resetFields();
+    const parts = name.split(" ");
 
-  setSelectedCustomer(record);
+    return {
+      salutation: safeValue(parts[0]),
+      first: safeValue(parts[1]) || "",
+      last: safeValue(parts[2]) || "",
+    };
+  };
 
-  // Prepare name fields safely
-  const primary = splitName(record["Primary Contact"]);
-  const contact = splitName(record["Contact Person Name"]);
+  const handleEdit = (record) => {
+    form.resetFields();
 
-  editForm.setFieldsValue({
-    customername: safeValue(record["Customer Name"]),
+    setSelectedCustomer(record);
 
-    salutation: primary.salutation,
-    firstname: primary.first,
-    lastname: primary.last,
+    // Prepare name fields safely
+    const primary = splitName(record["Primary Contact"]);
+    const contact = splitName(record["Contact Person Name"]);
 
-    contactPersonSalutation: contact.salutation,
-    contactPersonFirstName: contact.first,
-    contactPersonLastName: contact.last,
+    editForm.setFieldsValue({
+      customername: safeValue(record["Customer Name"]),
 
-    contactPersonPosition: safeValue(record["Contact Person Position"]),
-    contactPersonNumber: safeValue(record["Contact Person Number"]),
-    contactPersonEmail: safeValue(record["Contact Person Email"]),
+      salutation: primary.salutation,
+      firstname: primary.first,
+      lastname: primary.last,
 
-    customerOwner: safeValue(record["Customer Owner"]),
-    customerEmail: safeValue(record["Customer Email"]),
-    workPhoneNumber: safeValue(record["Customer Work Phone"]),
-    mobileNumber: safeValue(record["Customer Mobile Phone"]),
-    address: safeValue(record["Address"]),
-    vataxId: safeValue(record["VAT/TAX ID"]),
-    currency: safeValue(record["Currency"]),
-    paymentTerms: safeValue(record["Payment Terms"]),
-    deliveryTerms: safeValue(record["Delivery Term"]),
-  });
+      contactPersonSalutation: contact.salutation,
+      contactPersonFirstName: contact.first,
+      contactPersonLastName: contact.last,
 
-  setIsEditModalVisible(true);
-};
+      contactPersonPosition: safeValue(record["Contact Person Position"]),
+      contactPersonNumber: safeValue(record["Contact Person Number"]),
+      contactPersonEmail: safeValue(record["Contact Person Email"]),
 
+      customerOwner: safeValue(record["Customer Owner"]),
+      customerEmail: safeValue(record["Customer Email"]),
+      workPhoneNumber: safeValue(record["Customer Work Phone"]),
+      mobileNumber: safeValue(record["Customer Mobile Phone"]),
+      address: safeValue(record["Address"]),
+      location: safeValue(record["Location"]),
+      vataxId: safeValue(record["VAT/TAX ID"]),
+      currency: safeValue(record["Currency"]),
+      paymentTerms: safeValue(record["Payment Terms"]),
+      deliveryTerms: safeValue(record["Delivery Term"]),
+    });
+
+    setIsEditModalVisible(true);
+  };
 
   const customerColumns = [
     {
@@ -249,26 +309,26 @@ const handleEdit = (record) => {
       dataIndex: "Primary Contact",
       key: "Primary Contact",
     },
-    {
-      title: "Contact Person Name",
-      dataIndex: "Contact Person Name",
-      key: "Contact Person Name",
-    },
-    {
-      title: "Contact Person Position",
-      dataIndex: "Contact Person Position",
-      key: "Contact Person Position",
-    },
-    {
-      title: "Contact Person Number",
-      dataIndex: "Contact Person Number",
-      key: "Contact Person Number",
-    },
-    {
-      title: "Contact Person Email",
-      dataIndex: "Contact Person Email",
-      key: "Contact Person Email",
-    },
+    // {
+    //   title: "Contact Person Name",
+    //   dataIndex: "Contact Person Name",
+    //   key: "Contact Person Name",
+    // },
+    // {
+    //   title: "Contact Person Position",
+    //   dataIndex: "Contact Person Position",
+    //   key: "Contact Person Position",
+    // },
+    // {
+    //   title: "Contact Person Number",
+    //   dataIndex: "Contact Person Number",
+    //   key: "Contact Person Number",
+    // },
+    // {
+    //   title: "Contact Person Email",
+    //   dataIndex: "Contact Person Email",
+    //   key: "Contact Person Email",
+    // },
 
     {
       title: "Customer Owner",
@@ -291,6 +351,12 @@ const handleEdit = (record) => {
       key: "Customer Mobile Phone",
     },
     { title: "Address", dataIndex: "Address", key: "Address" },
+    {
+      title: "Location",
+      dataIndex: "Location",
+      key: "Location",
+    },
+
     { title: "VAT/TAX ID", dataIndex: "VAT/TAX ID", key: "VAT/TAX ID" },
 
     { title: "Currency", dataIndex: "Currency", key: "Currency" },
@@ -320,7 +386,11 @@ const handleEdit = (record) => {
       fixed: "right",
       render: (_, record) => (
         <>
-          <Button className="addButton" disabled={loading} onClick={() => handleView(record)}>
+          <Button
+            className="addButton"
+            disabled={loading}
+            onClick={() => handleView(record)}
+          >
             View
           </Button>
 
@@ -338,18 +408,15 @@ const handleEdit = (record) => {
     },
   ];
 
-
   const handleCloseViewModal = () => {
-  setIsViewModalVisible(false);
-  viewForm.resetFields();
-};
-
+    setIsViewModalVisible(false);
+    viewForm.resetFields();
+  };
 
   const handleEditViewModal = () => {
-  setIsEditModalVisible(false);
-  editForm.resetFields();
-};
-
+    setIsEditModalVisible(false);
+    editForm.resetFields();
+  };
 
   const handleSubmit = async (values) => {
     // console.log(values);
@@ -375,6 +442,7 @@ const handleEdit = (record) => {
           workPhoneNumber: values.workPhoneNumber || "-",
           mobileNumber: values.mobileNumber || "-",
           address: values.address || "-",
+          location: values.location || "-",
           vataxId: values.vataxId || "-",
           currency: values.currency || "-",
           paymentTerms: values.paymentTerms || "-",
@@ -435,6 +503,7 @@ const handleEdit = (record) => {
           workPhoneNumber: values.workPhoneNumber || "-",
           mobileNumber: values.mobileNumber || "-",
           address: values.address || "-",
+          location: values.location || "-",
           vataxId: values.vataxId || "-",
           currency: values.currency || "-",
           paymentTerms: values.paymentTerms || "-",
@@ -479,104 +548,103 @@ const handleEdit = (record) => {
     );
   });
 
-const handleExportCustomers = () => {
-  if (!filteredCustomers || filteredCustomers.length === 0) {
-    notification.warning({
-      message: "Export Failed",
-      description: "No customer data available to export.",
+  const handleExportCustomers = () => {
+    if (!filteredCustomers || filteredCustomers.length === 0) {
+      notification.warning({
+        message: "Export Failed",
+        description: "No customer data available to export.",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
+    const fileName = `Customer_Details_Report_${now}.xlsx`;
+
+    // Header Style
+    const headerStyle = {
+      font: { bold: true, sz: 12 },
+      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      border: getAllBorders(),
+      fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
+    };
+
+    // Extract column headers
+    const headers = Object.keys(filteredCustomers[0]).map((key) => ({
+      v: key,
+      t: "s",
+      s: headerStyle,
+    }));
+
+    // Data rows
+    const data = filteredCustomers.map((row) =>
+      Object.values(row).map((value) => ({
+        v: value || "",
+        t: "s",
+        s: { border: getAllBorders(), alignment: { horizontal: "left" } },
+      }))
+    );
+
+    // Sheet creation
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+    // Auto column width
+    const colWidths = headers.map((header, colIndex) => {
+      let maxLen = header.v.length;
+      data.forEach((row) => {
+        const cellVal = row[colIndex]?.v ? String(row[colIndex].v) : "";
+        maxLen = Math.max(maxLen, cellVal.length);
+      });
+      return { wch: Math.min(maxLen * 1.8, 60) };
+    });
+    ws["!cols"] = colWidths;
+
+    // Workbook creation
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customer Details");
+
+    // Save file
+    XLSX.writeFile(wb, fileName);
+
+    notification.success({
+      message: "Export Successful",
+      description: "Filtered customer details exported successfully.",
       placement: "bottomRight",
     });
-    return;
-  }
-
-  const now = dayjs().format("DD-MM-YYYY_HH-mm-ss");
-  const fileName = `Customer_Details_Report_${now}.xlsx`;
-
-  // Header Style
-  const headerStyle = {
-    font: { bold: true, sz: 12 },
-    alignment: { horizontal: "left", vertical: "center", wrapText: true },
-    border: getAllBorders(),
-    fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
   };
 
-  // Extract column headers
-  const headers = Object.keys(filteredCustomers[0]).map((key) => ({
-    v: key,
-    t: "s",
-    s: headerStyle,
-  }));
-
-  // Data rows
-  const data = filteredCustomers.map((row) =>
-    Object.values(row).map((value) => ({
-      v: value || "",
-      t: "s",
-      s: { border: getAllBorders(), alignment: { horizontal: "left" } },
-    }))
-  );
-
-  // Sheet creation
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-
-  // Auto column width
-  const colWidths = headers.map((header, colIndex) => {
-    let maxLen = header.v.length;
-    data.forEach((row) => {
-      const cellVal = row[colIndex]?.v ? String(row[colIndex].v) : "";
-      maxLen = Math.max(maxLen, cellVal.length);
-    });
-    return { wch: Math.min(maxLen * 1.8, 60) };
+  // Border helper
+  const getAllBorders = () => ({
+    top: { style: "thin", color: { rgb: "000000" } },
+    bottom: { style: "thin", color: { rgb: "000000" } },
+    left: { style: "thin", color: { rgb: "000000" } },
+    right: { style: "thin", color: { rgb: "000000" } },
   });
-  ws["!cols"] = colWidths;
 
-  // Workbook creation
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Customer Details");
+  const handleClearForm = () => {
+    const values = form.getFieldsValue();
 
-  // Save file
-  XLSX.writeFile(wb, fileName);
+    const isEmpty = Object.values(values).every(
+      (value) =>
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        (Array.isArray(value) && value.length === 0)
+    );
 
-  notification.success({
-    message: "Export Successful",
-    description: "Filtered customer details exported successfully.",
-    placement: "bottomRight",
-  });
-};
-
-
-// Border helper
-const getAllBorders = () => ({
-  top: { style: "thin", color: { rgb: "000000" } },
-  bottom: { style: "thin", color: { rgb: "000000" } },
-  left: { style: "thin", color: { rgb: "000000" } },
-  right: { style: "thin", color: { rgb: "000000" } },
-});
-
-const handleClearForm = () => {
-  const values = form.getFieldsValue();
-
-  const isEmpty = Object.values(values).every(
-    (value) =>
-      value === undefined ||
-      value === null ||
-      value === "" ||
-      (Array.isArray(value) && value.length === 0)
-  );
-
-  if (isEmpty) {
-    notification.info({
-      message: "Nothing to clear",
-      description: "All fields are already empty.",
-    });
-  } else {
-    form.resetFields();
-    notification.success({
-      message: "Success",
-      description: "Form cleared successfully!",
-    });
-  }
-};
+    if (isEmpty) {
+      notification.info({
+        message: "Nothing to clear",
+        description: "All fields are already empty.",
+      });
+    } else {
+      form.resetFields();
+      notification.success({
+        message: "Success",
+        description: "Form cleared successfully!",
+      });
+    }
+  };
 
   const styl = `.ant-form-item .ant-form-item-explain-error {
     color: #ff4d4f;
@@ -871,7 +939,7 @@ const handleClearForm = () => {
                                 message: "Please enter contact number",
                               },
                               {
-                                pattern: /^[0-9\s-]+$/,
+                                pattern: /^[+0-9\s-]+$/,
                                 message:
                                   "Contact number should not contain letter",
                               },
@@ -1009,7 +1077,7 @@ const handleClearForm = () => {
                       label="Customer Phone"
                       name="customerPhone"
                       className="fw-bold"
-                required 
+                      required
                     >
                       <div className="row">
                         <div className="col-6">
@@ -1022,7 +1090,7 @@ const handleClearForm = () => {
                                 //   "Please enter the cutomer work phone number!",
                               },
                               {
-                                pattern: /^[0-9\s-]+$/,
+                                pattern: /^[+0-9\s-]+$/,
                                 message:
                                   "Work phone number should not contain special characters!",
                               },
@@ -1042,7 +1110,7 @@ const handleClearForm = () => {
                                   "Please enter the cutomer mobile number!",
                               },
                               {
-                                pattern: /^[0-9\s-]+$/,
+                                pattern: /^[+0-9\s-]+$/,
                                 message:
                                   "Mobile number should not contain special characters!",
                               },
@@ -1065,6 +1133,23 @@ const handleClearForm = () => {
                       ]}
                     >
                       <Input.TextArea placeholder="Enter Address" rows={6} />
+                    </Form.Item>
+
+                    <Form.Item
+                      label="Location"
+                      name="location"
+                      className="fw-bold"
+                      rules={[
+                        { required: true, message: "Please select location!" },
+                      ]}
+                    >
+                      <Select placeholder="Select Location">
+                        {locationOptions.map((opt) => (
+                          <Select.Option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </Select.Option>
+                        ))}
+                      </Select>
                     </Form.Item>
 
                     <Form.Item
@@ -1101,14 +1186,13 @@ const handleClearForm = () => {
                               style={{ width: "30px" }}
                             />{" "}
                             <span className="ms-1">
-                              United Arab Emirates - AED (
+                              United Arab Emirates - AED
                               <img
                                 src={Dirham}
                                 alt="Dirham"
                                 style={{ width: "15px" }}
-                                className="img-fluid m-0 p-0"
+                                className="img-fluid m-0 p-0 ms-1"
                               />
-                              )
                             </span>
                           </div>
                         </Select.Option>
@@ -1116,14 +1200,13 @@ const handleClearForm = () => {
                           <div className="d-flex align-items-center">
                             <img src={US} alt="US" style={{ width: "30px" }} />{" "}
                             <span className="ms-1">
-                              United States Of America - USD (
+                              United States Of America - USD
                               <span
-                                className="fw-bold"
+                                className="fw-bold ms-1"
                                 style={{ width: "15px" }}
                               >
                                 $
                               </span>
-                              )
                             </span>
                           </div>
                         </Select.Option>
@@ -1243,8 +1326,7 @@ const handleClearForm = () => {
                           //   }
                           // }}
 
-                            onClick={handleClearForm}
-
+                          onClick={handleClearForm}
                         >
                           Clear Input
                         </Button>
@@ -1298,48 +1380,47 @@ const handleClearForm = () => {
                 </div>
 
                 <div className="border border-1"></div>
-                                <div className="mt-3 row">
+                <div className="mt-3 row">
+                  <div className="mb-3 d-flex gap-2">
+                    {/* Search Input */}
+                    <Input
+                      placeholder="Search customer data"
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      suffix={<SearchOutlined />}
+                      disabled={loading}
+                    />
 
-                <div className="mb-3 d-flex gap-2">
-                  {/* Search Input */}
-                  <Input
-                    placeholder="Search customer data"
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    suffix={<SearchOutlined />}
-                    disabled={loading}
-                  />
+                    {/* Reset Button */}
+                    <Button
+                      icon={<ReloadOutlined />}
+                      onClick={() => {
+                        setSearchText("");
+                        fetchCustomers();
+                        notification.info({
+                          message: "Filters Reset",
+                          description: "Customer data refreshed.",
+                          placement: "bottomRight",
+                        });
+                      }}
+                      disabled={loading}
+                      size="large"
+                      className="resetButton"
+                    >
+                      Reset
+                    </Button>
 
-                  {/* Reset Button */}
-                  <Button
-                    icon={<ReloadOutlined />}
-                    onClick={() => {
-                      setSearchText("");
-                      fetchCustomers();
-                      notification.info({
-                        message: "Filters Reset",
-                        description: "Customer data refreshed.",
-                        placement: "bottomRight",
-                      });
-                    }}
-                    disabled={loading}
-                    size="large"
-                    className="resetButton"
-                  >
-                    Reset
-                  </Button>
-
-                  {/* Export Button */}
-                  <Button
-                    icon={<ExportOutlined />}
-                    onClick={handleExportCustomers}
-                    size="large"
-                    className="exportButton"
-                    disabled={loading}
-                  >
-                    Export
-                  </Button>
-                </div>
+                    {/* Export Button */}
+                    <Button
+                      icon={<ExportOutlined />}
+                      onClick={handleExportCustomers}
+                      size="large"
+                      className="exportButton"
+                      disabled={loading}
+                    >
+                      Export
+                    </Button>
+                  </div>
                 </div>
 
                 <Table
@@ -1527,6 +1608,16 @@ const handleClearForm = () => {
                         </Form.Item>
                       </div>
 
+                      <div className="col-lg-12">
+                        <Form.Item
+                          label="Location"
+                          name="viewLocation"
+                          className="fw-bold"
+                        >
+                          <Input readOnly />
+                        </Form.Item>
+                      </div>
+
                       <div className="col-lg-6">
                         <Form.Item
                           label="VAT / TAX ID"
@@ -1563,13 +1654,13 @@ const handleClearForm = () => {
                                   style={{ width: "30px" }}
                                 />
                                 <span className="ms-2">
-                                  United Arab Emirates - AED (
+                                  United Arab Emirates - AED
                                   <img
                                     src={Dirham}
                                     alt="Dirham"
                                     style={{ width: "15px" }}
+                                    className="ms-1"
                                   />
-                                  )
                                 </span>
                               </>
                             )}
@@ -1583,7 +1674,7 @@ const handleClearForm = () => {
                                   style={{ width: "30px" }}
                                 />
                                 <span className="ms-2">
-                                  United States of America - USD ($)
+                                  United States of America - USD $
                                 </span>
                               </>
                             )}
@@ -1642,7 +1733,6 @@ const handleClearForm = () => {
                           // }}
 
                           onClick={handleCloseViewModal}
-
                         >
                           Close Form
                         </Button>
@@ -1739,7 +1829,7 @@ const handleClearForm = () => {
                         label="Primary Contact"
                         name="primarycontact"
                         className="fw-bold"
-                       required
+                        required
                       >
                         <div className="row">
                           {/* Salutation */}
@@ -1856,7 +1946,7 @@ const handleClearForm = () => {
                               name="contactPersonNumber"
                               rules={[
                                 {
-                                  pattern: /^[0-9\s-]+$/,
+                                  pattern: /^[+0-9\s-]+$/,
                                   message:
                                     "Contact number should not contain letters",
                                 },
@@ -1939,9 +2029,11 @@ const handleClearForm = () => {
                       </Form.Item>
 
                       {/* Customer Phone */}
-                      <Form.Item label="Customer Phone" name="customerPhone"
-                       className="fw-bold"
-                  required
+                      <Form.Item
+                        label="Customer Phone"
+                        name="customerPhone"
+                        className="fw-bold"
+                        required
                       >
                         <div className="row">
                           {/* Work Phone */}
@@ -1950,7 +2042,7 @@ const handleClearForm = () => {
                               name="workPhoneNumber"
                               rules={[
                                 {
-                                  pattern: /^[0-9\s-]+$/,
+                                  pattern: /^[+0-9\s-]+$/,
                                   message: "Work number cannot contain letters",
                                 },
                               ]}
@@ -1969,7 +2061,7 @@ const handleClearForm = () => {
                                   message: "Enter customer mobile number!",
                                 },
                                 {
-                                  pattern: /^[0-9\s-]+$/,
+                                  pattern: /^[+0-9\s-]+$/,
                                   message:
                                     "Mobile number cannot contain letters",
                                 },
@@ -1991,6 +2083,26 @@ const handleClearForm = () => {
                         ]}
                       >
                         <Input.TextArea rows={6} placeholder="Enter Address" />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Location"
+                        name="location"
+                        className="fw-bold"
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please select location!",
+                          },
+                        ]}
+                      >
+                        <Select placeholder="Select Location">
+                          {locationOptions.map((opt) => (
+                            <Select.Option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </Select.Option>
+                          ))}
+                        </Select>
                       </Form.Item>
 
                       {/* VAT */}
@@ -2041,14 +2153,13 @@ const handleClearForm = () => {
                                 style={{ width: "30px" }}
                               />
                               <span className="ms-1">
-                                United Arab Emirates - AED (
+                                United Arab Emirates - AED
                                 <img
                                   src={Dirham}
                                   alt="Dirham"
                                   style={{ width: "15px" }}
-                                  className="img-fluid m-0 p-0"
+                                  className="img-fluid m-0 p-0 ms-1"
                                 />
-                                )
                               </span>
                             </div>
                           </Select.Option>
@@ -2061,8 +2172,8 @@ const handleClearForm = () => {
                                 style={{ width: "30px" }}
                               />
                               <span className="ms-1">
-                                United States Of America - USD (
-                                <span className="fw-bold">$</span>)
+                                United States Of America - USD
+                                <span className="fw-bold ms-1">$</span>
                               </span>
                             </div>
                           </Select.Option>
@@ -2130,7 +2241,9 @@ const handleClearForm = () => {
                           className="submitButton mt-2"
                           loading={editLoading}
                         >
-                          {editLoading ? "Updating Customer…" : "Update Customer"}
+                          {editLoading
+                            ? "Updating Customer…"
+                            : "Update Customer"}
                         </Button>
 
                         <Button
@@ -2142,7 +2255,6 @@ const handleClearForm = () => {
                           //   setIsEditModalVisible(false);
                           // }}
                           onClick={handleEditViewModal}
-
                         >
                           Close Form
                         </Button>

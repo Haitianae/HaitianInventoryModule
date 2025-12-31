@@ -60,7 +60,7 @@ export default function Dashboard({ user }) {
     outOfStock: 0,
   });
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
+    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
     
   const baseColumns = [
     {

@@ -63,7 +63,8 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
+    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
+    
 
   const fetchUsers = async () => {
     setFetching(true);
@@ -95,6 +96,10 @@ export default function AddUser({ user }) {
     key: index,
     module,
   }));
+  const locationOptions = [
+    { label: "MEA", value: "MEA" },
+    { label: "AE", value: "AE" },
+  ];
 
   // Define columns (first column for module name, rest for access levels)
   const moduleColumns = [
@@ -154,6 +159,7 @@ export default function AddUser({ user }) {
     // preload just the email
     viewForm.setFieldsValue({
       viewUserEmail: record["User Email"],
+      viewLocation: record["Location"],
     });
 
     setIsViewModalVisible(true);
@@ -171,6 +177,7 @@ export default function AddUser({ user }) {
     // Preload values into the modal form
     editForm.setFieldsValue({
       editUserEmail: record["User Email"],
+      location: record["Location"],
       access: modules.reduce((acc, mod) => {
         acc[mod] = record[mod] || "No Access";
         return acc;
@@ -183,7 +190,7 @@ export default function AddUser({ user }) {
   };
 
   const handleUpdate = async () => {
-     const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+    const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
     try {
       // ✅ validate EDIT form, not ADD form
       const values = await editForm.validateFields();
@@ -192,6 +199,7 @@ export default function AddUser({ user }) {
       const payload = {
         action: "updateUserAccess",
         userEmail: values.editUserEmail,
+        location: values.location,
         access: JSON.stringify(values.access),
         modifiedBy: user?.email || "Admin",
         modifiedDateTime: userLocalDateTime,
@@ -280,6 +288,13 @@ export default function AddUser({ user }) {
 
   const columns = [
     { title: "User Email", dataIndex: "User Email", key: "userEmail" },
+    {
+      title: "Location",
+      dataIndex: "Location",
+      key: "location",
+      render: (value) => value || "N/A",
+    },
+
     {
       title: "Modified User",
       dataIndex: "Modified User",
@@ -403,38 +418,37 @@ export default function AddUser({ user }) {
   // };
 
   const handleDelete = async (email) => {
-  try {
-    const res = await fetch(GAS_URL, {
-      method: "POST",
-      body: new URLSearchParams({
-        action: "deleteUser",
-        userEmail: email,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      notification.success({
-        message: "User Deleted",
-        description: data.message,
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        body: new URLSearchParams({
+          action: "deleteUser",
+          userEmail: email,
+        }),
       });
-      fetchUsers(); // Refresh user list
-      setIsEditModalVisible(false);
-    } else {
+
+      const data = await res.json();
+
+      if (data.success) {
+        notification.success({
+          message: "User Deleted",
+          description: data.message,
+        });
+        fetchUsers(); // Refresh user list
+        setIsEditModalVisible(false);
+      } else {
+        notification.error({
+          message: "Error",
+          description: data.message,
+        });
+      }
+    } catch (err) {
       notification.error({
         message: "Error",
-        description: data.message,
+        description: err.message,
       });
     }
-  } catch (err) {
-    notification.error({
-      message: "Error",
-      description: err.message,
-    });
-  }
-};
-
+  };
 
   const styl = `.ant-form-item .ant-form-item-explain-error {
     color: #ff4d4f;
@@ -558,9 +572,8 @@ export default function AddUser({ user }) {
   // console.log(userLocalDateTime);
 
   const handleSubmit = async (values) => {
-
-      const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
-  // console.log("Register user at:", userLocalDateTime);
+    const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
+    // console.log("Register user at:", userLocalDateTime);
     // Ensure at least one module has access selected
     const access = values.access || {};
     const hasAccess = Object.values(access).some(
@@ -590,6 +603,7 @@ export default function AddUser({ user }) {
         body: new URLSearchParams({
           action: "registerUser",
           userEmail: values.userEmail,
+          location: values.location,
           password: values.password,
           access: JSON.stringify(values.access),
           modifiedBy: user?.email || "Unknown",
@@ -722,6 +736,26 @@ export default function AddUser({ user }) {
                             placeholder="Enter User Email"
                             autoComplete="off"
                           />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Location"
+                          name="location"
+                          className="fw-bold"
+                          rules={[
+                            {
+                              required: true,
+                              message: "Please select location!",
+                            },
+                          ]}
+                        >
+                          <Select placeholder="Select Location">
+                            {locationOptions.map((opt) => (
+                              <Select.Option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </Select.Option>
+                            ))}
+                          </Select>
                         </Form.Item>
 
                         <Table
@@ -972,6 +1006,26 @@ export default function AddUser({ user }) {
                         <Input placeholder="Enter User Email" readOnly />
                       </Form.Item>
 
+                      <Form.Item
+                        label="Location"
+                        name="location"
+                        className="fw-bold"
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please select location!",
+                          },
+                        ]}
+                      >
+                        <Select placeholder="Select Location">
+                          {locationOptions.map((opt) => (
+                            <Select.Option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </Select.Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+
                       {/* Access Table */}
                       <Table
                         dataSource={dataSource}
@@ -1032,8 +1086,7 @@ export default function AddUser({ user }) {
                       {/* Buttons */}
                       {!readOnly && (
                         <div className="col-12 text-center mt-4 mb-3 d-flex m-auto">
-
-                           <Popconfirm
+                          <Popconfirm
                             title="Are you sure you want to delete this user?"
                             description={`This will permanently remove`}
                             okText="Yes, Delete"
@@ -1060,7 +1113,6 @@ export default function AddUser({ user }) {
                           >
                             {loading ? "Updating User" : "Update User"}
                           </Button>
-                         
 
                           <Button
                             htmlType="button"
@@ -1143,6 +1195,14 @@ export default function AddUser({ user }) {
                       <Form.Item
                         label="User Email"
                         name="viewUserEmail"
+                        className="fw-bold"
+                      >
+                        <Input readOnly />
+                      </Form.Item>
+
+                      <Form.Item
+                        label="Location"
+                        name="viewLocation"
                         className="fw-bold"
                       >
                         <Input readOnly />

@@ -157,7 +157,7 @@ export default function DeliveryNote({ user }) {
   const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
+    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -4352,11 +4352,11 @@ export default function DeliveryNote({ user }) {
 
         // Left side (Received By)
         doc.line(14, sigY, 80, sigY);
-        doc.text("Received By", 14, sigY + 5);
+        doc.text("Delivered By", 14, sigY + 5);
 
         // Right side (Delivered By)
         doc.line(pageWidth - 80, sigY, pageWidth - 14, sigY);
-        doc.text("Delivered By", pageWidth - 80, sigY + 5);
+        doc.text("Received By", pageWidth - 80, sigY + 5);
 
         doc.setLineDash([]);
       }

@@ -46,7 +46,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec",
+        "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec",
         {
           method: "POST",
           body: new URLSearchParams({
@@ -66,10 +66,11 @@ export default function Login({ onLoginSuccess }) {
         });
 
         // onLoginSuccess(values.username);
-          onLoginSuccess({
-    email: values.userEmail,
-    access: data.access,
-  });
+        onLoginSuccess({
+          email: values.userEmail,
+            location: data.location, 
+          access: data.access,
+        });
       } else {
         setShake(true);
         notification.error({
@@ -230,8 +231,10 @@ export default function Login({ onLoginSuccess }) {
                       >
                         {loading ? "Logging In" : "Login"}
                       </Button>
-                      <p className="text-center m-0 p-0 haitianColor">© 2025 Haitian Middle East. All rights reserved.
-</p>
+                      <p className="text-center m-0 p-0 haitianColor">
+                        © 2025 Haitian Middle East & Africa. All rights
+                        reserved.
+                      </p>
                     </Form>
                   </div>
                 </div>

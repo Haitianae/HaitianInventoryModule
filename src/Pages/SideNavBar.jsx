@@ -785,7 +785,11 @@ export default function SideNavBar({ onLogout, user }) {
             ))}
           </Menu>
         </div>
-
+        <div>
+          <p className="copyRightsText m-0 p-0 ms-4">
+            © 2025 Haitian Middle East & Africa.
+          </p>
+        </div>
         <div className="logout-container sidebar-divider">
           <Button
             className="logoutButton mb-1"

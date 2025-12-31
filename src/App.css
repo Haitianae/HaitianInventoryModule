@@ -13,6 +13,11 @@
 .haitianColor {
   color: #0d3884 !important;
 }
+.copyRightsText{
+  color: white;
+  font-size: 12px;
+  font-weight: normal;
+}
 
 
 body, input, textarea, select, button, label, h1, h2, h3, h4, h5, h6, p, span, div {

@@ -116,20 +116,20 @@ export default function PurchaseRequest({ user }) {
   const [paymentTerms, setPaymentTerms] = useState("");
   const [stockMap, setStockMap] = useState({});
   const [nameMap, setNameMap] = useState({});
-const quantityDebounceRef = React.useRef(null);
+  const quantityDebounceRef = React.useRef(null);
   const [inputRow, setInputRow] = useState({
     serialNumber: "",
     partNumber: "",
-    name: "",  
+    name: "",
     itemDescription: "",
     quantity: "",
     stockInHand: "",
     unit: "",
     stockUnit: "",
     location: "MEA",
-    note:"",
-    category: "", 
-    weight: "", 
+    note: "",
+    category: "",
+    weight: "",
   });
   const [downloading, setDownloading] = useState(false);
   const [isStockLoading, setIsStockLoading] = useState(false);
@@ -139,7 +139,7 @@ const quantityDebounceRef = React.useRef(null);
   const [partMap, setPartMap] = useState({});
   const [descMap, setDescMap] = useState({});
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzq7xffvRbG5lVNsP0LaFuBeOKFI_-b8Wr8kx9cZRn9Uj1VEG3kiiOtb2DdZ4tvquMc/exec";
+    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -264,99 +264,110 @@ const quantityDebounceRef = React.useRef(null);
   // };
 
   const fetchInitialData = async () => {
-  try {
-    setLoadingPurchaseRequestNumber(true);
-    setLoadingCustomerName(true);
-    setLoadingDescription(true);
-    setLoadingName(true);
+    try {
+      setLoadingPurchaseRequestNumber(true);
+      setLoadingCustomerName(true);
+      setLoadingDescription(true);
+      setLoadingName(true);
 
-    const [requestNum, customers, descriptions] = await Promise.allSettled([
-      fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
-      fetchWithRetry({ action: "getCustomerDetails" }),
-      fetchWithRetry({
-        action: "getAllDescriptionsWithPartNumbers",
-        location: "MEA",
-      }),
-    ]);
+      const [requestNum, customers, descriptions] = await Promise.allSettled([
+        fetchWithRetry({ action: "getNextPurchaseRequestNumber" }),
+        fetchWithRetry({ action: "getCustomerDetails" }),
+        fetchWithRetry({
+          action: "getAllDescriptionsWithPartNumbers",
+          location: "MEA",
+        }),
+      ]);
 
-    // 🔹 Purchase Request Number
-    if (requestNum.status === "fulfilled" && requestNum.value) {
-      const prNumber =
-        requestNum.value.requestNumber ||
-        requestNum.value?.data?.requestNumber ||
-        requestNum.value?.purchaseRequestNumber;
+      // 🔹 Purchase Request Number
+      if (requestNum.status === "fulfilled" && requestNum.value) {
+        const prNumber =
+          requestNum.value.requestNumber ||
+          requestNum.value?.data?.requestNumber ||
+          requestNum.value?.purchaseRequestNumber;
 
-      setPurchaseRequestNumber(prNumber);
-      form.setFieldsValue({
-        purchaseRequest: prNumber,
-      });
-    }
-
-    // 🔹 Customer List
-    if (customers.status === "fulfilled" && customers.value) {
-      setCustomerList(customers.value.customers || []);
-    }
-
-    // 🔹 Descriptions (MEA ONLY)
-    if (descriptions.status === "fulfilled" && descriptions.value) {
-      const items = descriptions.value.items || [];
-
-      // ✅ 1. Filter only MEA rows
-      const meaRows = items.filter((item) => item.location === "MEA");
-
-      // ✅ 2. Pick LAST entry per partNumber
-      const uniqueMEA = {};
-      for (let i = meaRows.length - 1; i >= 0; i--) {
-        const item = meaRows[i];
-        if (!uniqueMEA[item.partNumber]) {
-          uniqueMEA[item.partNumber] = item;
-        }
+        setPurchaseRequestNumber(prNumber);
+        form.setFieldsValue({
+          purchaseRequest: prNumber,
+        });
       }
 
-      const finalMEAList = Object.values(uniqueMEA);
+      // 🔹 Customer List
+      // if (customers.status === "fulfilled" && customers.value) {
+      //   setCustomerList(customers.value.customers || []);
+      // }
 
-      // Save filtered unique list
-      setDescriptionList(finalMEAList);
+      if (customers.status === "fulfilled" && customers.value) {
+        const allCustomers = customers.value.customers || [];
 
-      // ✅ 3. Build partMap (one clean entry per partNumber)
-      setPartMap(uniqueMEA);
+        const meaCustomers = allCustomers.filter(
+          (c) =>
+            String(c.location || "")
+              .trim()
+              .toUpperCase() === "MEA"
+        );
 
-      // ✅ 4. Build descMap (description → part numbers)
-      const descMapTemp = {};
-      finalMEAList.forEach((item) => {
-        if (!descMapTemp[item.description]) {
-          descMapTemp[item.description] = [];
-        }
-        descMapTemp[item.description].push(item.partNumber);
-      });
-
-      setDescMap(descMapTemp);
-
-      const nameMapTemp = {};
-      for (let i = finalMEAList.length - 1; i >= 0; i--) {
-        const item = finalMEAList[i];
-        if (item.name && !nameMapTemp[item.name]) {
-          nameMapTemp[item.name] = item;
-        }
+        setCustomerList(meaCustomers);
       }
-      setNameMap(nameMapTemp);
+
+      // 🔹 Descriptions (MEA ONLY)
+      if (descriptions.status === "fulfilled" && descriptions.value) {
+        const items = descriptions.value.items || [];
+
+        // ✅ 1. Filter only MEA rows
+        const meaRows = items.filter((item) => item.location === "MEA");
+
+        // ✅ 2. Pick LAST entry per partNumber
+        const uniqueMEA = {};
+        for (let i = meaRows.length - 1; i >= 0; i--) {
+          const item = meaRows[i];
+          if (!uniqueMEA[item.partNumber]) {
+            uniqueMEA[item.partNumber] = item;
+          }
+        }
+
+        const finalMEAList = Object.values(uniqueMEA);
+
+        // Save filtered unique list
+        setDescriptionList(finalMEAList);
+
+        // ✅ 3. Build partMap (one clean entry per partNumber)
+        setPartMap(uniqueMEA);
+
+        // ✅ 4. Build descMap (description → part numbers)
+        const descMapTemp = {};
+        finalMEAList.forEach((item) => {
+          if (!descMapTemp[item.description]) {
+            descMapTemp[item.description] = [];
+          }
+          descMapTemp[item.description].push(item.partNumber);
+        });
+
+        setDescMap(descMapTemp);
+
+        const nameMapTemp = {};
+        for (let i = finalMEAList.length - 1; i >= 0; i--) {
+          const item = finalMEAList[i];
+          if (item.name && !nameMapTemp[item.name]) {
+            nameMapTemp[item.name] = item;
+          }
+        }
+        setNameMap(nameMapTemp);
+      }
+
+      await fetchPurchaseRequestData();
+    } catch (err) {
+      notification.error({
+        message: "Error",
+        description: "Failed to fetch initial data",
+      });
+    } finally {
+      setLoadingPurchaseRequestNumber(false);
+      setLoadingCustomerName(false);
+      setLoadingDescription(false);
+      setLoadingName(false);
     }
-
-    await fetchPurchaseRequestData();
-  } catch (err) {
-    notification.error({
-      message: "Error",
-      description: "Failed to fetch initial data",
-    });
-  } finally {
-    setLoadingPurchaseRequestNumber(false);
-    setLoadingCustomerName(false);
-    setLoadingDescription(false);
-    setLoadingName(false);
-
-  }
-};
-
+  };
 
   useEffect(() => {
     fetchInitialData();
@@ -400,9 +411,9 @@ const quantityDebounceRef = React.useRef(null);
             }),
             signal: controller.signal,
           });
-           if (!res.ok) {
-          throw new Error("Network error");
-        }
+          if (!res.ok) {
+            throw new Error("Network error");
+          }
           const result = await res.json();
           // console.log("Backend Stock Response:", result);
 
@@ -483,55 +494,55 @@ const quantityDebounceRef = React.useRef(null);
           </Tooltip>
         ),
     },
-   
+
     {
-  title: "Name",
-  dataIndex: "name",
-  width: 260,
-  render: (_, record) =>
-    record.isInput ? (
-      <Select
-        showSearch
-        placeholder="Select Name"
-         loading={loadingName}
-              disabled={loadingName}
-        value={inputRow.name || undefined}
-        filterOption={(input, option) =>
-          option.children.toLowerCase().includes(input.toLowerCase())
-        }
-        onChange={(value) => {
-          const selected = nameMap[value];
-          if (!selected) return;
+      title: "Name",
+      dataIndex: "name",
+      width: 260,
+      render: (_, record) =>
+        record.isInput ? (
+          <Select
+            showSearch
+            placeholder="Select Name"
+            loading={loadingName}
+            disabled={loadingName}
+            value={inputRow.name || undefined}
+            filterOption={(input, option) =>
+              option.children.toLowerCase().includes(input.toLowerCase())
+            }
+            onChange={(value) => {
+              const selected = nameMap[value];
+              if (!selected) return;
 
-          const cachedStock = stockMap[selected.partNumber] || {
-            stockInHand: 0,
-            unit: "",
-          };
+              const cachedStock = stockMap[selected.partNumber] || {
+                stockInHand: 0,
+                unit: "",
+              };
 
-          setInputRow((prev) => ({
-            ...prev,
-            name: value,
-            partNumber: selected.partNumber,
-            itemDescription: selected.description,
-            unit: selected.unit,
-            stockInHand: safeToString(cachedStock.stockInHand),
-            stockUnit: selected.unit,
-             category: selected.category || "",
-                   weight: selected.weight || "",
-          }));
-        }}
-        style={{ width: "100%" }}
-      >
-        {Object.keys(nameMap).map((name) => (
-          <Select.Option key={name} value={name}>
-            {name}
-          </Select.Option>
-        ))}
-      </Select>
-    ) : (
-      <span>{record.name}</span>
-    ),
-},
+              setInputRow((prev) => ({
+                ...prev,
+                name: value,
+                partNumber: selected.partNumber,
+                itemDescription: selected.description,
+                unit: selected.unit,
+                stockInHand: safeToString(cachedStock.stockInHand),
+                stockUnit: selected.unit,
+                category: selected.category || "",
+                weight: selected.weight || "",
+              }));
+            }}
+            style={{ width: "100%" }}
+          >
+            {Object.keys(nameMap).map((name) => (
+              <Select.Option key={name} value={name}>
+                {name}
+              </Select.Option>
+            ))}
+          </Select>
+        ) : (
+          <span>{record.name}</span>
+        ),
+    },
     {
       title: "Item Description",
       dataIndex: "itemDescription",
@@ -582,14 +593,14 @@ const quantityDebounceRef = React.useRef(null);
 
                 setInputRow((prev) => ({
                   ...prev,
-                   name: selected?.name || "",  
+                  name: selected?.name || "",
                   itemDescription: value,
                   partNumber,
                   unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: selected?.unit,
-                   category: selected.category || "",
-                   weight: selected.weight || "",
+                  category: selected.category || "",
+                  weight: selected.weight || "",
                 }));
 
                 const currentPart = partNumber;
@@ -1026,14 +1037,14 @@ const quantityDebounceRef = React.useRef(null);
                 setInputRow((prev) => ({
                   ...prev,
                   partNumber: value,
-                   name: selected?.name || "",  
+                  name: selected?.name || "",
                   itemDescription:
                     selected?.description || prev.itemDescription,
                   unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: selected?.unit,
-                    category: selected?.category || "",
-                     weight: selected?.weight || "",
+                  category: selected?.category || "",
+                  weight: selected?.weight || "",
                 }));
 
                 const currentPart = value;
@@ -1118,7 +1129,6 @@ const quantityDebounceRef = React.useRef(null);
       },
     },
 
-
     {
       title: "Quantity",
       dataIndex: "quantity",
@@ -1137,7 +1147,7 @@ const quantityDebounceRef = React.useRef(null);
                 setInputRow((prev) => ({ ...prev, quantity: value }));
 
                 clearTimeout(quantityDebounceRef.current);
-                 quantityDebounceRef.current = setTimeout(() => {
+                quantityDebounceRef.current = setTimeout(() => {
                   const num = parseFloat(value);
                   if (
                     value !== "" &&
@@ -1183,7 +1193,6 @@ const quantityDebounceRef = React.useRef(null);
           </Tooltip>
         ),
     },
-    
 
     {
       title: "Unit",
@@ -1245,58 +1254,57 @@ const quantityDebounceRef = React.useRef(null);
         ),
     },
     {
-  title: "Category",
-  dataIndex: "category",
-  width: 180,
-  render: (_, record) =>
-    record.isInput ? (
-      <Input value={inputRow.category} readOnly />
-    ) : (
-      <span>{record.category}</span>
-    ),
-},
+      title: "Category",
+      dataIndex: "category",
+      width: 180,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input value={inputRow.category} readOnly />
+        ) : (
+          <span>{record.category}</span>
+        ),
+    },
 
-
-     {
+    {
       title: "Location",
       dataIndex: "location",
       width: 120,
       render: (_, record) =>
         record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
     },
-{
-  title: "Weight",
-  dataIndex: "weight",
-  width: 150,
-  render: (_, record) =>
-    record.isInput ? (
-      <Input value={inputRow.weight} readOnly />
-    ) : (
-      <span>{record.weight}</span>
-    ),
-},
     {
-  title: "Note",
-  dataIndex: "note",
-  width: 300,
-  render: (_, record) =>
-    record.isInput ? (
-      <Input
-        placeholder="Enter note"
-        value={inputRow.note}
-        onChange={(e) =>
-          setInputRow((prev) => ({
-            ...prev,
-            note: e.target.value,
-          }))
-        }
-      />
-    ) : (
-      <Tooltip title={record.note}>
-        <span>{record.note || "-"}</span>
-      </Tooltip>
-    ),
-},
+      title: "Weight",
+      dataIndex: "weight",
+      width: 150,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input value={inputRow.weight} readOnly />
+        ) : (
+          <span>{record.weight}</span>
+        ),
+    },
+    {
+      title: "Note",
+      dataIndex: "note",
+      width: 300,
+      render: (_, record) =>
+        record.isInput ? (
+          <Input
+            placeholder="Enter note"
+            value={inputRow.note}
+            onChange={(e) =>
+              setInputRow((prev) => ({
+                ...prev,
+                note: e.target.value,
+              }))
+            }
+          />
+        ) : (
+          <Tooltip title={record.note}>
+            <span>{record.note || "-"}</span>
+          </Tooltip>
+        ),
+    },
 
     {
       title: "Action",
@@ -1328,11 +1336,11 @@ const quantityDebounceRef = React.useRef(null);
   const modalColumns = [
     {
       title: "Serial Number",
-      dataIndex: "Serial Number", 
+      dataIndex: "Serial Number",
       render: (text) => <span>{text}</span>,
     },
-   
-     {
+
+    {
       title: "Name",
       dataIndex: "Name",
       render: (text) => <span>{text}</span>,
@@ -1343,7 +1351,7 @@ const quantityDebounceRef = React.useRef(null);
       dataIndex: "Item Description",
       render: (text) => <span>{text}</span>,
     },
-        {
+    {
       title: "Part Number",
       dataIndex: "Part Number",
       render: (text) => <span>{text}</span>,
@@ -1359,22 +1367,22 @@ const quantityDebounceRef = React.useRef(null);
       dataIndex: "Stock In Hand",
       render: (text) => <span>{text}</span>,
     },
-       {
+    {
       title: "Category",
       dataIndex: "Category",
       render: (text) => <span>{text}</span>,
     },
-     {
+    {
       title: "Location",
       dataIndex: "Location",
       render: (text) => <span>{text || "MEA"}</span>,
     },
-     {
+    {
       title: "Weight",
       dataIndex: "Weight",
       render: (text) => <span>{text || "MEA"}</span>,
     },
-     {
+    {
       title: "Note",
       dataIndex: "Note",
       render: (text) => <span>{text}</span>,
@@ -1433,7 +1441,7 @@ const quantityDebounceRef = React.useRef(null);
     const newData = {
       key: Date.now(),
       serialNumber: dataSource.length + 1,
-       name: inputRow.name,  
+      name: inputRow.name,
       partNumber,
       itemDescription,
       quantity,
@@ -1441,9 +1449,9 @@ const quantityDebounceRef = React.useRef(null);
       unit: inputRow.unit || "",
       stockUnit: inputRow.stockUnit || "",
       location: inputRow.location || "MEA",
-        note: inputRow.note,  
-          category: inputRow.category, 
-          weight: inputRow.weight, 
+      note: inputRow.note,
+      category: inputRow.category,
+      weight: inputRow.weight,
     };
 
     const updatedData = [...dataSource, newData].map((item, index) => ({
@@ -1455,15 +1463,15 @@ const quantityDebounceRef = React.useRef(null);
 
     setInputRow({
       partNumber: "",
-      name: "",  
+      name: "",
       itemDescription: "",
       quantity: "",
       stockInHand: "",
       unit: "",
       location: "MEA",
       note: "",
-      category: "", 
-      weight: "", 
+      category: "",
+      weight: "",
     });
   };
 
@@ -1681,15 +1689,15 @@ const quantityDebounceRef = React.useRef(null);
       setDataSource([]);
       setInputRow({
         partNumber: "",
-        name:"",
+        name: "",
         itemDescription: "",
         quantity: "",
         unit: "",
         stockInHand: "",
         location: "MEA",
         note: "",
-        category: "", 
-        weight: "", 
+        category: "",
+        weight: "",
       });
 
       form.resetFields();
@@ -1802,7 +1810,7 @@ const quantityDebounceRef = React.useRef(null);
         </Tooltip>
       ),
     },
-    
+
     {
       title: "Item Description",
       dataIndex: "Item Description",
@@ -1853,9 +1861,9 @@ const quantityDebounceRef = React.useRef(null);
         </Tooltip>
       ),
     },
-        {
+    {
       title: "Category",
-      dataIndex: "Category", 
+      dataIndex: "Category",
       width: 150,
       render: (text) => (
         <Tooltip title={text}>
@@ -1863,9 +1871,9 @@ const quantityDebounceRef = React.useRef(null);
         </Tooltip>
       ),
     },
-        {
+    {
       title: "Location",
-      dataIndex: "Location", 
+      dataIndex: "Location",
       width: 150,
       render: (text) => (
         <Tooltip title={text || "-"}>
@@ -1875,20 +1883,20 @@ const quantityDebounceRef = React.useRef(null);
     },
     {
       title: "Weight",
-      dataIndex: "Weight", 
+      dataIndex: "Weight",
       width: 150,
       render: (text) => (
-         <Tooltip title={text || "-"}>
+        <Tooltip title={text || "-"}>
           <span>{text || "-"}</span>
         </Tooltip>
       ),
     },
     {
       title: "Note",
-      dataIndex: "Note", 
+      dataIndex: "Note",
       width: 150,
       render: (text) => (
-          <Tooltip title={text || "-"}>
+        <Tooltip title={text || "-"}>
           <span>{text || "-"}</span>
         </Tooltip>
       ),
@@ -1943,10 +1951,10 @@ const quantityDebounceRef = React.useRef(null);
     },
     {
       title: "Rejection Reason",
-      dataIndex: "Rejection Reason", 
+      dataIndex: "Rejection Reason",
       width: 150,
       render: (text) => (
-             <Tooltip title={text || "-"}>
+        <Tooltip title={text || "-"}>
           <span>{text || "-"}</span>
         </Tooltip>
       ),
@@ -1986,7 +1994,7 @@ const quantityDebounceRef = React.useRef(null);
 
             // Keep the full partsUsed array from groupedData
             setSelectedRow(record);
-// console.log("Selected Row:", record);
+            // console.log("Selected Row:", record);
             setIsModalVisible(true);
 
             const preserved = {
@@ -2003,15 +2011,15 @@ const quantityDebounceRef = React.useRef(null);
             setDataSource([]);
             setInputRow({
               partNumber: "",
-              name:"",
+              name: "",
               itemDescription: "",
               quantity: "",
               unit: "",
               stockInHand: "",
               location: preserved.location || "MEA",
               note: "",
-              category: "", 
-              weight: "", 
+              category: "",
+              weight: "",
             });
           }}
         >
@@ -2034,8 +2042,7 @@ const quantityDebounceRef = React.useRef(null);
     : fetchedData.filter(
         (item) => (item["Request Created By"] || "").toLowerCase() === userEmail
       );
-// console.log("🔐 Accessible Data:", accessibleData);
-
+  // console.log("🔐 Accessible Data:", accessibleData);
 
   const filteredData = accessibleData.filter((item) => {
     const matchesSearch =
@@ -2065,7 +2072,7 @@ const quantityDebounceRef = React.useRef(null);
       }
       acc[purchaseNo].partsUsed.push({
         "Serial Number": item["Serial Number"],
-         "Name": item["Name"], 
+        Name: item["Name"],
         Location: item["Location"] || "MEA",
         "Part Number": item["Part Number"],
         "Item Description": item["Item Description"],
@@ -2073,9 +2080,9 @@ const quantityDebounceRef = React.useRef(null);
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
         Location: item["Location"] || "MEA",
-           "Note": item["Note"],  
-           "Category": item["Category"],
-             "Weight": item["Weight"],          
+        Note: item["Note"],
+        Category: item["Category"],
+        Weight: item["Weight"],
       });
       return acc;
     }, {})
@@ -2121,15 +2128,15 @@ const quantityDebounceRef = React.useRef(null);
       { v: "Quantity", t: "s", s: headerStyle },
       { v: "Unit", t: "s", s: headerStyle },
       { v: "Stock In Hand", t: "s", s: headerStyle },
-        { v: "Category", s: headerStyle },
-        { v: "Location", t: "s", s: headerStyle },
-        { v: "Weight", s: headerStyle },
-  { v: "Note", s: headerStyle },
+      { v: "Category", s: headerStyle },
+      { v: "Location", t: "s", s: headerStyle },
+      { v: "Weight", s: headerStyle },
+      { v: "Note", s: headerStyle },
       { v: "Request Created By", t: "s", s: headerStyle },
       { v: "Requested Date & Time", t: "s", s: headerStyle },
       { v: "Approved/Denied By", t: "s", s: headerStyle },
       { v: "Approved/Denied Date & Time", t: "s", s: headerStyle },
-        { v: "Rejection Reason", s: headerStyle },
+      { v: "Rejection Reason", s: headerStyle },
 
       { v: "Status", t: "s", s: headerStyle },
     ];
@@ -2181,7 +2188,7 @@ const quantityDebounceRef = React.useRef(null);
             v: part["Item Description"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
-             {
+          {
             v: part["Part Number"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
@@ -2197,19 +2204,19 @@ const quantityDebounceRef = React.useRef(null);
             v: part["Stock In Hand"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
-           {
+          {
             v: part["Category"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
-           {
+          {
             v: part["Location"] || item["Location"] || "MEA",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
-           {
+          {
             v: part["Weight"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
-           {
+          {
             v: part["Note"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
@@ -2237,7 +2244,6 @@ const quantityDebounceRef = React.useRef(null);
             v: item["Status"] || "-",
             s: { border: getAllBorders(), alignment: { horizontal: "left" } },
           },
-          
         ]);
       });
     });
@@ -2253,7 +2259,7 @@ const quantityDebounceRef = React.useRef(null);
         const value = cell && cell.v != null ? String(cell.v) : "";
         maxLength = Math.max(maxLength, value.length);
       });
-return { wch: Math.min(Math.max(maxLength * 1.5, 12), 60) };
+      return { wch: Math.min(Math.max(maxLength * 1.5, 12), 60) };
     });
     ws["!cols"] = colWidths;
 
@@ -2336,15 +2342,15 @@ return { wch: Math.min(Math.max(maxLength * 1.5, 12), 60) };
       setDataSource([]);
       setInputRow({
         partNumber: "",
-        name:"",
+        name: "",
         itemDescription: "",
         quantity: "",
         unit: "",
         stockInHand: "",
         location: "MEA",
-         note: "",
-         category: "", 
-          weight: "", 
+        note: "",
+        category: "",
+        weight: "",
       });
 
       // correct API to CLEAR specific fields
@@ -2499,7 +2505,11 @@ return { wch: Math.min(Math.max(maxLength * 1.5, 12), 60) };
         // `${item.itemDescription || ""}\n${item.partNumber || ""}`,
         item.location || "",
 
-        [item.name || "", item.itemDescription || "", item.partNumber || ""].join("\n"),
+        [
+          item.name || "",
+          item.itemDescription || "",
+          item.partNumber || "",
+        ].join("\n"),
         item.quantity || "",
       ]),
       margin: { top: HEADER_HEIGHT, bottom: BOTTOM_MARGIN },
@@ -3491,7 +3501,7 @@ return { wch: Math.min(Math.max(maxLength * 1.5, 12), 60) };
                         <div className="col-md-12">
                           <Form.Item label="Rejection Reason">
                             <Input.TextArea
-                            value={selectedRow?.["Rejection Reason"] || "-"}
+                              value={selectedRow?.["Rejection Reason"] || "-"}
                               autoSize={{ minRows: 2, maxRows: 4 }}
                               readOnly
                             />
