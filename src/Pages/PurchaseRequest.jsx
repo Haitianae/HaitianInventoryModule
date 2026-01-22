@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faListCheck, faTable, faEye } from "@fortawesome/free-solid-svg-icons";
 import {
@@ -103,7 +103,7 @@ export default function PurchaseRequest({ user }) {
   const [loadingName, setLoadingName] = useState(true);
   const [loadingPartNumber, setLoadingPartNumber] = useState(true);
   const [fetchingData, setFetchingData] = useState(false);
-  const [descriptionList, setDescriptionList] = useState([]);
+  // const [descriptionList, setDescriptionList] = useState([]);
   const [stockLoading, setStockLoading] = useState(false);
   const [purchaseRequestNumber, setPurchaseRequestNumber] = useState("");
   const [fetchedData, setFetchedData] = useState([]);
@@ -115,7 +115,7 @@ export default function PurchaseRequest({ user }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const [paymentTerms, setPaymentTerms] = useState("");
   const [stockMap, setStockMap] = useState({});
-  const [nameMap, setNameMap] = useState({});
+  // const [nameMap, setNameMap] = useState({});
   const quantityDebounceRef = React.useRef(null);
   const [inputRow, setInputRow] = useState({
     serialNumber: "",
@@ -136,10 +136,13 @@ export default function PurchaseRequest({ user }) {
   const displayData = [{ key: "input", isInput: true }, ...dataSource];
   const [customerList, setCustomerList] = useState([]);
   const access = user?.access?.["Purchase Request"] || "No Access";
-  const [partMap, setPartMap] = useState({});
-  const [descMap, setDescMap] = useState({});
+  // const [partMap, setPartMap] = useState({});
+  // const [descMap, setDescMap] = useState({});
+  const [selectedLocation, setSelectedLocation] = useState("MEA");
+  const [allDescriptionItems, setAllDescriptionItems] = useState([]);
+
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
+    "https://script.google.com/macros/s/AKfycbzOgoJJ-w_yTXM7FIgEbYktTHXY_ziMpdm57-01GY7te4PGPWuekqQTToE86GzCck6P/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -275,7 +278,8 @@ export default function PurchaseRequest({ user }) {
         fetchWithRetry({ action: "getCustomerDetails" }),
         fetchWithRetry({
           action: "getAllDescriptionsWithPartNumbers",
-          location: "MEA",
+          // location: "MEA",
+          // location: selectedLocation,
         }),
       ]);
 
@@ -297,62 +301,88 @@ export default function PurchaseRequest({ user }) {
       //   setCustomerList(customers.value.customers || []);
       // }
 
+      // if (customers.status === "fulfilled" && customers.value) {
+      //   const allCustomers = customers.value.customers || [];
+
+      //   const meaCustomers = allCustomers.filter(
+      //     (c) =>
+      //       String(c.location || "")
+      //         .trim()
+      //         .toUpperCase() === "MEA"
+      //   );
+
+      //   setCustomerList(meaCustomers);
+      // }
+
       if (customers.status === "fulfilled" && customers.value) {
         const allCustomers = customers.value.customers || [];
 
-        const meaCustomers = allCustomers.filter(
-          (c) =>
-            String(c.location || "")
-              .trim()
-              .toUpperCase() === "MEA"
-        );
+        const userLocation = String(user?.location || "").toUpperCase();
+        const userEmail = String(user?.email || "").toLowerCase();
 
-        setCustomerList(meaCustomers);
+        let visibleCustomers = [];
+
+        if (userLocation === "MEA") {
+          visibleCustomers = allCustomers.filter((c) => {
+            return (
+              String(c.location || "").toUpperCase() === "MEA" &&
+              String(c.modifiedUser || "").toLowerCase() === userEmail
+            );
+          });
+        } else {
+          visibleCustomers = allCustomers; // AE sees all
+        }
+
+        setCustomerList(visibleCustomers);
       }
 
       // 🔹 Descriptions (MEA ONLY)
+      // if (descriptions.status === "fulfilled" && descriptions.value) {
+      //   const items = descriptions.value.items || [];
+
+      //   // ✅ 1. Filter only MEA rows
+      //   const meaRows = items.filter((item) => item.location === "MEA");
+
+      //   // ✅ 2. Pick LAST entry per partNumber
+      //   const uniqueMEA = {};
+      //   for (let i = meaRows.length - 1; i >= 0; i--) {
+      //     const item = meaRows[i];
+      //     if (!uniqueMEA[item.partNumber]) {
+      //       uniqueMEA[item.partNumber] = item;
+      //     }
+      //   }
+
+      //   const finalMEAList = Object.values(uniqueMEA);
+
+      //   // Save filtered unique list
+      //   setDescriptionList(finalMEAList);
+
+      //   // ✅ 3. Build partMap (one clean entry per partNumber)
+      //   setPartMap(uniqueMEA);
+
+      //   // ✅ 4. Build descMap (description → part numbers)
+      //   const descMapTemp = {};
+      //   finalMEAList.forEach((item) => {
+      //     if (!descMapTemp[item.description]) {
+      //       descMapTemp[item.description] = [];
+      //     }
+      //     descMapTemp[item.description].push(item.partNumber);
+      //   });
+
+      //   setDescMap(descMapTemp);
+
+      //   const nameMapTemp = {};
+      //   for (let i = finalMEAList.length - 1; i >= 0; i--) {
+      //     const item = finalMEAList[i];
+      //     if (item.name && !nameMapTemp[item.name]) {
+      //       nameMapTemp[item.name] = item;
+      //     }
+      //   }
+      //   setNameMap(nameMapTemp);
+      // }
+
       if (descriptions.status === "fulfilled" && descriptions.value) {
-        const items = descriptions.value.items || [];
-
-        // ✅ 1. Filter only MEA rows
-        const meaRows = items.filter((item) => item.location === "MEA");
-
-        // ✅ 2. Pick LAST entry per partNumber
-        const uniqueMEA = {};
-        for (let i = meaRows.length - 1; i >= 0; i--) {
-          const item = meaRows[i];
-          if (!uniqueMEA[item.partNumber]) {
-            uniqueMEA[item.partNumber] = item;
-          }
-        }
-
-        const finalMEAList = Object.values(uniqueMEA);
-
-        // Save filtered unique list
-        setDescriptionList(finalMEAList);
-
-        // ✅ 3. Build partMap (one clean entry per partNumber)
-        setPartMap(uniqueMEA);
-
-        // ✅ 4. Build descMap (description → part numbers)
-        const descMapTemp = {};
-        finalMEAList.forEach((item) => {
-          if (!descMapTemp[item.description]) {
-            descMapTemp[item.description] = [];
-          }
-          descMapTemp[item.description].push(item.partNumber);
-        });
-
-        setDescMap(descMapTemp);
-
-        const nameMapTemp = {};
-        for (let i = finalMEAList.length - 1; i >= 0; i--) {
-          const item = finalMEAList[i];
-          if (item.name && !nameMapTemp[item.name]) {
-            nameMapTemp[item.name] = item;
-          }
-        }
-        setNameMap(nameMapTemp);
+        setAllDescriptionItems(descriptions.value.items || []);
       }
 
       await fetchPurchaseRequestData();
@@ -372,6 +402,103 @@ export default function PurchaseRequest({ user }) {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  //   useEffect(() => {
+  //   if (!allDescriptionItems.length) return;
+
+  //   // 🔹 Filter by selected location
+  //   const filteredRows = allDescriptionItems.filter(
+  //     (item) =>
+  //       String(item.location || "").toUpperCase() ===
+  //       String(selectedLocation).toUpperCase()
+  //   );
+
+  //   // 🔹 Pick LAST entry per partNumber
+  //   const uniqueByPart = {};
+  //   for (let i = filteredRows.length - 1; i >= 0; i--) {
+  //     const item = filteredRows[i];
+  //     if (!uniqueByPart[item.partNumber]) {
+  //       uniqueByPart[item.partNumber] = item;
+  //     }
+  //   }
+
+  //   const finalList = Object.values(uniqueByPart);
+
+  //   // 🔹 Build maps
+  //   const descMapTemp = {};
+  //   const nameMapTemp = {};
+
+  //   finalList.forEach((item) => {
+  //     if (!descMapTemp[item.description]) {
+  //       descMapTemp[item.description] = [];
+  //     }
+  //     descMapTemp[item.description].push(item.partNumber);
+
+  //     if (item.name && !nameMapTemp[item.name]) {
+  //       nameMapTemp[item.name] = item;
+  //     }
+  //   });
+
+  //   // 🔹 Update UI state
+  //   setDescriptionList(finalList);
+  //   setPartMap(uniqueByPart);
+  //   setDescMap(descMapTemp);
+  //   setNameMap(nameMapTemp);
+  // }, [selectedLocation, allDescriptionItems]);
+
+  const { descriptionList, partMap, descMap, nameMap } = useMemo(() => {
+    // 🛡 SAFETY GUARD — prevents runtime errors
+    if (!Array.isArray(allDescriptionItems) || !selectedLocation) {
+      return {
+        descriptionList: [],
+        partMap: {},
+        descMap: {},
+        nameMap: {},
+      };
+    }
+
+    // 🔹 Filter by selected location
+    const filteredRows = allDescriptionItems.filter(
+      (item) =>
+        String(item?.location || "").toUpperCase() ===
+        String(selectedLocation).toUpperCase(),
+    );
+
+    // 🔹 Pick LAST entry per partNumber
+    const uniqueByPart = {};
+    for (let i = filteredRows.length - 1; i >= 0; i--) {
+      const item = filteredRows[i];
+      if (item?.partNumber && !uniqueByPart[item.partNumber]) {
+        uniqueByPart[item.partNumber] = item;
+      }
+    }
+
+    const finalList = Object.values(uniqueByPart);
+
+    // 🔹 Build maps
+    const descMapTemp = {};
+    const nameMapTemp = {};
+
+    finalList.forEach((item) => {
+      if (item?.description) {
+        if (!descMapTemp[item.description]) {
+          descMapTemp[item.description] = [];
+        }
+        descMapTemp[item.description].push(item.partNumber);
+      }
+
+      if (item?.name && !nameMapTemp[item.name]) {
+        nameMapTemp[item.name] = item;
+      }
+    });
+
+    return {
+      descriptionList: finalList,
+      partMap: uniqueByPart,
+      descMap: descMapTemp,
+      nameMap: nameMapTemp,
+    };
+  }, [allDescriptionItems, selectedLocation]);
 
   useEffect(() => {
     const fetchStock = async () => {
@@ -406,7 +533,9 @@ export default function PurchaseRequest({ user }) {
             body: new URLSearchParams({
               action: "getStockForPartNumber",
               partNumber: inputRow.partNumber,
-              location: "MEA",
+              // location: "MEA",
+              location: selectedLocation,
+
               category: "", // update if needed
             }),
             signal: controller.signal,
@@ -494,7 +623,40 @@ export default function PurchaseRequest({ user }) {
           </Tooltip>
         ),
     },
+ {
+      title: "Location",
+      dataIndex: "location",
+      width: 120,
+      render: (_, record) =>
+        record.isInput ? (
+          <Select
+            value={selectedLocation}
+            onChange={(val) => {
+              setSelectedLocation(val);
 
+              setInputRow((prev) => ({
+                ...prev,
+                partNumber: "",
+                name: "",
+                itemDescription: "",
+                stockInHand: "",
+                stockUnit: "",
+                unit: "",
+
+                category: "",
+                weight: "",
+                note: "",
+              }));
+            }}
+            style={{ width: "100%" }}
+          >
+            <Select.Option value="MEA">MEA</Select.Option>
+            <Select.Option value="AE">AE</Select.Option>
+          </Select>
+        ) : (
+          <span>{record.location}</span>
+        ),
+    },
     {
       title: "Name",
       dataIndex: "name",
@@ -617,7 +779,8 @@ export default function PurchaseRequest({ user }) {
                       body: new URLSearchParams({
                         action: "getStockForPartNumber",
                         partNumber: currentPart,
-                        location: "MEA",
+                        // location: "MEA",
+                        location: selectedLocation,
                       }),
                     });
                     const result = await res.json();
@@ -1061,7 +1224,8 @@ export default function PurchaseRequest({ user }) {
                       body: new URLSearchParams({
                         action: "getStockForPartNumber",
                         partNumber: currentPart,
-                        location: "MEA",
+                        // location: "MEA",
+                        location: selectedLocation,
                       }),
                     });
 
@@ -1230,15 +1394,15 @@ export default function PurchaseRequest({ user }) {
                 stockLoading
                   ? "" // leave value blank while loading
                   : inputRow.stockInHand
-                  ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
-                  : "0"
+                    ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
+                    : "0"
               }
               placeholder={
                 stockLoading
                   ? "Fetching stock in hand..."
                   : inputRow.stockInHand
-                  ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
-                  : "-"
+                    ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
+                    : "-"
               }
               readOnly
             />
@@ -1265,13 +1429,16 @@ export default function PurchaseRequest({ user }) {
         ),
     },
 
-    {
-      title: "Location",
-      dataIndex: "location",
-      width: 120,
-      render: (_, record) =>
-        record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
-    },
+    // {
+    //   title: "Location",
+    //   dataIndex: "location",
+    //   width: 120,
+    //   render: (_, record) =>
+    //     record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
+    // },
+
+   
+
     {
       title: "Weight",
       dataIndex: "weight",
@@ -1316,7 +1483,9 @@ export default function PurchaseRequest({ user }) {
           <Button
             className="addButton ps-4 pe-4"
             onClick={handleAdd}
-            disabled={fetchingData || stockLoading}
+            // disabled={fetchingData || stockLoading}
+              disabled={loading || fetchingData || stockLoading}
+
             // loading={fetchingData || stockLoading}
           >
             {/* {(fetchingData || stockLoading) ? "Loading..." : "Add"} */}
@@ -1409,6 +1578,7 @@ export default function PurchaseRequest({ user }) {
     }
 
     const { partNumber, itemDescription, quantity } = inputRow;
+    // const location = inputRow.location || selectedLocation;
 
     if (!partNumber || !itemDescription || !quantity) {
       notification.error({
@@ -1418,12 +1588,19 @@ export default function PurchaseRequest({ user }) {
       });
       return;
     }
+     const location = selectedLocation;
     const stock = parseInt(inputRow.stockInHand) || 0;
     const qty = parseInt(quantity) || 0;
 
     // Calculate existing quantity of this part number already in the table
+    // const existingQtyForPart = dataSource
+    //   .filter((item) => item.partNumber === partNumber)
+    //   .reduce((sum, item) => sum + parseInt(item.quantity || 0), 0);
+
     const existingQtyForPart = dataSource
-      .filter((item) => item.partNumber === partNumber)
+      .filter(
+        (item) => item.partNumber === partNumber && item.location === location,
+      )
       .reduce((sum, item) => sum + parseInt(item.quantity || 0), 0);
 
     // Total requested quantity (existing + new)
@@ -1432,7 +1609,7 @@ export default function PurchaseRequest({ user }) {
     if (totalRequestedQty > stock) {
       notification.error({
         message: "Quantity Exceeds Stock",
-        description: `Total quantity (${totalRequestedQty}) exceeds stock in hand (${stock}).`,
+        description: `Total quantity (${totalRequestedQty}) exceeds stock in hand (${stock}) for location ${location}.`,
       });
       return;
     }
@@ -1448,7 +1625,8 @@ export default function PurchaseRequest({ user }) {
       stockInHand: inputRow.stockInHand || "0",
       unit: inputRow.unit || "",
       stockUnit: inputRow.stockUnit || "",
-      location: inputRow.location || "MEA",
+      // location: selectedLocation,
+      location,
       note: inputRow.note,
       category: inputRow.category,
       weight: inputRow.weight,
@@ -1468,7 +1646,7 @@ export default function PurchaseRequest({ user }) {
       quantity: "",
       stockInHand: "",
       unit: "",
-      location: "MEA",
+      location: selectedLocation,
       note: "",
       category: "",
       weight: "",
@@ -1637,7 +1815,7 @@ export default function PurchaseRequest({ user }) {
             purchaseRequestNumber: confirmedPurchaseNumber,
           },
           dataSource,
-          false
+          false,
         );
         const cleanPR = String(confirmedPurchaseNumber).replace(/^'/, "");
 
@@ -1649,7 +1827,7 @@ export default function PurchaseRequest({ user }) {
         // console.log("PDF size:", pdfSizeKB, "KB");
         if (pdfSizeKB > 6000) {
           throw new Error(
-            "PDF too large for Apps Script upload (limit ~6MB). Try reducing content."
+            "PDF too large for Apps Script upload (limit ~6MB). Try reducing content.",
           );
         }
 
@@ -1694,7 +1872,7 @@ export default function PurchaseRequest({ user }) {
         quantity: "",
         unit: "",
         stockInHand: "",
-        location: "MEA",
+        location: selectedLocation,
         note: "",
         category: "",
         weight: "",
@@ -2040,7 +2218,8 @@ export default function PurchaseRequest({ user }) {
   const accessibleData = canSeeAll
     ? fetchedData // admin or full control → see everything
     : fetchedData.filter(
-        (item) => (item["Request Created By"] || "").toLowerCase() === userEmail
+        (item) =>
+          (item["Request Created By"] || "").toLowerCase() === userEmail,
       );
   // console.log("🔐 Accessible Data:", accessibleData);
 
@@ -2048,7 +2227,7 @@ export default function PurchaseRequest({ user }) {
     const matchesSearch =
       searchText === "" ||
       Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(searchText.toLowerCase())
+        String(val).toLowerCase().includes(searchText.toLowerCase()),
       );
 
     const itemDate = parseToDayjs(item.Date);
@@ -2085,7 +2264,7 @@ export default function PurchaseRequest({ user }) {
         Weight: item["Weight"],
       });
       return acc;
-    }, {})
+    }, {}),
   );
 
   const sortedData = [...groupedData].sort((a, b) => {
@@ -2147,11 +2326,11 @@ export default function PurchaseRequest({ user }) {
     const sortedAsc = [...groupedData].sort((a, b) => {
       const numA = parseInt(
         a["Purchase Request Number"].replace(/\D/g, ""),
-        10
+        10,
       );
       const numB = parseInt(
         b["Purchase Request Number"].replace(/\D/g, ""),
-        10
+        10,
       );
       return numA - numB;
     });
@@ -2323,7 +2502,7 @@ export default function PurchaseRequest({ user }) {
         value === undefined ||
         value === null ||
         value === "" ||
-        (Array.isArray(value) && value.length === 0)
+        (Array.isArray(value) && value.length === 0),
     );
 
     if (isEmpty) {
@@ -2370,7 +2549,7 @@ export default function PurchaseRequest({ user }) {
   const generatePurchaseRequestPDF = (
     formValues,
     items = [],
-    saveLocally = true
+    saveLocally = true,
   ) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -2381,7 +2560,7 @@ export default function PurchaseRequest({ user }) {
     doc.setFontSize(10);
 
     const sanitizedPRNumber = String(
-      formValues.purchaseRequest || formValues.purchaseRequestNumber || ""
+      formValues.purchaseRequest || formValues.purchaseRequestNumber || "",
     )
       .trim()
       .replace(/'/g, "");
@@ -2493,7 +2672,7 @@ export default function PurchaseRequest({ user }) {
         `Page ${pageNum} of ${totalPages}`,
         pageWidth / 2,
         pageHeight - 5,
-        { align: "center" }
+        { align: "center" },
       );
     };
 
@@ -2842,7 +3021,7 @@ export default function PurchaseRequest({ user }) {
                               const customer = customerList.find(
                                 (c) =>
                                   c.customername?.trim().toLowerCase() ===
-                                  value.trim().toLowerCase()
+                                  value.trim().toLowerCase(),
                               );
                               if (customer) {
                                 form.setFieldsValue({
@@ -3194,15 +3373,15 @@ export default function PurchaseRequest({ user }) {
                         selectedRow?.Status === "Approved"
                           ? 3
                           : selectedRow?.Status === "Denied"
-                          ? 3
-                          : 1
+                            ? 3
+                            : 1
                       }
                       status={
                         selectedRow?.Status === "Denied"
                           ? "error"
                           : selectedRow?.Status === "Approved"
-                          ? "finish"
-                          : "process"
+                            ? "finish"
+                            : "process"
                       }
                       items={[
                         {
@@ -3259,8 +3438,8 @@ export default function PurchaseRequest({ user }) {
                               {selectedRow?.Status === "Approved"
                                 ? "Processed"
                                 : selectedRow?.Status === "Denied"
-                                ? "Processed"
-                                : "Request submitted for approval"}
+                                  ? "Processed"
+                                  : "Request submitted for approval"}
                             </div>
                           ),
                           description: (
@@ -3340,8 +3519,8 @@ export default function PurchaseRequest({ user }) {
                                 {selectedRow?.Status === "Approved"
                                   ? "Purchase request approved by "
                                   : selectedRow?.Status === "Denied"
-                                  ? "Purchase request denied by "
-                                  : "Waiting for approval"}
+                                    ? "Purchase request denied by "
+                                    : "Waiting for approval"}
                               </div>
                               <div style={{ color: "#555" }}>
                                 <span style={{ color: "#0D3884" }}>
@@ -3518,7 +3697,7 @@ export default function PurchaseRequest({ user }) {
                               (part, idx) => ({
                                 key: idx,
                                 ...part,
-                              })
+                              }),
                             )}
                             rowKey="key"
                             pagination={false}
@@ -3560,7 +3739,7 @@ export default function PurchaseRequest({ user }) {
                             disabled={downloading}
                             onClick={() =>
                               handleDownloadPDF(
-                                selectedRow["Purchase Request Number"]
+                                selectedRow["Purchase Request Number"],
                               )
                             }
                           >

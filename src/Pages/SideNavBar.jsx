@@ -797,7 +797,7 @@ export default function SideNavBar({ onLogout, user }) {
           </Button>
           <div>
           <p className="copyRightsText m-0 p-0  mt-2">
-            © 2025 Haitian Middle East & Africa.
+            © 2026 Haitian Middle East & Africa.
           </p>
         </div>
         </div>

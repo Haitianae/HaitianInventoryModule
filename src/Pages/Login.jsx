@@ -46,7 +46,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec",
+        "https://script.google.com/macros/s/AKfycbzOgoJJ-w_yTXM7FIgEbYktTHXY_ziMpdm57-01GY7te4PGPWuekqQTToE86GzCck6P/exec",
         {
           method: "POST",
           body: new URLSearchParams({
@@ -232,7 +232,7 @@ export default function Login({ onLoginSuccess }) {
                         {loading ? "Logging In" : "Login"}
                       </Button>
                       <p className="text-center m-0 p-0 haitianColor">
-                        © 2025 Haitian Middle East & Africa. All rights
+                        © 2026 Haitian Middle East & Africa. All rights
                         reserved.
                       </p>
                     </Form>

@@ -157,7 +157,7 @@ export default function DeliveryNote({ user }) {
   const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
+    "https://script.google.com/macros/s/AKfycbzOgoJJ-w_yTXM7FIgEbYktTHXY_ziMpdm57-01GY7te4PGPWuekqQTToE86GzCck6P/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -613,7 +613,8 @@ export default function DeliveryNote({ user }) {
         <Button
           className="addButton ps-4 pe-4"
           onClick={handleAdd}
-          disabled={fetchingData || stockLoading}
+          // disabled={fetchingData || stockLoading}
+            disabled={loading || fetchingData || stockLoading}
         >
           Add
         </Button>
@@ -2754,6 +2755,8 @@ export default function DeliveryNote({ user }) {
       notification.error({
         message: "Submission Error",
         description: err.message,
+        duration: 5,
+
       });
     } finally {
       setLoading(false);
@@ -4644,7 +4647,177 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
   const canWrite = access === "Read/Write" || access === "Full Control";
   const isFullControl = access === "Full Control";
 
-  const handleUsePurchaseRequest = async () => {
+  // const handleUsePurchaseRequest = async () => {
+  //   if (!purchaseSelectedRow) return;
+
+  //   setIsPurchaseModalVisible(false);
+  //   notification.info({
+  //     message: "Fetching Live Stock",
+  //     description: "Please wait while we update stock information...",
+  //     duration: 2,
+  //   });
+
+  //   // Fill the delivery form
+  //   form.setFieldsValue({
+  //     customername: purchaseSelectedRow["Customer Name"] || "",
+  //     address: purchaseSelectedRow["Address"] || "",
+  //     reference: purchaseSelectedRow["Purchase Request Number"] || "",
+  //   });
+  //   // console.log("Purchase Request Location:", purchaseSelectedRow.Location);
+
+  //   setInputRow((prev) => ({
+  //     ...prev,
+  //     location: purchaseSelectedRow?.Location || "MEA",
+  //   }));
+  //   // console.log("Input Row After Setting Location:", {
+  //   //   ...inputRow,
+  //   //   location: purchaseSelectedRow?.Location,
+  //   // });
+  //   // Get parts list from the purchase request
+  //   const parts = purchaseSelectedRow.partsUsed || [];
+  //   // console.log("🧩 Parts From Purchase Request:", parts);
+
+  //   // --- Fetch live stock from backend ---
+  //   let liveStock = {};
+  //   try {
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({ action: "getAllStockData" }),
+  //     });
+  //     const json = await res.json();
+  //     // console.log("📦 Live Stock Returned From Apps Script:", json);
+
+  //     if (json.success && json.data) {
+  //       liveStock = json.data; // { partNumber: { stockInHand, unit } }
+  //     }
+  //   } catch (err) {
+  //     // console.error("Failed to fetch live stock:", err);
+  //   }
+
+  //   // --- Match each part with its live stock ---
+  //   const items = parts.map((part, idx) => {
+  //     const partNo = part["Part Number"];
+
+  //     const stockInfo = liveStock[partNo]?.[purchaseSelectedRow.Location] || {
+  //       stockInHand: 0,
+  //       // unit: part["Unit"],
+  //       unit: "",
+  //     };
+
+  //     return {
+  //       key: Date.now() + idx,
+  //       serialNumber: idx + 1,
+  //       partNumber: partNo,
+  //           name: part["Name"] || "",
+  //       itemDescription: part["Item Description"] || "",
+  //       quantity: part["Quantity"] || "",
+  //       // unit: stockInfo.unit || part["Unit"] || "",
+  //       // stockInHand: stockInfo.stockInHand?.toString() || "0",
+  //       // stockUnit: stockInfo.unit || part["Unit"] || "",
+  //       unit: stockInfo.unit || "",
+  //       stockUnit: stockInfo.unit || "",
+  //       stockInHand: stockInfo.stockInHand?.toString() || "0",
+  //   category:  part["Category"] || "",
+  //   weight: part["Weight"] || "",
+  //       note: part["Note"] || "",
+
+  //       location: purchaseSelectedRow?.Location || "MEA", // ← Optional (recommended)
+  //     };
+  //   });
+
+  //   // --- Update the Delivery Note table ---
+  //   setDataSource(items);
+  //   // console.log("📋 Final Table Rows:", items);
+
+  //   setStockMap(liveStock);
+  //   setIsPrefilledFromPurchase(true);
+  //   notification.success({
+  //     message: "Purchase Request Loaded",
+  //     description: "Live stock updated successfully.",
+  //   });
+  // };
+
+//   const handleUsePurchaseRequest = async () => {
+//   if (!purchaseSelectedRow) return;
+
+//   setIsPurchaseModalVisible(false);
+//   notification.info({
+//     message: "Fetching Live Stock",
+//     description: "Please wait while we update stock information...",
+//     duration: 2,
+//   });
+
+//   // Fill the delivery form (header fields)
+//   form.setFieldsValue({
+//     customername: purchaseSelectedRow["Customer Name"] || "",
+//     address: purchaseSelectedRow["Address"] || "",
+//     reference: purchaseSelectedRow["Purchase Request Number"] || "",
+//   });
+
+//   // ❌ REMOVE THIS — header location is NOT reliable
+//   // setInputRow((prev) => ({
+//   //   ...prev,
+//   //   location: purchaseSelectedRow?.Location || "MEA",
+//   // }));
+
+//   const parts = purchaseSelectedRow.partsUsed || [];
+
+//   // --- Fetch live stock ---
+//   let liveStock = {};
+//   try {
+//     const res = await fetch(GAS_URL, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+//       body: new URLSearchParams({ action: "getAllStockData" }),
+//     });
+//     const json = await res.json();
+//     if (json.success && json.data) {
+//       liveStock = json.data;
+//     }
+//   } catch (err) {}
+
+//   // --- Map items correctly ---
+//   const items = parts.map((part, idx) => {
+//     const partNo = part["Part Number"];
+//     const itemLocation = part["Location"] || "MEA"; // ✅ PER ITEM
+
+//     const stockInfo = liveStock[partNo]?.[itemLocation] || {
+//       stockInHand: 0,
+//       unit: "",
+//     };
+
+//     return {
+//       key: Date.now() + idx,
+//       serialNumber: idx + 1,
+//       partNumber: partNo,
+//       name: part["Name"] || "",
+//       itemDescription: part["Item Description"] || "",
+//       quantity: part["Quantity"] || "",
+//       unit: stockInfo.unit || "",
+//       stockUnit: stockInfo.unit || "",
+//       stockInHand: stockInfo.stockInHand?.toString() || "0",
+//       category: part["Category"] || "",
+//       weight: part["Weight"] || "",
+//       note: part["Note"] || "",
+
+//       // ✅ THIS IS THE FIX
+//       location: itemLocation,
+//     };
+//   });
+
+//   setDataSource(items);
+//   setStockMap(liveStock);
+//   setIsPrefilledFromPurchase(true);
+
+//   notification.success({
+//     message: "Purchase Request Loaded",
+//     description: "Live stock updated successfully.",
+//   });
+// };
+
+
+    const handleUsePurchaseRequest = async () => {
     if (!purchaseSelectedRow) return;
 
     setIsPurchaseModalVisible(false);
@@ -4654,27 +4827,22 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
       duration: 2,
     });
 
-    // Fill the delivery form
+    // Fill the delivery form (header fields)
     form.setFieldsValue({
       customername: purchaseSelectedRow["Customer Name"] || "",
       address: purchaseSelectedRow["Address"] || "",
       reference: purchaseSelectedRow["Purchase Request Number"] || "",
     });
-    // console.log("Purchase Request Location:", purchaseSelectedRow.Location);
 
-    setInputRow((prev) => ({
-      ...prev,
-      location: purchaseSelectedRow?.Location || "MEA",
-    }));
-    // console.log("Input Row After Setting Location:", {
-    //   ...inputRow,
-    //   location: purchaseSelectedRow?.Location,
-    // });
-    // Get parts list from the purchase request
+    // ❌ REMOVE THIS — header location is NOT reliable
+    // setInputRow((prev) => ({
+    //   ...prev,
+    //   location: purchaseSelectedRow?.Location || "MEA",
+    // }));
+
     const parts = purchaseSelectedRow.partsUsed || [];
-    // console.log("🧩 Parts From Purchase Request:", parts);
 
-    // --- Fetch live stock from backend ---
+    // --- Fetch live stock ---
     let liveStock = {};
     try {
       const res = await fetch(GAS_URL, {
@@ -4683,52 +4851,71 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         body: new URLSearchParams({ action: "getAllStockData" }),
       });
       const json = await res.json();
-      // console.log("📦 Live Stock Returned From Apps Script:", json);
-
       if (json.success && json.data) {
-        liveStock = json.data; // { partNumber: { stockInHand, unit } }
+        liveStock = json.data;
       }
-    } catch (err) {
-      // console.error("Failed to fetch live stock:", err);
-    }
+    } catch (err) {}
 
-    // --- Match each part with its live stock ---
-    const items = parts.map((part, idx) => {
+    // --- Map items correctly ---
+  const items = await Promise.all(
+    parts.map(async (part, idx) => {
       const partNo = part["Part Number"];
+      const itemLocation = part["Location"] || "MEA";
 
-      const stockInfo = liveStock[partNo]?.[purchaseSelectedRow.Location] || {
-        stockInHand: 0,
-        // unit: part["Unit"],
-        unit: "",
-      };
+      // 1️⃣ Try cached stock FIRST
+      let stockInfo = liveStock[partNo]?.[itemLocation];
+      let unit = stockInfo?.unit || "";
+      let stockInHand =
+        stockInfo?.stockInHand !== undefined
+          ? String(stockInfo.stockInHand)
+          : null;
+
+      // 2️⃣ If cached stock is missing or zero → VERIFY with live API
+      if (stockInHand === null || stockInHand === "0") {
+        try {
+          const res = await fetch(GAS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              action: "getStockForPartNumber",
+              partNumber: partNo,
+              location: itemLocation,
+            }),
+          });
+
+          const result = await res.json();
+          if (result.success) {
+            stockInHand = String(result.stockInHand ?? 0);
+            unit = result.unit ?? unit;
+          }
+        } catch {
+          stockInHand = stockInHand ?? "0";
+        }
+      }
 
       return {
         key: Date.now() + idx,
         serialNumber: idx + 1,
         partNumber: partNo,
-            name: part["Name"] || "",
+        name: part["Name"] || "",
         itemDescription: part["Item Description"] || "",
         quantity: part["Quantity"] || "",
-        // unit: stockInfo.unit || part["Unit"] || "",
-        // stockInHand: stockInfo.stockInHand?.toString() || "0",
-        // stockUnit: stockInfo.unit || part["Unit"] || "",
-        unit: stockInfo.unit || "",
-        stockUnit: stockInfo.unit || "",
-        stockInHand: stockInfo.stockInHand?.toString() || "0",
-    category:  part["Category"] || "",
-    weight: part["Weight"] || "",
+        unit,
+        stockUnit: unit,
+        stockInHand,
+        category: part["Category"] || "",
+        weight: part["Weight"] || "",
         note: part["Note"] || "",
-
-        location: purchaseSelectedRow?.Location || "MEA", // ← Optional (recommended)
+        location: itemLocation,
       };
-    });
+    })
+  );
 
-    // --- Update the Delivery Note table ---
+
     setDataSource(items);
-    // console.log("📋 Final Table Rows:", items);
-
     setStockMap(liveStock);
     setIsPrefilledFromPurchase(true);
+
     notification.success({
       message: "Purchase Request Loaded",
       description: "Live stock updated successfully.",

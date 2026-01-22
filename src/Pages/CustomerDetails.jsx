@@ -63,19 +63,35 @@ export default function CustomerDetails({ user }) {
 
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycby1YoO4qjELycORSPHgOqLPnOlaqAF3EPkAQjzeAd_TjahYOSPyotsT7YDMzE1frNEF/exec";
+    "https://script.google.com/macros/s/AKfycbzOgoJJ-w_yTXM7FIgEbYktTHXY_ziMpdm57-01GY7te4PGPWuekqQTToE86GzCck6P/exec";
 
   useEffect(() => {
     fetchCustomerOwners();
     fetchCustomers();
   }, []);
 
+
+  const userLocation = String(
+  user?.location || user?.access?.Location || ""
+).toUpperCase();
+
+const allowedLocations =
+  userLocation === "MEA"
+    ? [{ label: "MEA", value: "MEA" }]
+    : [
+        { label: "MEA", value: "MEA" },
+        { label: "AE", value: "AE" },
+      ];
+
   
 
-  const locationOptions = [
-    { label: "MEA", value: "MEA" },
-    { label: "AE", value: "AE" },
-  ];
+  // const locationOptions = [
+  //   { label: "MEA", value: "MEA" },
+  //   { label: "AE", value: "AE" },
+  // ];
+
+  const locationOptions = allowedLocations;
+
 
   const fetchCustomerOwners = async () => {
     setOwnerLoading(true);
@@ -128,46 +144,81 @@ export default function CustomerDetails({ user }) {
 };
 
 
+// useEffect(() => {
+//   // console.log("🧠 Filter useEffect triggered");
+
+//   // console.log("👤 User object:", user);
+//   // console.log("📍 user.location:", user?.location);
+//   // console.log("📍 user.access.Location:", user?.access?.Location);
+
+//   // console.log("📦 allCustomers length:", allCustomers.length);
+
+//   if (!user || !allCustomers.length) {
+//     // console.log("⛔ Skipping filter (user or customers missing)");
+//     return;
+//   }
+
+//   const userLocation = String(
+//     user?.location || user?.access?.Location || ""
+//   ).toUpperCase();
+
+//   // console.log("📍 FINAL userLocation USED:", userLocation);
+
+//   let visibleCustomers = allCustomers;
+
+//   if (userLocation === "MEA") {
+//     visibleCustomers = allCustomers.filter((c, index) => {
+//       // console.log(
+//       //   `🔍 Customer ${index}:`,
+//       //   c["Customer Name"],
+//       //   "| Location:",
+//       //   c.Location
+//       // );
+
+//       return String(c.Location || "").toUpperCase() === "MEA";
+//     });
+//   }
+
+//   // console.log("✅ Visible customers after filter:", visibleCustomers);
+//   // console.log("✅ Visible customers count:", visibleCustomers.length);
+
+//   setCustomers(visibleCustomers);
+// }, [user, allCustomers]);
+
+
 useEffect(() => {
-  // console.log("🧠 Filter useEffect triggered");
-
-  // console.log("👤 User object:", user);
-  // console.log("📍 user.location:", user?.location);
-  // console.log("📍 user.access.Location:", user?.access?.Location);
-
-  // console.log("📦 allCustomers length:", allCustomers.length);
-
-  if (!user || !allCustomers.length) {
-    // console.log("⛔ Skipping filter (user or customers missing)");
-    return;
-  }
+  if (!user || !allCustomers.length) return;
 
   const userLocation = String(
     user?.location || user?.access?.Location || ""
   ).toUpperCase();
 
-  // console.log("📍 FINAL userLocation USED:", userLocation);
+  const userEmail = String(user?.email || "").toLowerCase();
 
-  let visibleCustomers = allCustomers;
+  let visibleCustomers = [];
 
   if (userLocation === "MEA") {
-    visibleCustomers = allCustomers.filter((c, index) => {
-      // console.log(
-      //   `🔍 Customer ${index}:`,
-      //   c["Customer Name"],
-      //   "| Location:",
-      //   c.Location
-      // );
+    //  MEA user → ONLY their own MEA customers
+    visibleCustomers = allCustomers.filter((c) => {
+      const customerLocation = String(c.Location || "").toUpperCase();
+      const customerOwner = String(c["Modified User"] || "").toLowerCase();
 
-      return String(c.Location || "").toUpperCase() === "MEA";
+      return (
+        customerLocation === "MEA" &&
+        customerOwner === userEmail
+      );
+    });
+  } else if (userLocation === "AE") {
+    // 🌍 AE user → ALL AE + MEA customers
+    visibleCustomers = allCustomers.filter((c) => {
+      const customerLocation = String(c.Location || "").toUpperCase();
+      return customerLocation === "AE" || customerLocation === "MEA";
     });
   }
 
-  // console.log("✅ Visible customers after filter:", visibleCustomers);
-  // console.log("✅ Visible customers count:", visibleCustomers.length);
-
   setCustomers(visibleCustomers);
 }, [user, allCustomers]);
+
 
 
 
@@ -1139,6 +1190,7 @@ useEffect(() => {
                       label="Location"
                       name="location"
                       className="fw-bold"
+                      
                       rules={[
                         { required: true, message: "Please select location!" },
                       ]}
