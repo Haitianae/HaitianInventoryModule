@@ -142,7 +142,7 @@ export default function PurchaseRequest({ user }) {
   const [allDescriptionItems, setAllDescriptionItems] = useState([]);
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzOgoJJ-w_yTXM7FIgEbYktTHXY_ziMpdm57-01GY7te4PGPWuekqQTToE86GzCck6P/exec";
+    "https://script.google.com/macros/s/AKfycbyOlAW6b-qj4DHTi-KwFvptA11l7bjk_zH2d60axURNPTnWKioXwBW2jvQHMlZ5q6Ow/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {

@@ -157,7 +157,7 @@ export default function DeliveryNote({ user }) {
   const [descMap, setDescMap] = useState({});
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbzOgoJJ-w_yTXM7FIgEbYktTHXY_ziMpdm57-01GY7te4PGPWuekqQTToE86GzCck6P/exec";
+    "https://script.google.com/macros/s/AKfycbyOlAW6b-qj4DHTi-KwFvptA11l7bjk_zH2d60axURNPTnWKioXwBW2jvQHMlZ5q6Ow/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -3069,11 +3069,45 @@ export default function DeliveryNote({ user }) {
   );
 
   // Sort groupedData by "Delivery Number" descending
-  const sortedData = [...groupedData].sort((a, b) => {
-    const numA = parseInt(a["Delivery Number"].replace("HD", ""), 10);
-    const numB = parseInt(b["Delivery Number"].replace("HD", ""), 10);
-    return numB - numA; // descending
-  });
+  // const sortedData = [...groupedData].sort((a, b) => {
+  //   const numA = parseInt(a["Delivery Number"].replace("HD", ""), 10);
+  //   const numB = parseInt(b["Delivery Number"].replace("HD", ""), 10);
+  //   return numB - numA; // descending
+  // });
+
+const extractSortKey = (dn) => {
+  if (!dn) return 0;
+
+  const str = String(dn);
+
+  // DO/HME/2026/80026/40
+  const dohMatch = str.match(/DO\/HME\/(\d{4})\/(\d+)\/(\d+)/);
+  if (dohMatch) {
+    const [, year, series, running] = dohMatch;
+
+    // Build a sortable number: YYYY + series + running
+    return Number(
+      `${year}${series.padStart(5, "0")}${running.padStart(3, "0")}`
+    );
+  }
+
+  const hdMatch = str.match(/HD(\d+)/);
+  if (hdMatch) {
+    return Number(`0${hdMatch[1].padStart(8, "0")}`);
+  }
+
+  return 0;
+};
+
+
+const sortedData = [...groupedData].sort((a, b) => {
+  return (
+    extractSortKey(b["Delivery Number"]) -
+    extractSortKey(a["Delivery Number"])
+  );
+});
+
+
 
   const handleExport = () => {
     if (!groupedData || groupedData.length === 0) {
@@ -4295,7 +4329,7 @@ export default function DeliveryNote({ user }) {
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const BOTTOM_MARGIN = 65;
-    const rightX = 125; // Right column start X
+    const rightX = 105; // Right column start X
 
     doc.setFontSize(10);
     const sanitizedDeliveryNumber = String(formValues.deliveryNumber || "")
@@ -4320,7 +4354,7 @@ export default function DeliveryNote({ user }) {
       // Title & delivery info
       doc.setFontSize(30);
       doc.text("Delivery Note", rightX, 20);
-      doc.setFontSize(13);
+      doc.setFontSize(11);
       doc.text(`Delivery Note Number: ${sanitizedDeliveryNumber}`, rightX, 30);
       doc.text(`Delivery Date: ${formValues.date || ""}`, rightX, 36);
 
@@ -4328,11 +4362,11 @@ export default function DeliveryNote({ user }) {
 
       // LEFT column (Deliver To)
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(13);
+      doc.setFontSize(12);
       doc.text("Deliver To:", 14, startY);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      doc.text(deliverToLines, 14, startY + 6);
+      doc.text(deliverToLines, 14, startY + 5);
 
       // ✅ Removed Delivery Type completely
     };
