@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Button,
   Form,
@@ -63,7 +63,7 @@ export default function ProductCategories({ user }) {
     name: "",
     weight: "",
   });
-  const [machineinputRow, setMachineInputRow] = useState({
+  const [machineInputRow, setMachineInputRow] = useState({
     name: "",
     partNumber: "",
     description: "",
@@ -181,6 +181,24 @@ export default function ProductCategories({ user }) {
   const [sparePartsSaveLoading, setSparePartsSaveLoading] = useState(false);
   const [filteredSeries, setFilteredSeries] = useState([]);
 
+  const [sparePartsMaster, setSparePartsMaster] = useState({
+    list: [],
+    partMap: {},
+    nameMap: {},
+    descMap: {},
+  });
+
+  // const [filteredSpareParts, setFilteredSpareParts] = useState([]);
+
+  const [partsMaster, setPartsMaster] = useState({
+    Machine: [],
+    "Spare Parts": [],
+    Auxiliaries: [],
+    Consumables: [],
+  });
+
+  const [partsMasterLoading, setPartsMasterLoading] = useState(false);
+
   const safeTrim = (v) => (typeof v === "string" ? v.trim() : "");
 
   const updateTotalPrice = (purchase, addOn, quantity) => {
@@ -198,7 +216,191 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbyOlAW6b-qj4DHTi-KwFvptA11l7bjk_zH2d60axURNPTnWKioXwBW2jvQHMlZ5q6Ow/exec";
+    "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec";
+
+  // const fetchPartsMaster = async ({ GAS_URL, category }) => {
+  //   if (!category) return;
+
+  //   setSparePartsMasterLoading(true);
+
+  //   try {
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({
+  //         action: "getAllproductcategoriesDescriptionsWithPartNumbers",
+  //         category,
+  //       }),
+  //     });
+
+  //     const data = await res.json();
+  //     if (!data.success || !Array.isArray(data.items)) return;
+
+  //     const partMap = {};
+  //     const nameMap = {};
+  //     const descMap = {};
+  //     const list = [];
+
+  //     data.items.forEach((item) => {
+  //       if (!item.partNumber || !item.location) return;
+
+  //       // ✅ Deduplicate by part + location
+  //       const key = `${item.partNumber}_${item.location}`;
+  //       if (partMap[key]) return;
+
+  //       partMap[key] = item;
+  //       list.push(item);
+
+  //       if (!nameMap[item.name]) nameMap[item.name] = item;
+
+  //       if (!descMap[item.description]) descMap[item.description] = [];
+  //       descMap[item.description].push(item.partNumber);
+  //     });
+
+  //     setSparePartsMaster({
+  //       list,
+  //       partMap,
+  //       nameMap,
+  //       descMap,
+  //     });
+  //   } catch (err) {
+  //     // console.error(err);
+  //   } finally {
+  //     setSparePartsMasterLoading(false);
+  //   }
+  // };
+
+  const fetchAllPartsMaster = async () => {
+    setPartsMasterLoading(true);
+
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          action: "getAllproductcategoriesDescriptionsWithPartNumbers",
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.items)) return;
+
+      const dedupe = {
+        Machine: new Map(),
+        "Spare Parts": new Map(),
+        Auxiliaries: new Map(),
+        Consumables: new Map(),
+      };
+
+      // LAST ROW WINS (NO IF CONDITION)
+      data.items.forEach((item, index) => {
+        if (!item.category || !item.partNumber || !item.location) return;
+
+        const key = `${item.partNumber}_${item.location}`;
+
+        dedupe[item.category].set(key, {
+          ...item,
+          __rowIndex: index, // debug helper
+        });
+      });
+
+      const finalMaster = {
+        Machine: Array.from(dedupe.Machine.values()),
+        "Spare Parts": Array.from(dedupe["Spare Parts"].values()),
+        Auxiliaries: Array.from(dedupe.Auxiliaries.values()),
+        Consumables: Array.from(dedupe.Consumables.values()),
+      };
+
+      console.log("FULL PARTS MASTER:", finalMaster);
+      console.table(finalMaster.Machine);
+
+      setPartsMaster(finalMaster);
+    } catch (err) {
+      console.error("Parts master fetch failed", err);
+    } finally {
+      setPartsMasterLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllPartsMaster();
+  }, []);
+
+  // useEffect(() => {
+  //   fetchPartsMaster({
+  //     GAS_URL,
+  //     category: "Spare Parts",
+  //   });
+  // }, []);
+
+  // useEffect(() => {
+  //   const location =
+  //     inputRow.location || sparePartsEditRow?.location;
+
+  //   if (!location) {
+  //     setFilteredSpareParts([]);
+  //     return;
+  //   }
+
+  //   setFilteredSpareParts(
+  //     sparePartsMaster.list.filter(
+  //       (p) => p.location === location
+  //     )
+  //   );
+  // }, [
+  //   inputRow.location,
+  //   sparePartsEditRow?.location,
+  //   sparePartsMaster.list,
+  // ]);
+
+  const findLatestByPartNumber = (list, partNumber) => {
+    const matches = list.filter((x) => x.partNumber === partNumber);
+    return matches.length ? matches.at(-1) : null;
+  };
+
+  const filteredSpareParts = useMemo(() => {
+    const loc = inputRow.location || sparePartsEditRow?.location;
+    if (!loc) return [];
+
+    return partsMaster["Spare Parts"].filter((p) => p.location === loc);
+  }, [
+    partsMaster["Spare Parts"],
+    inputRow.location,
+    sparePartsEditRow?.location,
+  ]);
+
+  const filteredMachines = useMemo(() => {
+    const loc = machineInputRow.location || machinesEditRow?.location;
+    if (!loc) return [];
+
+    return partsMaster.Machine.filter((p) => p.location === loc);
+  }, [
+    partsMaster.Machine,
+    machineInputRow.location,
+    machinesEditRow?.location,
+  ]);
+
+  const filteredAuxiliaries = useMemo(() => {
+    const loc = auxiliariesInputRow.location || auxiliariesEditRow?.location;
+    if (!loc) return [];
+
+    return partsMaster.Auxiliaries.filter((p) => p.location === loc);
+  }, [
+    partsMaster.Auxiliaries,
+    auxiliariesInputRow.location,
+    auxiliariesEditRow?.location,
+  ]);
+
+  const filteredConsumables = useMemo(() => {
+    const loc = consumablesInputRow.location || consumablesEditRow?.location;
+    if (!loc) return [];
+
+    return partsMaster.Consumables.filter((p) => p.location === loc);
+  }, [
+    partsMaster.Consumables,
+    consumablesInputRow.location,
+    consumablesEditRow?.location,
+  ]);
 
   const IMMSeriesOptions = [
     { value: "MA", label: "MA (Mars)" },
@@ -583,7 +785,7 @@ export default function ProductCategories({ user }) {
         // Top-level insertion
         if (
           !nodes.some(
-            (n) => n?.value?.trim().toLowerCase() === trimmedItem.toLowerCase()
+            (n) => n?.value?.trim().toLowerCase() === trimmedItem.toLowerCase(),
           )
         ) {
           nodes.push({ value: trimmedItem, label: trimmedItem });
@@ -603,7 +805,7 @@ export default function ProductCategories({ user }) {
             if (
               children.some(
                 (n) =>
-                  n?.value?.trim().toLowerCase() === trimmedItem.toLowerCase()
+                  n?.value?.trim().toLowerCase() === trimmedItem.toLowerCase(),
               )
             ) {
               throw new Error("Item already exists at this level");
@@ -884,7 +1086,7 @@ export default function ProductCategories({ user }) {
           if (data.success) {
             // remove empty and '-' placeholders
             const cleaned = (data.data || []).filter(
-              (m) => m && String(m).trim() !== "-"
+              (m) => m && String(m).trim() !== "-",
             );
             setSeriesModels(cleaned);
           } else {
@@ -1003,7 +1205,7 @@ export default function ProductCategories({ user }) {
       } else if (Array.isArray(item.children) && item.children.length > 0) {
         map[key].children = mergeCascader(
           map[key].children || [],
-          item.children
+          item.children,
         );
       }
     });
@@ -1135,7 +1337,7 @@ export default function ProductCategories({ user }) {
   //   const controller = new AbortController();
   //   const debounceTimer = setTimeout(() => {
   //     const fetchStockInHand = async () => {
-  //       if (!machineinputRow.partNumber.trim()) return;
+  //       if (!machineInputRow.partNumber.trim()) return;
   //       setMachineFetching(true);
   //       try {
   //         const res = await fetch(GAS_URL, {
@@ -1143,7 +1345,7 @@ export default function ProductCategories({ user }) {
   //           headers: { "Content-Type": "application/x-www-form-urlencoded" },
   //           body: new URLSearchParams({
   //             action: "getStockForPartNumber",
-  //             partNumber: machineinputRow.partNumber.trim(),
+  //             partNumber: machineInputRow.partNumber.trim(),
   //             category: "Machine",
   //           }),
   //           signal: controller.signal,
@@ -1178,13 +1380,13 @@ export default function ProductCategories({ user }) {
   //     clearTimeout(debounceTimer); // Clear timer on partNumber change
   //     controller.abort(); // Cancel previous fetch
   //   };
-  // }, [machineinputRow.partNumber]);
+  // }, [machineInputRow.partNumber]);
 
   //Working code before fetching stock and unit data
   // useEffect(() => {
   //   const controller = new AbortController();
   //   const timer = setTimeout(async () => {
-  //     const part = machineinputRow.partNumber?.trim();
+  //     const part = machineInputRow.partNumber?.trim();
   //     if (!part) return;
 
   //     setMachineFetching(true);
@@ -1267,10 +1469,10 @@ export default function ProductCategories({ user }) {
   //     clearTimeout(timer);
   //     controller.abort();
   //   };
-  // }, [machineinputRow.partNumber]);
+  // }, [machineInputRow.partNumber]);
 
   // useEffect(() => {
-  //   const part = machineinputRow.partNumber?.trim();
+  //   const part = machineInputRow.partNumber?.trim();
   //   if (!part) return;
 
   //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
@@ -1303,10 +1505,10 @@ export default function ProductCategories({ user }) {
   //   } else {
   //     setMachineUnitOptions([...defaultUnits]);
   //   }
-  // }, [machineinputRow.partNumber, stockCache, userRole]);
+  // }, [machineInputRow.partNumber, stockCache, userRole]);
 
   // useEffect(() => {
-  //   const part = machineinputRow.partNumber?.trim();
+  //   const part = machineInputRow.partNumber?.trim();
   //   if (!part) return;
 
   //   const defaultUnits = ["Set", "No's", "Metre", "Piece", "Litre", "Kg"];
@@ -1339,14 +1541,14 @@ export default function ProductCategories({ user }) {
   //   } else {
   //     setMachineUnitOptions([...defaultUnits]);
   //   }
-  // }, [machineinputRow.partNumber, stockCache, userRole]);
+  // }, [machineInputRow.partNumber, stockCache, userRole]);
 
   useEffect(() => {
-    // const part = machineinputRow.partNumber?.trim();
-    // const loc  = machineinputRow.location?.trim();
+    // const part = machineInputRow.partNumber?.trim();
+    // const loc  = machineInputRow.location?.trim();
 
-    const part = safeTrim(machineinputRow.partNumber);
-    const loc = safeTrim(machineinputRow.location);
+    const part = safeTrim(machineInputRow.partNumber);
+    const loc = safeTrim(machineInputRow.location);
 
     if (!part) return;
 
@@ -1373,14 +1575,14 @@ export default function ProductCategories({ user }) {
     // SAME BEHAVIOR AS COMMENTED CODE
     if (unit) {
       setMachineUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit],
       );
     } else {
       setMachineUnitOptions([...defaultUnits]);
     }
   }, [
-    machineinputRow.partNumber,
-    machineinputRow.location,
+    machineInputRow.partNumber,
+    machineInputRow.location,
     stockCache,
     userRole,
   ]);
@@ -1424,7 +1626,6 @@ export default function ProductCategories({ user }) {
     // if (!machinesEditRow || !machinesEditRow.partNumber?.trim()) return;
     if (!machinesEditRow || !safeTrim(machinesEditRow.partNumber)) return;
 
-
     // const part = machinesEditRow.partNumber.trim();
     // const loc  = machinesEditRow.location?.trim();
 
@@ -1466,8 +1667,8 @@ export default function ProductCategories({ user }) {
           ? [...new Set([unit, ...defaultUnits])]
           : [...defaultUnits]
         : unit
-        ? [unit]
-        : [...defaultUnits]
+          ? [unit]
+          : [...defaultUnits],
     );
   }, [machinesEditRow?.partNumber, machinesEditRow?.location, stockCache]);
 
@@ -1683,7 +1884,7 @@ export default function ProductCategories({ user }) {
     // 🔥 EXACTLY LIKE COMMENTED CODE
     if (unit) {
       setAuxiliariesUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit],
       );
     } else {
       setAuxiliariesUnitOptions([...defaultUnits]);
@@ -1734,7 +1935,6 @@ export default function ProductCategories({ user }) {
     // if (!auxiliariesEditRow || !auxiliariesEditRow.partNumber?.trim()) return;
     if (!auxiliariesEditRow || !safeTrim(auxiliariesEditRow.partNumber)) return;
 
-
     // const part = auxiliariesEditRow.partNumber.trim();
     // const loc  = auxiliariesEditRow.location?.trim();
 
@@ -1776,8 +1976,8 @@ export default function ProductCategories({ user }) {
           ? [...new Set([unit, ...defaultUnits])]
           : [...defaultUnits]
         : unit
-        ? [unit]
-        : [...defaultUnits]
+          ? [unit]
+          : [...defaultUnits],
     );
   }, [
     auxiliariesEditRow?.partNumber,
@@ -2365,8 +2565,8 @@ export default function ProductCategories({ user }) {
             ? [...new Set([unit, ...defaultUnits])]
             : [...defaultUnits]
           : unit
-          ? [unit]
-          : [...defaultUnits]
+            ? [unit]
+            : [...defaultUnits],
       );
     } catch (err) {
       setInputRow((prev) => ({
@@ -2462,7 +2662,6 @@ export default function ProductCategories({ user }) {
     // if (!sparePartsEditRow || !sparePartsEditRow.partNumber?.trim()) return;
     if (!sparePartsEditRow || !safeTrim(sparePartsEditRow.partNumber)) return;
 
-
     // const part = sparePartsEditRow.partNumber.trim();
     // const loc  = sparePartsEditRow.location?.trim();
 
@@ -2503,8 +2702,8 @@ export default function ProductCategories({ user }) {
           ? [...new Set([unit, ...defaultUnits])]
           : [...defaultUnits]
         : unit
-        ? [unit]
-        : [...defaultUnits]
+          ? [unit]
+          : [...defaultUnits],
     );
   }, [sparePartsEditRow?.partNumber, sparePartsEditRow?.location, stockCache]);
 
@@ -2549,7 +2748,6 @@ export default function ProductCategories({ user }) {
     // if (!consumablesEditRow || !consumablesEditRow.partNumber?.trim()) return;
     if (!consumablesEditRow || !safeTrim(consumablesEditRow.partNumber)) return;
 
-
     // const part = consumablesEditRow.partNumber.trim();
     // const loc  = consumablesEditRow.location?.trim();
 
@@ -2591,8 +2789,8 @@ export default function ProductCategories({ user }) {
           ? [...new Set([unit, ...defaultUnits])]
           : [...defaultUnits]
         : unit
-        ? [unit]
-        : [...defaultUnits]
+          ? [unit]
+          : [...defaultUnits],
     );
   }, [
     consumablesEditRow?.partNumber,
@@ -2634,7 +2832,7 @@ export default function ProductCategories({ user }) {
     // const loc = consumablesInputRow.location?.trim();
 
     const part = safeTrim(consumablesInputRow.partNumber);
-const loc  = safeTrim(consumablesInputRow.location);
+    const loc = safeTrim(consumablesInputRow.location);
 
     if (!part) return;
 
@@ -2649,8 +2847,7 @@ const loc  = safeTrim(consumablesInputRow.location);
     if (cachedLoc) {
       stock = `${cachedLoc.stockInHand} ${cachedLoc.unit || ""}`.trim();
       // unit = cachedLoc.unit?.trim() || "";
-          unit = safeTrim(cachedLoc?.unit);
-
+      unit = safeTrim(cachedLoc?.unit);
     }
 
     setConsumablesInputRow((prev) => ({
@@ -2662,7 +2859,7 @@ const loc  = safeTrim(consumablesInputRow.location);
     // 🔥 EXACT SAME BEHAVIOR AS COMMENTED CODE
     if (unit) {
       setConsumablesUnitOptions(
-        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit]
+        isFullControl ? [...new Set([unit, ...defaultUnits])] : [unit],
       );
     } else {
       setConsumablesUnitOptions([...defaultUnits]);
@@ -2900,6 +3097,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   };
   const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
   // console.log(userLocalDateTime);
+
   const handleSubmit = async (values) => {
     if (!navigator.onLine) {
       notification.error({
@@ -2972,7 +3170,7 @@ const loc  = safeTrim(consumablesInputRow.location);
         // dataSource.length,
         sparePartsDataSource.length,
 
-        consumablesDataSource.length
+        consumablesDataSource.length,
       );
 
       for (let i = 0; i < maxLength; i++) {
@@ -3098,13 +3296,15 @@ const loc  = safeTrim(consumablesInputRow.location);
         description: "Data Submitted Successfully",
       });
 
+      await fetchAllPartsMaster();
+
       form.resetFields();
       setSelectedCategory(null);
       setMachineDataSource([]);
       setAuxiliariesDataSource([]);
       // setDataSource([]);
       setSparePartsDataSource([]);
-      setConsumablesDataSource([]); // ✅ clear consumables after submit
+      setConsumablesDataSource([]);
     } catch (err) {
       notification.error({
         message: "Error",
@@ -3201,7 +3401,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   const handleSparePartsDelete = (key) => {
     // setDataSource(dataSource.filter((item) => item.key !== key));
     setSparePartsDataSource(
-      sparePartsDataSource.filter((item) => item.key !== key)
+      sparePartsDataSource.filter((item) => item.key !== key),
     );
   };
 
@@ -3267,8 +3467,8 @@ const loc  = safeTrim(consumablesInputRow.location);
       prev.map((item) =>
         item.key === sparePartsEditingKey
           ? { ...sparePartsEditRow, key: sparePartsEditingKey }
-          : item
-      )
+          : item,
+      ),
     );
     setSparePartsEditingKey("");
     setSparePartsEditRow(null);
@@ -4025,7 +4225,23 @@ const loc  = safeTrim(consumablesInputRow.location);
               placeholder="Select Location"
               value={inputRow.location}
               onChange={(value) =>
-                setInputRow((prev) => ({ ...prev, location: value }))
+                setInputRow((prev) => ({
+                  ...prev,
+                  location: value,
+                  partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
+                }))
               }
               style={{ width: "100%" }}
               options={[
@@ -4043,7 +4259,23 @@ const loc  = safeTrim(consumablesInputRow.location);
               placeholder="Select Location"
               value={sparePartsEditRow.location}
               onChange={(value) =>
-                setSparePartsEditRow((prev) => ({ ...prev, location: value }))
+                setSparePartsEditRow((prev) => ({
+                  ...prev,
+                  location: value,
+                  partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
+                }))
               }
               style={{ width: "100%" }}
               options={[
@@ -4066,31 +4298,124 @@ const loc  = safeTrim(consumablesInputRow.location);
       render: (_, record) => {
         if (record.isInput) {
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={inputRow.partNumber}
-              onChange={(e) =>
-                setInputRow({
-                  ...inputRow,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                })
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredSpareParts.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
               }
+              // 🔹 Typing only
+              onChange={(value) => {
+                const exact = filteredSpareParts.some(
+                  (x) => x.partNumber === value,
+                );
+
+                setInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              // 🔹 Exact selection → autofill
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(
+                  filteredSpareParts,
+                  value,
+                );
+
+                // console.log("SPARE PART SELECTED:", value);
+                // console.log("LATEST ROW USED:", latest);
+
+                setInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
         }
         if (isSparePartsEditing(record)) {
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={sparePartsEditRow.partNumber}
-              onChange={(e) =>
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredSpareParts.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              onChange={(value) => {
+                const exact = filteredSpareParts.some(
+                  (x) => x.partNumber === value,
+                );
+
                 setSparePartsEditRow((prev) => ({
                   ...prev,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                }))
-              }
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              // 🔹 Exact selection → autofill
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(
+                  filteredSpareParts,
+                  value,
+                );
+
+                // console.log("SPARE PART SELECTED:", value);
+                // console.log("LATEST ROW USED:", latest);
+
+                setSparePartsEditRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
         }
@@ -4213,7 +4538,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   const { totalPrice } = updateTotalPrice(
                     value,
                     row.addOnCost,
-                    row.quantity
+                    row.quantity,
                   );
                   setRow((prev) => ({ ...prev, totalPrice }));
                 }
@@ -4232,7 +4557,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             sparePartsEditRow,
             setSparePartsEditRow,
-            "editPurchaseCostDebounce"
+            "editPurchaseCostDebounce",
           );
         return <span>{record.purchaseCost || "-"}</span>;
       },
@@ -4270,7 +4595,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   const { totalPrice } = updateTotalPrice(
                     row.purchaseCost,
                     value,
-                    row.quantity
+                    row.quantity,
                   );
                   setRow((prev) => ({ ...prev, totalPrice }));
                 }
@@ -4289,7 +4614,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             sparePartsEditRow,
             setSparePartsEditRow,
-            "editAddOnCostDebounce"
+            "editAddOnCostDebounce",
           );
         return <span>{record.addOnCost}</span>;
       },
@@ -4330,7 +4655,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             sparePartsEditRow,
             setSparePartsEditRow,
-            "editSellingCostDebounce"
+            "editSellingCostDebounce",
           );
         return <span>{record.sellingCost}</span>;
       },
@@ -4384,7 +4709,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                 const { totalPrice } = updateTotalPrice(
                   row.purchaseCost,
                   row.addOnCost,
-                  value
+                  value,
                 );
                 setRow((prev) => ({ ...prev, totalPrice }));
                 if (record.isInput) {
@@ -4402,7 +4727,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             sparePartsEditRow,
             setSparePartsEditRow,
-            "editQuantityDebounce"
+            "editQuantityDebounce",
           );
         return <span>{record.quantity}</span>;
       },
@@ -4448,7 +4773,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderSelect(
             sparePartsEditRow,
             setSparePartsEditRow,
-            "editUnitDebounce"
+            "editUnitDebounce",
           );
         return record.unit || "";
       },
@@ -4855,8 +5180,8 @@ const loc  = safeTrim(consumablesInputRow.location);
       prev.map((item) =>
         item.key === consumablesEditingKey
           ? { ...consumablesEditRow, key: consumablesEditingKey }
-          : item
-      )
+          : item,
+      ),
     );
     setConsumablesEditingKey("");
     setConsumablesEditRow(null);
@@ -4941,7 +5266,23 @@ const loc  = safeTrim(consumablesInputRow.location);
               placeholder="Select Location"
               value={consumablesInputRow.location}
               onChange={(value) =>
-                setConsumablesInputRow((prev) => ({ ...prev, location: value }))
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  location: value,
+                 partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
+                }))
               }
               style={{ width: "100%" }}
               options={[
@@ -4959,7 +5300,23 @@ const loc  = safeTrim(consumablesInputRow.location);
               placeholder="Select Location"
               value={consumablesEditRow.location}
               onChange={(value) =>
-                setConsumablesEditRow((prev) => ({ ...prev, location: value }))
+                setConsumablesEditRow((prev) => ({
+                  ...prev,
+                  location: value,
+                 partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
+                }))
               }
               style={{ width: "100%" }}
               options={[
@@ -4974,43 +5331,133 @@ const loc  = safeTrim(consumablesInputRow.location);
         return <span>{record.location || "-"}</span>;
       },
     },
+
     {
       title: "Part Number",
       dataIndex: "partNumber",
       width: 250,
       ellipsis: true,
       render: (_, record) => {
-        if (record.isInput) {
+        /* ===== ADD ROW ===== */
+        if (record.isInput)
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={consumablesInputRow.partNumber}
-              onChange={(e) =>
-                setConsumablesInputRow({
-                  ...consumablesInputRow,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                })
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredConsumables.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
               }
+              /* 🔹 Typing only → NO autofill */
+              onChange={(value) => {
+                const exact = filteredConsumables.some(
+                  (x) => x.partNumber === value,
+                );
+
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              /* 🔹 Exact select → AUTOFILL */
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(
+                  filteredConsumables,
+                  value,
+                );
+
+                // console.log("CONSUMABLE SELECTED:", value);
+                // console.log("LATEST ROW USED:", latest);
+
+                setConsumablesInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
-        }
 
-        if (isConsumablesEditing(record)) {
+        /* ===== EDIT ROW ===== */
+        if (isConsumablesEditing(record))
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={consumablesEditRow.partNumber}
-              onChange={(e) =>
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredConsumables.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              onChange={(value) => {
+                const exact = filteredConsumables.some(
+                  (x) => x.partNumber === value,
+                );
+
                 setConsumablesEditRow((prev) => ({
                   ...prev,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                }))
-              }
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(
+                  filteredConsumables,
+                  value,
+                );
+
+                setConsumablesEditRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
-        }
 
         return <span>{record.partNumber}</span>;
       },
@@ -5138,7 +5585,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   const { totalPrice } = updateTotalPrice(
                     value,
                     row.addOnCost,
-                    row.quantity
+                    row.quantity,
                   );
                   setRow((prev) => ({ ...prev, totalPrice }));
                 }
@@ -5156,13 +5603,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             consumablesInputRow,
             setConsumablesInputRow,
-            "consumablesPurchaseCostDebounce"
+            "consumablesPurchaseCostDebounce",
           );
         if (isConsumablesEditing(record))
           return renderInput(
             consumablesEditRow,
             setConsumablesEditRow,
-            "consumablesEditPurchaseCostDebounce"
+            "consumablesEditPurchaseCostDebounce",
           );
         return <span>{record.purchaseCost || "-"}</span>;
       },
@@ -5200,7 +5647,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   const { totalPrice } = updateTotalPrice(
                     row.purchaseCost,
                     value,
-                    row.quantity
+                    row.quantity,
                   );
                   setRow((prev) => ({ ...prev, totalPrice }));
                 }
@@ -5218,13 +5665,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             consumablesInputRow,
             setConsumablesInputRow,
-            "consumablesAddOnCostDebounce"
+            "consumablesAddOnCostDebounce",
           );
         if (isConsumablesEditing(record))
           return renderInput(
             consumablesEditRow,
             setConsumablesEditRow,
-            "consumablesEditAddOnCostDebounce"
+            "consumablesEditAddOnCostDebounce",
           );
         return <span>{record.addOnCost || "-"}</span>;
       },
@@ -5262,13 +5709,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             consumablesInputRow,
             setConsumablesInputRow,
-            "consumablesSellingCostDebounce"
+            "consumablesSellingCostDebounce",
           );
         if (isConsumablesEditing(record))
           return renderInput(
             consumablesEditRow,
             setConsumablesEditRow,
-            "consumablesEditSellingCostDebounce"
+            "consumablesEditSellingCostDebounce",
           );
         return <span>{record.sellingCost || "-"}</span>;
       },
@@ -5317,7 +5764,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                 const { totalPrice } = updateTotalPrice(
                   row.purchaseCost,
                   row.addOnCost,
-                  value
+                  value,
                 );
                 setRow((prev) => ({ ...prev, totalPrice }));
                 if (record.isInput) {
@@ -5334,13 +5781,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             consumablesInputRow,
             setConsumablesInputRow,
-            "consumablesQuantityDebounce"
+            "consumablesQuantityDebounce",
           );
         if (isConsumablesEditing(record))
           return renderInput(
             consumablesEditRow,
             setConsumablesEditRow,
-            "consumablesEditQuantityDebounce"
+            "consumablesEditQuantityDebounce",
           );
         return <span>{record.quantity || "-"}</span>;
       },
@@ -5385,13 +5832,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderSelect(
             consumablesInputRow,
             setConsumablesInputRow,
-            "consumablesUnitDebounce"
+            "consumablesUnitDebounce",
           );
         if (isConsumablesEditing(record))
           return renderSelect(
             consumablesEditRow,
             setConsumablesEditRow,
-            "consumablesEditUnitDebounce"
+            "consumablesEditUnitDebounce",
           );
         return <span>{record.unit || "-"}</span>;
       },
@@ -6214,7 +6661,7 @@ const loc  = safeTrim(consumablesInputRow.location);
 
   const handleAuxiliariesDelete = (key) => {
     setAuxiliariesDataSource(
-      auxiliariesDataSource.filter((item) => item.key !== key)
+      auxiliariesDataSource.filter((item) => item.key !== key),
     );
   };
 
@@ -6279,8 +6726,8 @@ const loc  = safeTrim(consumablesInputRow.location);
       prev.map((item) =>
         item.key === auxiliariesEditingKey
           ? { ...auxiliariesEditRow, key: auxiliariesEditingKey }
-          : item
-      )
+          : item,
+      ),
     );
     setAuxiliariesEditingKey("");
     setAuxiliariesEditRow(null);
@@ -6369,6 +6816,19 @@ const loc  = safeTrim(consumablesInputRow.location);
                 setAuxiliariesInputRow((prev) => ({
                   ...prev,
                   location: value,
+                   partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
                 }))
               }
               style={{ width: "100%" }}
@@ -6390,6 +6850,19 @@ const loc  = safeTrim(consumablesInputRow.location);
                 setAuxiliariesEditRow((prev) => ({
                   ...prev,
                   location: value,
+                  partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
                 }))
               }
               style={{ width: "100%" }}
@@ -6412,37 +6885,124 @@ const loc  = safeTrim(consumablesInputRow.location);
       width: 250,
       ellipsis: true,
       render: (_, record) => {
-        if (record.isInput) {
+        if (record.isInput)
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={auxiliariesInputRow.partNumber}
-              onChange={(e) =>
-                setAuxiliariesInputRow({
-                  ...auxiliariesInputRow,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                })
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredAuxiliaries.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
               }
+              /* 🔹 Typing only (NO autofill) */
+              onChange={(value) => {
+                const exact = filteredAuxiliaries.some(
+                  (x) => x.partNumber === value,
+                );
+
+                setAuxiliariesInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              /* 🔹 Exact selection only (AUTOFILL) */
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(
+                  filteredAuxiliaries,
+                  value,
+                );
+
+                // console.log("AUXILIARY SELECTED:", value);
+                // console.log("LATEST ROW USED:", latest);
+
+                setAuxiliariesInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
-        }
 
-        if (isAuxiliariesEditing(record)) {
+        if (isAuxiliariesEditing(record))
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={auxiliariesEditRow.partNumber}
-              onChange={(e) =>
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredAuxiliaries.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              onChange={(value) => {
+                const exact = filteredAuxiliaries.some(
+                  (x) => x.partNumber === value,
+                );
+
                 setAuxiliariesEditRow((prev) => ({
                   ...prev,
-                  partNumber: e.target.value.toUpperCase(),
-                  quantity: "",
-                }))
-              }
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(
+                  filteredAuxiliaries,
+                  value,
+                );
+
+                setAuxiliariesEditRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
-        }
 
         return <span>{record.partNumber}</span>;
       },
@@ -6568,7 +7128,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   const { totalPrice } = updateTotalPrice(
                     value,
                     row.addOnCost,
-                    row.quantity
+                    row.quantity,
                   );
                   setRow((prev) => ({ ...prev, totalPrice }));
                 }
@@ -6584,13 +7144,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             auxiliariesInputRow,
             setAuxiliariesInputRow,
-            "auxiliariesPurchaseCostDebounce"
+            "auxiliariesPurchaseCostDebounce",
           );
         if (isAuxiliariesEditing(record))
           return renderInput(
             auxiliariesEditRow,
             setAuxiliariesEditRow,
-            "auxiliariesEditPurchaseCostDebounce"
+            "auxiliariesEditPurchaseCostDebounce",
           );
         return <span>{record.purchaseCost || "-"}</span>;
       },
@@ -6626,7 +7186,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   const { totalPrice } = updateTotalPrice(
                     row.purchaseCost,
                     value,
-                    row.quantity
+                    row.quantity,
                   );
                   setRow((prev) => ({ ...prev, totalPrice }));
                 }
@@ -6642,13 +7202,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             auxiliariesInputRow,
             setAuxiliariesInputRow,
-            "auxiliariesAddOnCostDebounce"
+            "auxiliariesAddOnCostDebounce",
           );
         if (isAuxiliariesEditing(record))
           return renderInput(
             auxiliariesEditRow,
             setAuxiliariesEditRow,
-            "auxiliariesEditAddOnCostDebounce"
+            "auxiliariesEditAddOnCostDebounce",
           );
         return <span>{record.addOnCost || "-"}</span>;
       },
@@ -6686,13 +7246,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             auxiliariesInputRow,
             setAuxiliariesInputRow,
-            "auxiliariesSellingCostDebounce"
+            "auxiliariesSellingCostDebounce",
           );
         if (isAuxiliariesEditing(record))
           return renderInput(
             auxiliariesEditRow,
             setAuxiliariesEditRow,
-            "auxiliariesEditSellingCostDebounce"
+            "auxiliariesEditSellingCostDebounce",
           );
         return <span>{record.sellingCost || "-"}</span>;
       },
@@ -6740,7 +7300,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                 const { totalPrice } = updateTotalPrice(
                   row.purchaseCost,
                   row.addOnCost,
-                  value
+                  value,
                 );
                 setRow((prev) => ({ ...prev, totalPrice }));
                 if (record.isInput) setAuxiliariesAddLoading(false);
@@ -6755,13 +7315,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderInput(
             auxiliariesInputRow,
             setAuxiliariesInputRow,
-            "auxiliariesQuantityDebounce"
+            "auxiliariesQuantityDebounce",
           );
         if (isAuxiliariesEditing(record))
           return renderInput(
             auxiliariesEditRow,
             setAuxiliariesEditRow,
-            "auxiliariesEditQuantityDebounce"
+            "auxiliariesEditQuantityDebounce",
           );
         return <span>{record.quantity || "-"}</span>;
       },
@@ -6806,13 +7366,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return renderSelect(
             auxiliariesInputRow,
             setAuxiliariesInputRow,
-            "auxiliariesUnitDebounce"
+            "auxiliariesUnitDebounce",
           );
         if (isAuxiliariesEditing(record))
           return renderSelect(
             auxiliariesEditRow,
             setAuxiliariesEditRow,
-            "auxiliariesEditUnitDebounce"
+            "auxiliariesEditUnitDebounce",
           );
         return <span>{record.unit || "-"}</span>;
       },
@@ -8557,7 +9117,7 @@ const loc  = safeTrim(consumablesInputRow.location);
       totalPrice,
       location,
       weight,
-    } = machineinputRow;
+    } = machineInputRow;
 
     if (
       !name ||
@@ -8570,7 +9130,7 @@ const loc  = safeTrim(consumablesInputRow.location);
       !sellingCost ||
       !totalPrice ||
       !location ||
-      !machineinputRow.date
+      !machineInputRow.date
     ) {
       notification.error({
         message: "Error",
@@ -8581,7 +9141,7 @@ const loc  = safeTrim(consumablesInputRow.location);
     }
 
     const regex = /^([0-2][0-9]|3[0-1])-(0[1-9]|1[0-2])-\d{4}$/;
-    if (!regex.test(machineinputRow.date)) {
+    if (!regex.test(machineInputRow.date)) {
       notification.error({
         message: "Invalid Date",
         description: "Enter date in DD-MM-YYYY format",
@@ -8591,8 +9151,8 @@ const loc  = safeTrim(consumablesInputRow.location);
 
     const newData = {
       key: Date.now(),
-      ...machineinputRow,
-      stockInHand: machineinputRow.stockInHand || "0",
+      ...machineInputRow,
+      stockInHand: machineInputRow.stockInHand || "0",
     };
     // setMachineDataSource([...machineDataSource, newData]);
     setMachineDataSource((prev) => [...prev, newData]);
@@ -8682,8 +9242,8 @@ const loc  = safeTrim(consumablesInputRow.location);
       prev.map((item) =>
         item.key === machinesEditingKey
           ? { ...machinesEditRow, key: machinesEditingKey }
-          : item
-      )
+          : item,
+      ),
     );
     setMachinesEditingKey("");
     setMachinesEditRow(null);
@@ -8714,7 +9274,7 @@ const loc  = safeTrim(consumablesInputRow.location);
             <Input
               placeholder="DD-MM-YYYY"
               maxLength={10}
-              value={machineinputRow.date}
+              value={machineInputRow.date}
               onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
           );
@@ -8742,9 +9302,25 @@ const loc  = safeTrim(consumablesInputRow.location);
           return (
             <Select
               placeholder="Select Location"
-              value={machineinputRow.location}
+              value={machineInputRow.location}
               onChange={(value) =>
-                setMachineInputRow((prev) => ({ ...prev, location: value }))
+                setMachineInputRow((prev) => ({
+                  ...prev,
+                  location: value,
+                   partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
+                }))
               }
               style={{ width: "100%" }}
               options={[
@@ -8762,7 +9338,23 @@ const loc  = safeTrim(consumablesInputRow.location);
               placeholder="Select Location"
               value={machinesEditRow.location}
               onChange={(value) =>
-                setMachinesEditRow((prev) => ({ ...prev, location: value }))
+                setMachinesEditRow((prev) => ({
+                  ...prev,
+                  location: value,
+                   partNumber: "",
+                  name: "",
+                  description: "",
+                  quantity: "",
+                  unit: "",
+                  stockInHand: "",
+                  note: "",
+                  purchaseCost: "",
+                  sellingCost: "",
+                  stockUnit: "",
+                  addOnCost: "",
+                  totalPrice: "",
+                  weight: "",
+                }))
               }
               style={{ width: "100%" }}
               options={[
@@ -8792,18 +9384,118 @@ const loc  = safeTrim(consumablesInputRow.location);
 
         if (record.isInput)
           return (
-            <Input
-              placeholder="Enter part number"
-              value={machineinputRow.partNumber}
-              onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
+            <AutoComplete
+              style={{ width: "100%" }}
+              value={machineInputRow.partNumber}
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredMachines.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              // 🔹 Typing only (NO autofill)
+              onChange={(value) => {
+                const exact = filteredMachines.some(
+                  (x) => x.partNumber === value,
+                );
+
+                setMachineInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              // 🔹 Exact selection only (AUTOFILL)
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(filteredMachines, value);
+
+                // console.log("MACHINE SELECTED:", value);
+                // console.log("LATEST ROW USED:", latest);
+
+                setMachineInputRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
         if (isMachinesEditing(record))
           return (
-            <Input
-              placeholder="Enter part number"
+            <AutoComplete
+              style={{ width: "100%" }}
               value={machinesEditRow.partNumber}
-              onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
+              disabled={partsMasterLoading}
+              placeholder={partsMasterLoading ? "Loading..." : "Part Number"}
+              options={filteredMachines.map((p) => ({
+                value: p.partNumber,
+                label: p.partNumber,
+              }))}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              // 🔹 Typing only (NO autofill)
+              onChange={(value) => {
+                const exact = filteredMachines.some(
+                  (x) => x.partNumber === value,
+                );
+
+                setMachinesEditRow((prev) => ({
+                  ...prev,
+                  partNumber: value.toUpperCase(),
+                  ...(exact
+                    ? {}
+                    : {
+                        name: "",
+                        description: "",
+                        unit: "",
+                        weight: "",
+                        quantity: "",
+                        purchaseCost: "",
+                        addOnCost: "",
+                        sellingCost: "",
+                        totalPrice: "",
+                        stockInHand: "",
+                        note: "",
+                      }),
+                }));
+              }}
+              // 🔹 Exact selection only (AUTOFILL)
+              onSelect={(value) => {
+                const latest = findLatestByPartNumber(filteredMachines, value);
+
+                // console.log("MACHINE SELECTED:", value);
+                // console.log("LATEST ROW USED:", latest);
+
+                setMachinesEditRow((prev) => ({
+                  ...prev,
+                  partNumber: value,
+                  name: latest?.name || "",
+                  description: latest?.description || "",
+                  unit: latest?.unit || "",
+                  weight: latest?.weight || "",
+                }));
+              }}
             />
           );
         return <span>{record.partNumber}</span>;
@@ -8824,7 +9516,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return (
             <Input
               placeholder="Enter name"
-              value={machineinputRow.name}
+              value={machineInputRow.name}
               onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
           );
@@ -8861,16 +9553,17 @@ const loc  = safeTrim(consumablesInputRow.location);
         const handleChange = (value, setRow) =>
           setRow((prev) => ({ ...prev, description: value }));
 
-        if (record.isInput)
+        if (record.isInput) {
           return (
             <Input.TextArea
               rows={1}
               placeholder="Enter description"
-              value={machineinputRow.description}
+              value={machineInputRow.description}
               onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
           );
-        if (isMachinesEditing(record))
+        }
+        if (isMachinesEditing(record)) {
           return (
             <Input.TextArea
               rows={1}
@@ -8878,6 +9571,7 @@ const loc  = safeTrim(consumablesInputRow.location);
               onChange={(e) => handleChange(e.target.value, setMachinesEditRow)}
             />
           );
+        }
         return (
           <span>
             {record.description?.length > 150
@@ -8898,7 +9592,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           row,
           setRow,
           loadingSetter,
-          debounceKey
+          debounceKey,
         ) => {
           setRow((prev) => ({ ...prev, purchaseCost: value }));
           loadingSetter(true);
@@ -8915,7 +9609,7 @@ const loc  = safeTrim(consumablesInputRow.location);
               const { totalPrice } = updateTotalPrice(
                 value,
                 row.addOnCost,
-                row.quantity
+                row.quantity,
               );
               setRow((prev) => ({ ...prev, totalPrice }));
             }
@@ -8928,14 +9622,14 @@ const loc  = safeTrim(consumablesInputRow.location);
               type="number"
               min={0}
               placeholder="Enter purchase cost"
-              value={machineinputRow.purchaseCost}
+              value={machineInputRow.purchaseCost}
               onChange={(e) =>
                 handleChange(
                   e.target.value,
-                  machineinputRow,
+                  machineInputRow,
                   setMachineInputRow,
                   setMachinesAddLoading,
-                  "machinesPurchaseCostDebounce"
+                  "machinesPurchaseCostDebounce",
                 )
               }
             />
@@ -8953,7 +9647,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   machinesEditRow,
                   setMachinesEditRow,
                   setMachinesSaveLoading,
-                  "machinesEditPurchaseCostDebounce"
+                  "machinesEditPurchaseCostDebounce",
                 )
               }
             />
@@ -8972,7 +9666,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           row,
           setRow,
           loadingSetter,
-          debounceKey
+          debounceKey,
         ) => {
           setRow((prev) => ({ ...prev, addOnCost: value }));
           loadingSetter(true);
@@ -8989,7 +9683,7 @@ const loc  = safeTrim(consumablesInputRow.location);
               const { totalPrice } = updateTotalPrice(
                 row.purchaseCost,
                 value,
-                row.quantity
+                row.quantity,
               );
               setRow((prev) => ({ ...prev, totalPrice }));
             }
@@ -9002,14 +9696,14 @@ const loc  = safeTrim(consumablesInputRow.location);
             <Input
               type="number"
               placeholder="Enter add on cost"
-              value={machineinputRow.addOnCost}
+              value={machineInputRow.addOnCost}
               onChange={(e) =>
                 handleChange(
                   e.target.value,
-                  machineinputRow,
+                  machineInputRow,
                   setMachineInputRow,
                   setMachinesAddLoading,
-                  "machinesAddOnCostDebounce"
+                  "machinesAddOnCostDebounce",
                 )
               }
             />
@@ -9026,7 +9720,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   machinesEditRow,
                   setMachinesEditRow,
                   setMachinesSaveLoading,
-                  "machinesEditAddOnCostDebounce"
+                  "machinesEditAddOnCostDebounce",
                 )
               }
             />
@@ -9059,13 +9753,13 @@ const loc  = safeTrim(consumablesInputRow.location);
             <Input
               type="number"
               placeholder="Enter Selling Cost"
-              value={machineinputRow.sellingCost || ""}
+              value={machineInputRow.sellingCost || ""}
               onChange={(e) =>
                 handleChange(
                   e.target.value,
-                  machineinputRow,
+                  machineInputRow,
                   setMachineInputRow,
-                  "machinesSellingCostDebounce"
+                  "machinesSellingCostDebounce",
                 )
               }
             />
@@ -9081,7 +9775,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   e.target.value,
                   machinesEditRow,
                   setMachinesEditRow,
-                  "machinesEditSellingCostDebounce"
+                  "machinesEditSellingCostDebounce",
                 )
               }
             />
@@ -9099,7 +9793,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           row,
           setRow,
           loadingSetter,
-          debounceKey
+          debounceKey,
         ) => {
           setRow((prev) => ({ ...prev, quantity: value }));
           loadingSetter(true);
@@ -9133,7 +9827,7 @@ const loc  = safeTrim(consumablesInputRow.location);
             const { totalPrice } = updateTotalPrice(
               row.purchaseCost,
               row.addOnCost,
-              value
+              value,
             );
             setRow((prev) => ({ ...prev, totalPrice }));
             loadingSetter(false);
@@ -9145,14 +9839,14 @@ const loc  = safeTrim(consumablesInputRow.location);
             <Input
               type="number"
               placeholder="Enter Quantity"
-              value={machineinputRow.quantity}
+              value={machineInputRow.quantity}
               onChange={(e) =>
                 handleChange(
                   e.target.value,
-                  machineinputRow,
+                  machineInputRow,
                   setMachineInputRow,
                   setMachinesAddLoading,
-                  "machinesQuantityDebounce"
+                  "machinesQuantityDebounce",
                 )
               }
             />
@@ -9169,7 +9863,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   machinesEditRow,
                   setMachinesEditRow,
                   setMachinesSaveLoading,
-                  "machinesEditQuantityDebounce"
+                  "machinesEditQuantityDebounce",
                 )
               }
             />
@@ -9206,13 +9900,13 @@ const loc  = safeTrim(consumablesInputRow.location);
           return (
             <Select
               className="w-100"
-              value={machineinputRow.unit}
+              value={machineInputRow.unit}
               onChange={(value) =>
                 handleChange(
                   value,
-                  machineinputRow,
+                  machineInputRow,
                   setMachineInputRow,
-                  "machinesUnitDebounce"
+                  "machinesUnitDebounce",
                 )
               }
               options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
@@ -9229,7 +9923,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                   value,
                   machinesEditRow,
                   setMachinesEditRow,
-                  "machinesEditUnitDebounce"
+                  "machinesEditUnitDebounce",
                 )
               }
               options={machineUnitOptions.map((u) => ({ value: u, label: u }))}
@@ -9245,7 +9939,7 @@ const loc  = safeTrim(consumablesInputRow.location);
       width: 200,
       render: (_, record) => {
         if (record.isInput)
-          return <Input readOnly value={machineinputRow.stockInHand || ""} />;
+          return <Input readOnly value={machineInputRow.stockInHand || ""} />;
         if (isMachinesEditing(record))
           return <Input readOnly value={machinesEditRow.stockInHand || "0"} />;
         return <span>{record.stockInHand || "-"}</span>;
@@ -9258,7 +9952,7 @@ const loc  = safeTrim(consumablesInputRow.location);
       ellipsis: true,
       render: (_, record) => {
         if (record.isInput)
-          return <Input readOnly value={machineinputRow.totalPrice || ""} />;
+          return <Input readOnly value={machineInputRow.totalPrice || ""} />;
         if (isMachinesEditing(record))
           return <Input readOnly value={machinesEditRow.totalPrice || ""} />;
         return <span>{record.totalPrice || "-"}</span>;
@@ -9278,7 +9972,7 @@ const loc  = safeTrim(consumablesInputRow.location);
           return (
             <Input
               placeholder="Enter weight"
-              value={machineinputRow.weight}
+              value={machineInputRow.weight}
               onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
           );
@@ -9312,7 +10006,7 @@ const loc  = safeTrim(consumablesInputRow.location);
             <Input.TextArea
               rows={1}
               placeholder="Enter note"
-              value={machineinputRow.note}
+              value={machineInputRow.note}
               onChange={(e) => handleChange(e.target.value, setMachineInputRow)}
             />
           );
@@ -9405,30 +10099,30 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             format="DD-MM-YYYY"
   //             style={{ width: "100%" }}
   //             value={
-  //               machineinputRow.date &&
-  //               dayjs(machineinputRow.date, "DD-MM-YYYY").isValid()
-  //                 ? dayjs.tz(machineinputRow.date, "DD-MM-YYYY", "Asia/Dubai")
+  //               machineInputRow.date &&
+  //               dayjs(machineInputRow.date, "DD-MM-YYYY").isValid()
+  //                 ? dayjs.tz(machineInputRow.date, "DD-MM-YYYY", "Asia/Dubai")
   //                 : null
   //             }
   //             onChange={(dateObj) => {
   //               if (!dateObj) {
-  //                 setMachineInputRow({ ...machineinputRow, date: "" });
+  //                 setMachineInputRow({ ...machineInputRow, date: "" });
   //                 return;
   //               }
   //               const formatted = dayjs(dateObj)
   //                 .tz("Asia/Dubai")
   //                 .format("DD-MM-YYYY");
-  //               setMachineInputRow({ ...machineinputRow, date: formatted });
+  //               setMachineInputRow({ ...machineInputRow, date: formatted });
   //             }}
   //           /> */}
 
   //           <Input
   //             placeholder="DD-MM-YYYY"
   //             maxLength={10}
-  //             value={machineinputRow.date}
+  //             value={machineInputRow.date}
   //             onChange={(e) => {
   //               const value = e.target.value;
-  //               setMachineInputRow({ ...machineinputRow, date: value });
+  //               setMachineInputRow({ ...machineInputRow, date: value });
 
   //               // validate only when full length is reached
   //               if (value.length === 10) {
@@ -9438,7 +10132,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //                     message: "Invalid Date",
   //                     description: "Enter date in DD-MM-YYYY format",
   //                   });
-  //                   setMachineInputRow({ ...machineinputRow, date: "" });
+  //                   setMachineInputRow({ ...machineInputRow, date: "" });
   //                 }
   //               }
   //             }}
@@ -9461,10 +10155,10 @@ const loc  = safeTrim(consumablesInputRow.location);
   //         <Tooltip>
   //           <Input
   //             placeholder="Enter part number"
-  //             value={machineinputRow.partNumber}
+  //             value={machineInputRow.partNumber}
   //             onChange={(e) =>
   //               setMachineInputRow({
-  //                 ...machineinputRow,
+  //                 ...machineInputRow,
   //                 partNumber: e.target.value.toUpperCase(),
   //                 quantity: "",
   //               })
@@ -9489,10 +10183,10 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             // autoSize={{ minRows: 2, maxRows: 2 }}
   //             rows={1}
   //             placeholder="Enter description"
-  //             value={machineinputRow.description}
+  //             value={machineInputRow.description}
   //             onChange={(e) =>
   //               setMachineInputRow({
-  //                 ...machineinputRow,
+  //                 ...machineInputRow,
   //                 description: e.target.value,
   //               })
   //             }
@@ -9530,13 +10224,13 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   //           placeholder="Enter purchase cost"
   //   //           type="number"
   //   //           min={0}
-  //   //           value={machineinputRow.purchaseCost}
+  //   //           value={machineInputRow.purchaseCost}
   //   //           onChange={(e) => {
   //   //             const purchaseCost = e.target.value;
   //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
   //   //               purchaseCost,
-  //   //               machineinputRow.addOnCost,
-  //   //               machineinputRow.quantity
+  //   //               machineInputRow.addOnCost,
+  //   //               machineInputRow.quantity
   //   //             );
   //   //             setMachineInputRow((prev) => ({
   //   //               ...prev,
@@ -9566,7 +10260,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             placeholder="Enter purchase cost"
   //             type="number"
   //             min={0}
-  //             value={machineinputRow.purchaseCost}
+  //             value={machineInputRow.purchaseCost}
   //             onChange={(e) => {
   //               const value = e.target.value.trim();
 
@@ -9598,8 +10292,8 @@ const loc  = safeTrim(consumablesInputRow.location);
   //                 } else {
   //                   const { totalPrice } = updateTotalPrice(
   //                     value,
-  //                     machineinputRow.addOnCost,
-  //                     machineinputRow.quantity
+  //                     machineInputRow.addOnCost,
+  //                     machineInputRow.quantity
   //                   );
   //                   setMachineInputRow((prev) => ({
   //                     ...prev,
@@ -9630,13 +10324,13 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   //           type="number"
   //   //           min={0}
   //   //           placeholder="Enter add on cost"
-  //   //           value={machineinputRow.addOnCost}
+  //   //           value={machineInputRow.addOnCost}
   //   //           onChange={(e) => {
   //   //             const addOnCost = e.target.value;
   //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
-  //   //               machineinputRow.purchaseCost,
+  //   //               machineInputRow.purchaseCost,
   //   //               addOnCost,
-  //   //               machineinputRow.quantity
+  //   //               machineInputRow.quantity
   //   //             );
   //   //             setMachineInputRow((prev) => ({
   //   //               ...prev,
@@ -9665,7 +10359,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             type="number"
   //             // min={0}
   //             placeholder="Enter add on cost"
-  //             value={machineinputRow.addOnCost}
+  //             value={machineInputRow.addOnCost}
   //             onChange={(e) => {
   //               const value = e.target.value.trim();
 
@@ -9697,9 +10391,9 @@ const loc  = safeTrim(consumablesInputRow.location);
   //                   }));
   //                 } else {
   //                   const { totalPrice } = updateTotalPrice(
-  //                     machineinputRow.purchaseCost,
+  //                     machineInputRow.purchaseCost,
   //                     value,
-  //                     machineinputRow.quantity
+  //                     machineInputRow.quantity
   //                   );
   //                   setMachineInputRow((prev) => ({
   //                     ...prev,
@@ -9730,7 +10424,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   //           type="number"
   //   //           min={0}
   //   //           placeholder="Enter Selling Cost"
-  //   //           value={machineinputRow.sellingCost || ""}
+  //   //           value={machineInputRow.sellingCost || ""}
   //   //           onChange={(e) => {
   //   //             const value = e.target.value.trim();
   //   //             const num = parseFloat(value);
@@ -9776,7 +10470,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             type="number"
   //             // min={0}
   //             placeholder="Enter Selling Cost"
-  //             value={machineinputRow.sellingCost || ""}
+  //             value={machineInputRow.sellingCost || ""}
   //             onChange={(e) => {
   //               const value = e.target.value.trim();
 
@@ -9829,12 +10523,12 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   //           placeholder="Enter quantity"
   //   //           type="number"
   //   //           min={1}
-  //   //           value={machineinputRow.quantity}
+  //   //           value={machineInputRow.quantity}
   //   //           onChange={(e) => {
   //   //             const quantity = e.target.value;
   //   //             const { sellingPrice, totalPrice } = updateTotalPrice(
-  //   //               machineinputRow.purchaseCost,
-  //   //               machineinputRow.addOnCost,
+  //   //               machineInputRow.purchaseCost,
+  //   //               machineInputRow.addOnCost,
   //   //               quantity
   //   //             );
   //   //             setMachineInputRow((prev) => ({
@@ -9864,7 +10558,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             placeholder="Enter Quantity"
   //             type="number"
   //             // min={1}
-  //             value={machineinputRow.quantity}
+  //             value={machineInputRow.quantity}
   //             disabled={machineUnitLoading}
   //             onChange={(e) => {
   //               const value = e.target.value.trim();
@@ -9896,8 +10590,8 @@ const loc  = safeTrim(consumablesInputRow.location);
   //                 //   }));
   //                 // } else {
   //                 //   const { totalPrice } = updateTotalPrice(
-  //                 //     machineinputRow.purchaseCost,
-  //                 //     machineinputRow.addOnCost,
+  //                 //     machineInputRow.purchaseCost,
+  //                 //     machineInputRow.addOnCost,
   //                 //     value
   //                 //   );
   //                 //   setMachineInputRow((prev) => ({
@@ -9926,14 +10620,14 @@ const loc  = safeTrim(consumablesInputRow.location);
   //                 }
 
   //                 // Extra check for Set / Piece units
-  //                 const unit = (machineinputRow.unit || "").toLowerCase();
+  //                 const unit = (machineInputRow.unit || "").toLowerCase();
   //                 if (
   //                   (unit === "set" || unit === "piece") &&
   //                   !Number.isInteger(num)
   //                 ) {
   //                   notification.error({
   //                     message: "Invalid Quantity",
-  //                     description: `Quantity for unit "${machineinputRow.unit}" must be a whole number.`,
+  //                     description: `Quantity for unit "${machineInputRow.unit}" must be a whole number.`,
   //                   });
   //                   setMachineInputRow((prev) => ({
   //                     ...prev,
@@ -9946,8 +10640,8 @@ const loc  = safeTrim(consumablesInputRow.location);
 
   //                 // Update total price if all checks pass
   //                 const { totalPrice } = updateTotalPrice(
-  //                   machineinputRow.purchaseCost,
-  //                   machineinputRow.addOnCost,
+  //                   machineInputRow.purchaseCost,
+  //                   machineInputRow.addOnCost,
   //                   value
   //                 );
   //                 setMachineInputRow((prev) => ({ ...prev, totalPrice }));
@@ -9974,9 +10668,9 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   //         <Select
   //   //           placeholder="Select unit"
   //   //           className="w-100"
-  //   //           value={machineinputRow.unit}
+  //   //           value={machineInputRow.unit}
   //   //           onChange={(value) => {
-  //   //             setMachineInputRow({ ...machineinputRow, unit: value });
+  //   //             setMachineInputRow({ ...machineInputRow, unit: value });
   //   //           }}
   //   //         >
   //   //           <Select.Option value="Set">Set</Select.Option>
@@ -9999,7 +10693,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //   //     record.isInput ? (
   //   //       <Select
   //   //         className="w-100"
-  //   //         value={machineinputRow.unit}
+  //   //         value={machineInputRow.unit}
   //   //         onChange={(value) =>
   //   //           setMachineInputRow((prev) => ({ ...prev, unit: value }))
   //   //         }
@@ -10025,12 +10719,12 @@ const loc  = safeTrim(consumablesInputRow.location);
   //       record.isInput ? (
   //         <Select
   //           className="w-100"
-  //           value={machineinputRow.unit}
+  //           value={machineInputRow.unit}
   //           onChange={(selectedUnit) => {
   //             clearTimeout(window.machineUnitDebounce);
   //             window.machineUnitDebounce = setTimeout(() => {
   //               const unitLower = (selectedUnit || "").toLowerCase();
-  //               const num = parseFloat(machineinputRow.quantity);
+  //               const num = parseFloat(machineInputRow.quantity);
 
   //               // Check if quantity must be whole number
   //               if (
@@ -10077,9 +10771,9 @@ const loc  = safeTrim(consumablesInputRow.location);
   //           <Input
   //             readOnly
   //             value={
-  //               machineinputRow.stockInHand
-  //                 ? `${machineinputRow.stockInHand} ${
-  //                     machineinputRow.stockUnit || ""
+  //               machineInputRow.stockInHand
+  //                 ? `${machineInputRow.stockInHand} ${
+  //                     machineInputRow.stockUnit || ""
   //                   }`
   //                 : ""
   //             }
@@ -10104,7 +10798,7 @@ const loc  = safeTrim(consumablesInputRow.location);
   //     render: (_, record) =>
   //       record.isInput ? (
   //         <Tooltip>
-  //           <Input value={machineinputRow.totalPrice || ""} readOnly />
+  //           <Input value={machineInputRow.totalPrice || ""} readOnly />
   //         </Tooltip>
   //       ) : (
   //         <Tooltip title={record.totalPrice}>
@@ -10124,9 +10818,9 @@ const loc  = safeTrim(consumablesInputRow.location);
   //             // autoSize={{ minRows: 2, maxRows: 2}}
   //             rows={1}
   //             placeholder="Enter note"
-  //             value={machineinputRow.note}
+  //             value={machineInputRow.note}
   //             onChange={(e) =>
-  //               setMachineInputRow({ ...machineinputRow, note: e.target.value })
+  //               setMachineInputRow({ ...machineInputRow, note: e.target.value })
   //             }
   //           />
   //         </Tooltip>
@@ -10321,6 +11015,11 @@ const loc  = safeTrim(consumablesInputRow.location);
                   form={form}
                   layout="vertical"
                   onFinish={handleSubmit}
+                    onKeyDown={(e) => {
+    if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+    }
+  }}
                   className="mt-3 mt-lg-3"
                   disabled={loading || readOnly}
                 >
@@ -10747,7 +11446,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                                   disabled={seriesLoading}
                                   value={
                                     form.getFieldValue(
-                                      `${selectedIMMSeries.toLowerCase()}Series`
+                                      `${selectedIMMSeries.toLowerCase()}Series`,
                                     ) || ""
                                   }
                                   options={(filteredSeries.length
@@ -10762,8 +11461,8 @@ const loc  = safeTrim(consumablesInputRow.location);
                                       seriesModels.filter((m) =>
                                         m
                                           .toLowerCase()
-                                          .includes(value.toLowerCase())
-                                      )
+                                          .includes(value.toLowerCase()),
+                                      ),
                                     );
                                   }}
                                   onSelect={(value) => {
@@ -11102,7 +11801,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                                 (value) =>
                                   value === "" ||
                                   value === null ||
-                                  value === undefined
+                                  value === undefined,
                               );
 
                             const formValues = form.getFieldsValue(true);
@@ -11110,7 +11809,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                             const isEverythingEmpty =
                               (!formValues ||
                                 Object.values(formValues).every(
-                                  (val) => !val
+                                  (val) => !val,
                                 )) &&
                               machineDataSource.length === 0 &&
                               auxiliariesDataSource.length === 0 &&
@@ -11118,7 +11817,7 @@ const loc  = safeTrim(consumablesInputRow.location);
                               // dataSource.length === 0 &&
                               setSparePartsDataSource.length === 0 &&
                               isObjectEmpty(inputRow) &&
-                              isObjectEmpty(machineinputRow) &&
+                              isObjectEmpty(machineInputRow) &&
                               isObjectEmpty(auxiliariesInputRow);
                             // isObjectEmpty(assetsInputRow);
 
