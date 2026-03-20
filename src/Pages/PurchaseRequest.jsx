@@ -142,7 +142,7 @@ export default function PurchaseRequest({ user }) {
   const [allDescriptionItems, setAllDescriptionItems] = useState([]);
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec";
+    "https://script.google.com/macros/s/AKfycbwcjnafxG1sHNp2WmX6rfXbQONJTBRTrBI8Ozx3L7PCiO6xy3I-fU1V4Br9pPKe9TqV/exec";
 
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
@@ -623,7 +623,7 @@ export default function PurchaseRequest({ user }) {
           </Tooltip>
         ),
     },
- {
+    {
       title: "Location",
       dataIndex: "location",
       width: 120,
@@ -1437,8 +1437,6 @@ export default function PurchaseRequest({ user }) {
     //     record.isInput ? <Input value="MEA" readOnly /> : <span>MEA</span>,
     // },
 
-   
-
     {
       title: "Weight",
       dataIndex: "weight",
@@ -1484,7 +1482,7 @@ export default function PurchaseRequest({ user }) {
             className="addButton ps-4 pe-4"
             onClick={handleAdd}
             // disabled={fetchingData || stockLoading}
-              disabled={loading || fetchingData || stockLoading}
+            disabled={loading || fetchingData || stockLoading}
 
             // loading={fetchingData || stockLoading}
           >
@@ -1588,7 +1586,7 @@ export default function PurchaseRequest({ user }) {
       });
       return;
     }
-     const location = selectedLocation;
+    const location = selectedLocation;
     const stock = parseInt(inputRow.stockInHand) || 0;
     const qty = parseInt(quantity) || 0;
 
@@ -1799,7 +1797,15 @@ export default function PurchaseRequest({ user }) {
         }),
       });
 
-      const result = await response.json();
+      // const result = await response.json();
+      const text = await response.text();
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error("Server error. Try again.");
+      }
       // console.log("Result:", result);
       if (!result.success)
         throw new Error(result.message || "Failed to add purchase request.");
@@ -2559,9 +2565,13 @@ export default function PurchaseRequest({ user }) {
 
     doc.setFontSize(10);
 
-    const sanitizedPRNumber = String(
-      formValues.purchaseRequest || formValues.purchaseRequestNumber || "",
-    )
+    // const sanitizedPRNumber = String(
+    //   formValues.purchaseRequest || formValues.purchaseRequestNumber || "",
+    // )
+    //   .trim()
+    //   .replace(/'/g, "");
+
+    const sanitizedPRNumber = String(formValues.purchaseRequestNumber || "")
       .trim()
       .replace(/'/g, "");
 

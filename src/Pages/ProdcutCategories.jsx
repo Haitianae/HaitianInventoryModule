@@ -216,7 +216,7 @@ export default function ProductCategories({ user }) {
   };
 
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec";
+    "https://script.google.com/macros/s/AKfycbwcjnafxG1sHNp2WmX6rfXbQONJTBRTrBI8Ozx3L7PCiO6xy3I-fU1V4Br9pPKe9TqV/exec";
 
   // const fetchPartsMaster = async ({ GAS_URL, category }) => {
   //   if (!category) return;
@@ -311,12 +311,12 @@ export default function ProductCategories({ user }) {
         Consumables: Array.from(dedupe.Consumables.values()),
       };
 
-      console.log("FULL PARTS MASTER:", finalMaster);
-      console.table(finalMaster.Machine);
+      // console.log("FULL PARTS MASTER:", finalMaster);
+      // console.table(finalMaster.Machine);
 
       setPartsMaster(finalMaster);
     } catch (err) {
-      console.error("Parts master fetch failed", err);
+      // console.error("Parts master fetch failed", err);
     } finally {
       setPartsMasterLoading(false);
     }

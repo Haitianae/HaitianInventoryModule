@@ -61,29 +61,25 @@ export default function CustomerDetails({ user }) {
   const [searchText, setSearchText] = useState("");
   const [allCustomers, setAllCustomers] = useState([]);
 
-
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec";
+    "https://script.google.com/macros/s/AKfycbwcjnafxG1sHNp2WmX6rfXbQONJTBRTrBI8Ozx3L7PCiO6xy3I-fU1V4Br9pPKe9TqV/exec";
 
   useEffect(() => {
     fetchCustomerOwners();
     fetchCustomers();
   }, []);
 
-
   const userLocation = String(
-  user?.location || user?.access?.Location || ""
-).toUpperCase();
+    user?.location || user?.access?.Location || "",
+  ).toUpperCase();
 
-const allowedLocations =
-  userLocation === "MEA"
-    ? [{ label: "MEA", value: "MEA" }]
-    : [
-        { label: "MEA", value: "MEA" },
-        { label: "AE", value: "AE" },
-      ];
-
-  
+  const allowedLocations =
+    userLocation === "MEA"
+      ? [{ label: "MEA", value: "MEA" }]
+      : [
+          { label: "MEA", value: "MEA" },
+          { label: "AE", value: "AE" },
+        ];
 
   // const locationOptions = [
   //   { label: "MEA", value: "MEA" },
@@ -91,7 +87,6 @@ const allowedLocations =
   // ];
 
   const locationOptions = allowedLocations;
-
 
   const fetchCustomerOwners = async () => {
     setOwnerLoading(true);
@@ -113,114 +108,106 @@ const allowedLocations =
     }
   };
 
- const fetchCustomers = async () => {
-  setFetching(true);
-  try {
-    // console.log("📡 fetchCustomers() called");
+  const fetchCustomers = async () => {
+    setFetching(true);
+    try {
+      // console.log("📡 fetchCustomers() called");
 
-    const response = await fetch(GAS_URL, {
-      method: "POST",
-      body: new URLSearchParams({ action: "getAllCustomerDetails" }),
-    });
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: new URLSearchParams({ action: "getAllCustomerDetails" }),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    // console.log("✅ Raw customer API response:", result);
+      // console.log("✅ Raw customer API response:", result);
 
-    if (result.success) {
-      // console.log("📦 Customers received:", result.customers);
-      // console.log(
-      //   "📦 Customer locations:",
-      //   result.customers.map(c => c.Location)
-      // );
+      if (result.success) {
+        // console.log("📦 Customers received:", result.customers);
+        // console.log(
+        //   "📦 Customer locations:",
+        //   result.customers.map(c => c.Location)
+        // );
 
-      setAllCustomers(result.customers || []);
+        setAllCustomers(result.customers || []);
+      }
+    } catch (err) {
+      // console.error("❌ fetchCustomers error:", err);
+    } finally {
+      setFetching(false);
     }
-  } catch (err) {
-    console.error("❌ fetchCustomers error:", err);
-  } finally {
-    setFetching(false);
-  }
-};
+  };
 
+  // useEffect(() => {
+  //   // console.log("🧠 Filter useEffect triggered");
 
-// useEffect(() => {
-//   // console.log("🧠 Filter useEffect triggered");
+  //   // console.log("👤 User object:", user);
+  //   // console.log("📍 user.location:", user?.location);
+  //   // console.log("📍 user.access.Location:", user?.access?.Location);
 
-//   // console.log("👤 User object:", user);
-//   // console.log("📍 user.location:", user?.location);
-//   // console.log("📍 user.access.Location:", user?.access?.Location);
+  //   // console.log("📦 allCustomers length:", allCustomers.length);
 
-//   // console.log("📦 allCustomers length:", allCustomers.length);
+  //   if (!user || !allCustomers.length) {
+  //     // console.log("⛔ Skipping filter (user or customers missing)");
+  //     return;
+  //   }
 
-//   if (!user || !allCustomers.length) {
-//     // console.log("⛔ Skipping filter (user or customers missing)");
-//     return;
-//   }
+  //   const userLocation = String(
+  //     user?.location || user?.access?.Location || ""
+  //   ).toUpperCase();
 
-//   const userLocation = String(
-//     user?.location || user?.access?.Location || ""
-//   ).toUpperCase();
+  //   // console.log("📍 FINAL userLocation USED:", userLocation);
 
-//   // console.log("📍 FINAL userLocation USED:", userLocation);
+  //   let visibleCustomers = allCustomers;
 
-//   let visibleCustomers = allCustomers;
+  //   if (userLocation === "MEA") {
+  //     visibleCustomers = allCustomers.filter((c, index) => {
+  //       // console.log(
+  //       //   `🔍 Customer ${index}:`,
+  //       //   c["Customer Name"],
+  //       //   "| Location:",
+  //       //   c.Location
+  //       // );
 
-//   if (userLocation === "MEA") {
-//     visibleCustomers = allCustomers.filter((c, index) => {
-//       // console.log(
-//       //   `🔍 Customer ${index}:`,
-//       //   c["Customer Name"],
-//       //   "| Location:",
-//       //   c.Location
-//       // );
+  //       return String(c.Location || "").toUpperCase() === "MEA";
+  //     });
+  //   }
 
-//       return String(c.Location || "").toUpperCase() === "MEA";
-//     });
-//   }
+  //   // console.log("✅ Visible customers after filter:", visibleCustomers);
+  //   // console.log("✅ Visible customers count:", visibleCustomers.length);
 
-//   // console.log("✅ Visible customers after filter:", visibleCustomers);
-//   // console.log("✅ Visible customers count:", visibleCustomers.length);
+  //   setCustomers(visibleCustomers);
+  // }, [user, allCustomers]);
 
-//   setCustomers(visibleCustomers);
-// }, [user, allCustomers]);
+  useEffect(() => {
+    if (!user || !allCustomers.length) return;
 
+    const userLocation = String(
+      user?.location || user?.access?.Location || "",
+    ).toUpperCase();
 
-useEffect(() => {
-  if (!user || !allCustomers.length) return;
+    const userEmail = String(user?.email || "").toLowerCase();
 
-  const userLocation = String(
-    user?.location || user?.access?.Location || ""
-  ).toUpperCase();
+    let visibleCustomers = [];
 
-  const userEmail = String(user?.email || "").toLowerCase();
+    if (userLocation === "MEA") {
+      //  MEA user → ONLY their own MEA customers
+      visibleCustomers = allCustomers.filter((c) => {
+        const customerLocation = String(c.Location || "").toUpperCase();
+        const customerOwner = String(c["Modified User"] || "").toLowerCase();
 
-  let visibleCustomers = [];
+        return customerLocation === "MEA" && customerOwner === userEmail;
+      });
+    } else if (userLocation === "AE") {
+      // 🌍 AE user → ALL AE + MEA customers
+      visibleCustomers = allCustomers.filter((c) => {
+        const customerLocation = String(c.Location || "").toUpperCase();
+        return customerLocation === "AE" || customerLocation === "MEA";
+      });
+    }
 
-  if (userLocation === "MEA") {
-    //  MEA user → ONLY their own MEA customers
-    visibleCustomers = allCustomers.filter((c) => {
-      const customerLocation = String(c.Location || "").toUpperCase();
-      const customerOwner = String(c["Modified User"] || "").toLowerCase();
-
-      return (
-        customerLocation === "MEA" &&
-        customerOwner === userEmail
-      );
-    });
-  } else if (userLocation === "AE") {
-    // 🌍 AE user → ALL AE + MEA customers
-    visibleCustomers = allCustomers.filter((c) => {
-      const customerLocation = String(c.Location || "").toUpperCase();
-      return customerLocation === "AE" || customerLocation === "MEA";
-    });
-  }
-
-  setCustomers(visibleCustomers);
-}, [user, allCustomers]);
-
-
-
+    setCustomers(visibleCustomers);
+  }, [user, allCustomers]);
 
   const userLocalDateTime = dayjs().format("DD-MM-YYYY HH:mm:ss");
   // console.log(userLocalDateTime);
@@ -504,7 +491,16 @@ useEffect(() => {
           userName: user?.email || "",
         }),
       });
-      const result = await response.json();
+      // const result = await response.json();
+
+      const text = await response.text();
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error("Server error. Try again.");
+      }
       if (result.success) {
         notification.success({
           message: "Success",
@@ -564,7 +560,16 @@ useEffect(() => {
         }),
       });
 
-      const result = await response.json();
+      // const result = await response.json();
+
+      const text = await response.text();
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error("Server error. Try again.");
+      }
 
       if (result.success) {
         notification.success({
@@ -594,7 +599,7 @@ useEffect(() => {
     return (
       searchText === "" ||
       Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(searchText.toLowerCase())
+        String(val).toLowerCase().includes(searchText.toLowerCase()),
       )
     );
   });
@@ -633,7 +638,7 @@ useEffect(() => {
         v: value || "",
         t: "s",
         s: { border: getAllBorders(), alignment: { horizontal: "left" } },
-      }))
+      })),
     );
 
     // Sheet creation
@@ -680,7 +685,7 @@ useEffect(() => {
         value === undefined ||
         value === null ||
         value === "" ||
-        (Array.isArray(value) && value.length === 0)
+        (Array.isArray(value) && value.length === 0),
     );
 
     if (isEmpty) {
@@ -1016,7 +1021,7 @@ useEffect(() => {
                                   return emailRegex.test(value)
                                     ? Promise.resolve()
                                     : Promise.reject(
-                                        "Please enter a valid email address"
+                                        "Please enter a valid email address",
                                       );
                                 },
                               },
@@ -1115,7 +1120,7 @@ useEffect(() => {
                             return emailRegex.test(value)
                               ? Promise.resolve()
                               : Promise.reject(
-                                  "Please enter a valid email address"
+                                  "Please enter a valid email address",
                                 );
                           },
                         },
@@ -1190,7 +1195,6 @@ useEffect(() => {
                       label="Location"
                       name="location"
                       className="fw-bold"
-                      
                       rules={[
                         { required: true, message: "Please select location!" },
                       ]}
@@ -2021,7 +2025,7 @@ useEffect(() => {
                                     return emailRegex.test(value)
                                       ? Promise.resolve()
                                       : Promise.reject(
-                                          "Please enter a valid email address"
+                                          "Please enter a valid email address",
                                         );
                                   },
                                 },

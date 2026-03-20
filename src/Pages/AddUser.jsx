@@ -63,8 +63,7 @@ export default function AddUser({ user }) {
   const access = user?.access?.["Add User"] || "No Access";
   const readOnly = access === "Read";
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec";
-    
+    "https://script.google.com/macros/s/AKfycbwcjnafxG1sHNp2WmX6rfXbQONJTBRTrBI8Ozx3L7PCiO6xy3I-fU1V4Br9pPKe9TqV/exec";
 
   const fetchUsers = async () => {
     setFetching(true);
@@ -217,7 +216,16 @@ export default function AddUser({ user }) {
         body: new URLSearchParams(payload),
       });
 
-      const data = await res.json();
+      // const data = await res.json();
+
+      const text = await res.text();
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Server error. Try again.");
+      }
 
       if (data.success) {
         // message.success("User updated successfully!");
@@ -233,7 +241,7 @@ export default function AddUser({ user }) {
         editForm.resetFields();
       } else {
         // message.error(data.message || "Failed to update user.");
-        notification.success({
+        notification.error({
           message: "Error",
           description: data.message || "Failed to update user.",
         });
@@ -241,7 +249,7 @@ export default function AddUser({ user }) {
     } catch (error) {
       // console.error("Update error:", error);
       // message.error("Please check the form and try again.");
-      notification.success({
+      notification.error({
         message: "Error",
         description: `Please check the form and try again.`,
       });
@@ -577,7 +585,7 @@ export default function AddUser({ user }) {
     // Ensure at least one module has access selected
     const access = values.access || {};
     const hasAccess = Object.values(access).some(
-      (level) => level && level !== "No Access"
+      (level) => level && level !== "No Access",
     );
 
     if (!hasAccess) {
@@ -611,7 +619,16 @@ export default function AddUser({ user }) {
         }),
       });
 
-      const result = await response.json();
+      // const result = await response.json();
+
+      const text = await response.text();
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error("Server error. Try again.");
+      }
       if (result.success) {
         notification.success({
           message: "Success",
@@ -719,13 +736,13 @@ export default function AddUser({ user }) {
                               validator(_, value) {
                                 if (!value) return Promise.resolve();
                                 const exists = users.some(
-                                  (u) => u["User Email"] === value
+                                  (u) => u["User Email"] === value,
                                 );
                                 return exists
                                   ? Promise.reject(
                                       new Error(
-                                        "This email is already registered!"
-                                      )
+                                        "This email is already registered!",
+                                      ),
                                     )
                                   : Promise.resolve();
                               },
@@ -784,8 +801,8 @@ export default function AddUser({ user }) {
                                 if (!regex.test(value)) {
                                   return Promise.reject(
                                     new Error(
-                                      "Password must be 8–15 characters and include uppercase, lowercase, number, and special character."
-                                    )
+                                      "Password must be 8–15 characters and include uppercase, lowercase, number, and special character.",
+                                    ),
                                   );
                                 }
                                 return Promise.resolve();
@@ -819,7 +836,7 @@ export default function AddUser({ user }) {
                                   return Promise.resolve();
                                 }
                                 return Promise.reject(
-                                  new Error("Passwords do not match!")
+                                  new Error("Passwords do not match!"),
                                 );
                               },
                             }),
@@ -853,7 +870,8 @@ export default function AddUser({ user }) {
                                     value === undefined ||
                                     value === null ||
                                     value === "" ||
-                                    (Array.isArray(value) && value.length === 0)
+                                    (Array.isArray(value) &&
+                                      value.length === 0),
                                 );
 
                                 if (isEmpty) {
@@ -1047,8 +1065,8 @@ export default function AddUser({ user }) {
                                 ? Promise.resolve()
                                 : Promise.reject(
                                     new Error(
-                                      "Password must be 8–15 characters and include uppercase, lowercase, number, and special character."
-                                    )
+                                      "Password must be 8–15 characters and include uppercase, lowercase, number, and special character.",
+                                    ),
                                   );
                             },
                           }),
@@ -1074,7 +1092,7 @@ export default function AddUser({ user }) {
                                 return Promise.resolve();
                               }
                               return Promise.reject(
-                                new Error("Passwords do not match!")
+                                new Error("Passwords do not match!"),
                               );
                             },
                           }),

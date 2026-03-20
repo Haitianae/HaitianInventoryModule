@@ -156,8 +156,16 @@ export default function DeliveryNote({ user }) {
   const [partMap, setPartMap] = useState({});
   const [descMap, setDescMap] = useState({});
 
+  const [returnModalVisible, setReturnModalVisible] = useState(false);
+  const [returnQty, setReturnQty] = useState("");
+  const [returnReason, setReturnReason] = useState("");
+  const [selectedReturnRow, setSelectedReturnRow] = useState(null);
+
+  const [returnItems, setReturnItems] = useState([]);
+  const [returnLoading, setReturnLoading] = useState(false);
+
   const GAS_URL =
-    "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec";
+    "https://script.google.com/macros/s/AKfycbwcjnafxG1sHNp2WmX6rfXbQONJTBRTrBI8Ozx3L7PCiO6xy3I-fU1V4Br9pPKe9TqV/exec";
 
   // const fetchInitialData = async () => {
   //   try {
@@ -217,6 +225,41 @@ export default function DeliveryNote({ user }) {
   //   }
   // };
 
+  async function safeFetch(formData) {
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(formData),
+    });
+
+    const text = await response.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      // console.error("Invalid server response:", text);
+      throw new Error("Server returned invalid response.");
+    }
+  }
+
+  //Working code
+  // async function fetchWithRetry(params, retries = 2) {
+  //   for (let i = 0; i <= retries; i++) {
+  //     try {
+  //       const res = await fetch(GAS_URL, {
+  //         method: "POST",
+  //         headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //         body: new URLSearchParams(params),
+  //       });
+  //       const json = await res.json();
+  //       if (json.success) return json;
+  //     } catch (err) {
+  //       // console.warn(`Retry ${i + 1} failed`, err);
+  //     }
+  //   }
+  //   throw new Error("Failed after retries");
+  // }
+
   async function fetchWithRetry(params, retries = 2) {
     for (let i = 0; i <= retries; i++) {
       try {
@@ -225,12 +268,22 @@ export default function DeliveryNote({ user }) {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams(params),
         });
-        const json = await res.json();
+
+        const text = await res.text();
+
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (err) {
+          throw new Error("Invalid server response");
+        }
+
         if (json.success) return json;
       } catch (err) {
-        // console.warn(`Retry ${i + 1} failed`, err);
+        if (i === retries) throw err;
       }
     }
+
     throw new Error("Failed after retries");
   }
 
@@ -614,7 +667,7 @@ export default function DeliveryNote({ user }) {
           className="addButton ps-4 pe-4"
           onClick={handleAdd}
           // disabled={fetchingData || stockLoading}
-            disabled={loading || fetchingData || stockLoading}
+          disabled={loading || fetchingData || stockLoading}
         >
           Add
         </Button>
@@ -1032,7 +1085,7 @@ export default function DeliveryNote({ user }) {
                   unit: selected?.unit,
                   stockInHand: safeToString(cachedStock.stockInHand),
                   stockUnit: selected?.unit,
-                 
+
                   category: selected?.category || "",
                   weight: selected?.weight || "",
                 }));
@@ -1246,15 +1299,15 @@ export default function DeliveryNote({ user }) {
                 stockLoading
                   ? "" // leave value blank while loading
                   : inputRow.stockInHand
-                  ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
-                  : "0"
+                    ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
+                    : "0"
               }
               placeholder={
                 stockLoading
                   ? "Fetching stock in hand..."
                   : inputRow.stockInHand
-                  ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
-                  : "-"
+                    ? `${inputRow.stockInHand} ${inputRow.stockUnit || ""}`
+                    : "-"
               }
               readOnly
             />
@@ -1371,7 +1424,7 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Serial Number", // must match your actual key
       render: (text) => <span>{text}</span>,
     },
-      {
+    {
       title: "Name",
       dataIndex: "Name",
       render: (text) => <span>{text}</span>,
@@ -1382,7 +1435,7 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Item Description",
       render: (text) => <span>{text}</span>,
     },
-        {
+    {
       title: "Part Number",
       dataIndex: "Part Number",
       render: (text) => <span>{text}</span>,
@@ -1403,20 +1456,81 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Category",
       render: (text) => <span>{text}</span>,
     },
-        {
+    {
       title: "Weight",
       dataIndex: "Weight",
       render: (text) => <span>{text}</span>,
     },
-     {
+    // {
+    //   title: "Note",
+    //   dataIndex: "Note",
+    //   render: (text) => <span>{text}</span>,
+    // },
+    {
       title: "Note",
       dataIndex: "Note",
-      render: (text) => <span>{text}</span>,
+      render: (text) => (
+        <div style={{ whiteSpace: "pre-wrap", maxWidth: 400 }}>{text}</div>
+      ),
     },
-         {
+    {
       title: "Location",
       dataIndex: "Location",
       render: (text) => <span>{text}</span>,
+    },
+    {
+      title: "Returned Qty",
+      dataIndex: "returnedQty",
+      render: (text) => <span>{Number(text) || 0}</span>,
+    },
+    {
+      title: "Remaining Qty",
+      render: (_, record) => {
+        const delivered = Number(record["Quantity"]) || 0;
+        const returned = Number(record.returnedQty) || 0;
+
+        const remaining = delivered - returned;
+
+        return <span>{remaining < 0 ? 0 : remaining}</span>;
+      },
+    },
+    {
+      title: "Return Qty",
+      dataIndex: "returnQty",
+      render: (_, record, index) => {
+        const delivered = Number(record["Quantity"]) || 0;
+        const returned = Number(record.returnedQty) || 0;
+
+        const remaining = delivered - returned;
+
+        return (
+          <Tooltip
+            title={
+              remaining <= 0
+                ? "Item fully returned"
+                : `You can return up to ${remaining} qty`
+            }
+          >
+            <Input
+              type="number"
+              min={0}
+              max={remaining}
+              disabled={remaining <= 0 || returnLoading}
+              value={record.returnQty || ""}
+              placeholder={
+                remaining <= 0 ? "Fully Returned" : `Max ${remaining}`
+              }
+              onChange={(e) => {
+                let val = Number(e.target.value);
+
+                if (val > remaining) val = remaining;
+
+                handleReturnQtyChange(index, val);
+              }}
+            />
+          </Tooltip>
+        );
+      },
     },
   ];
 
@@ -1426,7 +1540,7 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Serial Number", // must match your actual key
       render: (text) => <span>{text}</span>,
     },
-    
+
     {
       title: "Name",
       dataIndex: "Name",
@@ -1453,22 +1567,22 @@ export default function DeliveryNote({ user }) {
       dataIndex: "Stock In Hand",
       render: (text) => <span>{text}</span>,
     },
-        {
+    {
       title: "Category",
       dataIndex: "Category",
       render: (text) => <span>{text}</span>,
     },
-      {
+    {
       title: "Location",
       dataIndex: "Location",
       render: (text) => <span>{text}</span>,
     },
-     {
+    {
       title: "Weight",
       dataIndex: "Weight",
       render: (text) => <span>{text}</span>,
     },
-      {
+    {
       title: "Note",
       dataIndex: "Note",
       render: (text) => <span>{text}</span>,
@@ -1551,7 +1665,7 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-        {
+    {
       title: "Part Number",
       dataIndex: "Part Number",
       width: 130,
@@ -1735,7 +1849,7 @@ export default function DeliveryNote({ user }) {
     const matchesSearch =
       purchaseSearchText === "" ||
       Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(purchaseSearchText.toLowerCase())
+        String(val).toLowerCase().includes(purchaseSearchText.toLowerCase()),
       );
 
     const itemDate = parseToDayjs(item.Date);
@@ -1761,18 +1875,18 @@ export default function DeliveryNote({ user }) {
       acc[purchaseNo].partsUsed.push({
         "Serial Number": item["Serial Number"],
         "Part Number": item["Part Number"],
-        "Name": item["Name"],
+        Name: item["Name"],
         "Item Description": item["Item Description"],
         Quantity: item["Quantity"],
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
-        "Location": item["Location"],
-        "Category": item["Category"],
-        "Weight": item["Weight"],
-        "Note": item["Note"],
+        Location: item["Location"],
+        Category: item["Category"],
+        Weight: item["Weight"],
+        Note: item["Note"],
       });
       return acc;
-    }, {})
+    }, {}),
   );
 
   const purchaseSortedData = [...purchaseGroupedData].sort((a, b) => {
@@ -2559,6 +2673,366 @@ export default function DeliveryNote({ user }) {
   //   }
   // };
 
+  //working code
+  // const handleSubmit = async (values) => {
+  //   if (!navigator.onLine) {
+  //     notification.error({
+  //       message: "No Internet",
+  //       description: "Check connection.",
+  //     });
+  //     return;
+  //   }
+  //   if (dataSource.length === 0) {
+  //     notification.error({
+  //       message: "No Items",
+  //       description: "Please add at least one item.",
+  //     });
+  //     return;
+  //   }
+  //   if (loading) return;
+  //   setLoading(true);
+  //   setIsDeliveryNoteSubmitted(true);
+
+  //   try {
+  //     // const formattedDate =
+  //     //   username === "Admin" ? dayjs(values.date).format("DD-MM-YYYY") : deliveryDate;
+  //     // const formattedDate = form.getFieldValue("date") || deliveryDate;
+  //     const fullDateTime = deliveryDate;
+  //     const formattedDate =
+  //       form.getFieldValue("date") || fullDateTime.split(" ")[0];
+
+  //     const response = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({
+  //         action: "addDeliveryNote",
+  //         // date: formattedDate,
+  //         date: deliveryDate,
+  //         customername: values.customername,
+  //         address: values.address,
+  //         modeOfDelivery: values.modeOfDelivery,
+  //         reference: values.reference,
+  //         items: JSON.stringify(dataSource),
+  //         // userName: user || "-",
+  //         userName: user?.email || "",
+  //       }),
+  //     });
+
+  //     const result = await response.json();
+  //     if (!result.success)
+  //       throw new Error(result.message || "Failed to add delivery note.");
+
+  //     const confirmedDeliveryNumber = result.deliveryNumber;
+
+  //     let doc;
+  //     try {
+  //       doc = generateDeliveryNotePDF(
+  //         {
+  //           ...values,
+  //           date: formattedDate,
+  //           deliveryNumber: confirmedDeliveryNumber,
+  //         },
+  //         dataSource,
+  //         false,
+  //       );
+  //       const cleanPR = String(confirmedDeliveryNumber).replace(/^'/, "");
+
+  //       doc.save(`DeliveryNote_${cleanPR}.pdf`);
+  //     } catch (pdfErr) {
+  //       // console.error("PDF generation failed:", pdfErr);
+  //       throw new Error("Form saved, but PDF generation failed.");
+  //     }
+
+  //     // const pdfOutput = doc.output("arraybuffer");
+  //     // const pdfBase64 = btoa(
+  //     //   new Uint8Array(pdfOutput).reduce((data, byte) => data + String.fromCharCode(byte), "")
+  //     // );
+
+  //     const pdfBase64 = doc.output("datauristring").split(",")[1];
+  //     const pdfSizeKB = ((pdfBase64.length * 3) / 4 / 1024).toFixed(2);
+  //     // console.log("PDF size:", pdfSizeKB, "KB");
+  //     if (pdfSizeKB > 6000) {
+  //       throw new Error(
+  //         "PDF too large for Apps Script upload (limit ~6MB). Try reducing content.",
+  //       );
+  //     }
+
+  //     // 3️⃣ Upload PDF separately
+  //     const uploadRes = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({
+  //         action: "uploadDeliveryNotePDF",
+  //         pdfBase64,
+  //         fileName: `DeliveryNote_${confirmedDeliveryNumber}.pdf`,
+  //       }),
+  //     });
+
+  //     const uploadResult = await uploadRes.json();
+  //     // if (!uploadResult.success)
+  //     //   throw new Error(uploadResult.message || "PDF upload failed.");
+  //     if (!uploadResult.success) {
+  //       notification.error({
+  //         message: "PDF Upload Error",
+  //         description: uploadResult.message, // shows backend message
+  //       });
+
+  //       setLoading(false);
+  //       setIsDeliveryNoteSubmitted(false);
+  //       return; // STOP — do not continue
+  //     }
+
+  //     notification.success({
+  //       message: "Success",
+  //       description: `Delivery Note ${confirmedDeliveryNumber} saved and PDF uploaded.`,
+  //     });
+
+  //     // ✅ Update Purchase Request status to Approved (if reference exists)
+  //     if (values.reference) {
+  //       try {
+  //         const updateStatusRes = await fetch(GAS_URL, {
+  //           method: "POST",
+  //           headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //           body: new URLSearchParams({
+  //             action: "updatePurchaseRequestStatus",
+  //             purchaseRequestNumber: values.reference,
+  //             userName: user?.email || "",
+  //             dateTime: deliveryDate,
+  //             status: "Approved",
+  //           }),
+  //         });
+
+  //         const updateResult = await updateStatusRes.json();
+
+  //         if (updateResult.success) {
+  //           // console.log("Purchase Request marked as Approved.");
+  //         } else {
+  //           // console.warn("Failed to update status:", updateResult.message);
+  //         }
+  //       } catch (err) {
+  //         // console.error("Error updating status:", err);
+  //       }
+  //     }
+
+  //     // 4️⃣ Reset form (same as before)
+  //     // 4️⃣ Reset form fields + table
+  //     setDataSource([]);
+  //     setInputRow({
+  //       partNumber: "",
+  //       itemDescription: "",
+  //       quantity: "",
+  //       unit: "",
+  //       stockInHand: "",
+  //       location: "AE",
+  //       name: "",
+  //       category: "",
+  //       weight: "",
+  //       note: "",
+  //     });
+
+  //     // Reset AntD form fields
+  //     form.resetFields();
+  //     setIsPrefilledFromPurchase(false);
+  //     // setIsDeliveryNoteSubmitted(false);
+
+  //     // Reset delivery date
+  //     // const nowUTC = new Date();
+  //     // const dubaiOffset = 4 * 60; // UTC+4
+  //     // const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
+  //     // const dubaiDayjs = dayjs(dubaiTime);
+  //     // const todayFormatted = dubaiDayjs.format("DD-MM-YYYY");
+  //     // setDeliveryDate(todayFormatted);
+
+  //     const now = dayjs();
+  //     const fullDateAndTime = now.format("DD-MM-YYYY HH:mm:ss");
+  //     const displayDate = now.format("DD-MM-YYYY");
+
+  //     setDeliveryDate(fullDateAndTime);
+
+  //     // Admin vs Non-Admin reset
+  //     form.setFieldsValue({
+  //       // date: username === "Admin" ? dubaiDayjs : todayFormatted,
+  //       date: displayDate,
+  //       customername: undefined,
+  //       address: undefined,
+  //       modeOfDelivery: undefined,
+  //       reference: undefined,
+  //     });
+
+  //     // Fetch new delivery number etc.
+  //     // await fetchInitialData();
+  //     // setTimeout(() => {
+  //     //   fetchInitialData(); // Refresh customers, delivery number, items, etc.
+  //     // }, 500);
+  //     await fetchInitialData();
+  //   } catch (err) {
+  //     // console.error("Submit error:", err);
+  //     notification.error({
+  //       message: "Submission Error",
+  //       description: err.message,
+  //       duration: 5,
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //     setIsDeliveryNoteSubmitted(false);
+  //   }
+  // };
+
+  const handleReturnQtyChange = (index, value) => {
+    const qty = Number(value);
+
+    const updated = [...(selectedRow?.partsUsed || [])];
+
+    if (qty > updated[index]["Quantity"]) {
+      notification.error({
+        message: "Invalid Quantity",
+        description: "Return quantity cannot exceed delivered quantity",
+      });
+      return;
+    }
+
+    updated[index].returnQty = qty;
+
+    setSelectedRow((prev) => ({
+      ...prev,
+      partsUsed: updated,
+    }));
+  };
+
+  // const handleReturnItems = async () => {
+  //   const itemsToReturn = selectedRow.partsUsed.filter(
+  //     (item) => item.returnQty && item.returnQty > 0,
+  //   );
+
+  //   if (itemsToReturn.length === 0) {
+  //     notification.error({
+  //       message: "No Items Selected",
+  //       description: "Please enter return quantity for items",
+  //     });
+  //     return;
+  //   }
+
+  //   try {
+  //     setReturnLoading(true);
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/x-www-form-urlencoded",
+  //       },
+  //       body: new URLSearchParams({
+  //         action: "returnDeliveryItem",
+  //         deliveryNo: selectedRow["Delivery Number"],
+  //         items: JSON.stringify(itemsToReturn),
+  //         user: user?.email || "",
+  //       }),
+  //     });
+
+  //     if (!res.ok) {
+  //       throw new Error("Server error");
+  //     }
+
+  //     const result = await res.json();
+
+  //     if (result.success) {
+  //       notification.success({
+  //         message: "Success",
+  //         description: "Items returned successfully",
+  //       });
+
+  //       setIsModalVisible(false);
+  //       fetchDeliveryNotesData();
+  //     } else {
+  //       notification.error({
+  //         message: "Error",
+  //         description: result.message || "Return failed",
+  //       });
+  //     }
+  //   } catch (err) {
+  //     notification.error({
+  //       message: "Network Error",
+  //       description: err.message || "Failed to return items",
+  //     });
+  //   } finally {
+  //     setReturnLoading(false);
+  //   }
+  // };
+
+  const handleReturnItems = async () => {
+    // const itemsToReturn = selectedRow.partsUsed
+    //   .filter(item => item.returnQty && item.returnQty > 0)
+    //   .map(item => ({
+    //     partNumber: item["Part Number"],
+    //     name: item["Name"],
+    //     serialNumber: item["Serial Number"],
+    //      location: item["Location"],
+    //     returnQty: item.returnQty
+    //   }));
+
+    const itemsToReturn = selectedRow.partsUsed
+      .filter((item) => Number(item.returnQty) > 0)
+      .map((item) => ({
+        partNumber: String(item["Part Number"]).trim(),
+        name: item["Name"],
+        serialNumber: String(item["Serial Number"]).trim(),
+        location: String(item["Location"]).trim(),
+        returnQty: Number(item.returnQty),
+      }));
+    // console.log("Items being returned:", itemsToReturn);
+    if (itemsToReturn.length === 0) {
+      notification.error({
+        message: "No Items Selected",
+        description: "Please enter return quantity for items",
+      });
+      return;
+    }
+
+    try {
+      setReturnLoading(true);
+      const now = dayjs();
+      const fullDateTime = now.format("DD-MM-YYYY HH:mm:ss");
+
+      // console.log("User Local Time:", fullDateTime);
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          action: "returnDeliveryItem",
+          deliveryNo: selectedRow["Delivery Number"],
+          items: JSON.stringify(itemsToReturn),
+          user: user?.email || "",
+          dateTime: fullDateTime,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        notification.success({
+          message: "Success",
+          description: "Items returned successfully",
+        });
+
+        setIsModalVisible(false);
+        fetchDeliveryNotesData();
+      } else {
+        notification.error({
+          message: "Error",
+          description: result.message,
+        });
+      }
+    } catch (err) {
+      notification.error({
+        message: "Network Error",
+        description: "Failed to return items",
+      });
+    } finally {
+      setReturnLoading(false);
+    }
+  };
+
   const handleSubmit = async (values) => {
     if (!navigator.onLine) {
       notification.error({
@@ -2567,6 +3041,7 @@ export default function DeliveryNote({ user }) {
       });
       return;
     }
+
     if (dataSource.length === 0) {
       notification.error({
         message: "No Items",
@@ -2574,41 +3049,36 @@ export default function DeliveryNote({ user }) {
       });
       return;
     }
+
     if (loading) return;
+
     setLoading(true);
     setIsDeliveryNoteSubmitted(true);
 
     try {
-      // const formattedDate =
-      //   username === "Admin" ? dayjs(values.date).format("DD-MM-YYYY") : deliveryDate;
-      // const formattedDate = form.getFieldValue("date") || deliveryDate;
       const fullDateTime = deliveryDate;
       const formattedDate =
         form.getFieldValue("date") || fullDateTime.split(" ")[0];
 
-      const response = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          action: "addDeliveryNote",
-          // date: formattedDate,
-          date: deliveryDate,
-          customername: values.customername,
-          address: values.address,
-          modeOfDelivery: values.modeOfDelivery,
-          reference: values.reference,
-          items: JSON.stringify(dataSource),
-          // userName: user || "-",
-          userName: user?.email || "",
-        }),
+      // ✅ 1️⃣ SAVE DELIVERY NOTE
+      const result = await safeFetch({
+        action: "addDeliveryNote",
+        date: deliveryDate,
+        customername: values.customername,
+        address: values.address,
+        modeOfDelivery: values.modeOfDelivery,
+        reference: values.reference,
+        items: JSON.stringify(dataSource),
+        userName: user?.email || "",
       });
 
-      const result = await response.json();
-      if (!result.success)
+      if (!result.success) {
         throw new Error(result.message || "Failed to add delivery note.");
+      }
 
       const confirmedDeliveryNumber = result.deliveryNumber;
 
+      // ✅ 2️⃣ GENERATE PDF
       let doc;
       try {
         doc = generateDeliveryNotePDF(
@@ -2618,53 +3088,36 @@ export default function DeliveryNote({ user }) {
             deliveryNumber: confirmedDeliveryNumber,
           },
           dataSource,
-          false
+          false,
         );
-        const cleanPR = String(confirmedDeliveryNumber).replace(/^'/, "");
 
-        doc.save(`DeliveryNote_${cleanPR}.pdf`);
+        const cleanDN = String(confirmedDeliveryNumber).replace(/^'/, "");
+        doc.save(`DeliveryNote_${cleanDN}.pdf`);
       } catch (pdfErr) {
-        // console.error("PDF generation failed:", pdfErr);
         throw new Error("Form saved, but PDF generation failed.");
       }
 
-      // const pdfOutput = doc.output("arraybuffer");
-      // const pdfBase64 = btoa(
-      //   new Uint8Array(pdfOutput).reduce((data, byte) => data + String.fromCharCode(byte), "")
-      // );
-
+      // ✅ 3️⃣ CHECK PDF SIZE
       const pdfBase64 = doc.output("datauristring").split(",")[1];
       const pdfSizeKB = ((pdfBase64.length * 3) / 4 / 1024).toFixed(2);
-      // console.log("PDF size:", pdfSizeKB, "KB");
+
       if (pdfSizeKB > 6000) {
-        throw new Error(
-          "PDF too large for Apps Script upload (limit ~6MB). Try reducing content."
-        );
+        throw new Error("PDF too large for Apps Script upload (limit ~6MB).");
       }
 
-      // 3️⃣ Upload PDF separately
-      const uploadRes = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          action: "uploadDeliveryNotePDF",
-          pdfBase64,
-          fileName: `DeliveryNote_${confirmedDeliveryNumber}.pdf`,
-        }),
+      // ✅ 4️⃣ UPLOAD PDF
+      const uploadResult = await safeFetch({
+        action: "uploadDeliveryNotePDF",
+        pdfBase64,
+        fileName: `DeliveryNote_${confirmedDeliveryNumber}.pdf`,
       });
 
-      const uploadResult = await uploadRes.json();
-      // if (!uploadResult.success)
-      //   throw new Error(uploadResult.message || "PDF upload failed.");
       if (!uploadResult.success) {
         notification.error({
           message: "PDF Upload Error",
-          description: uploadResult.message, // shows backend message
+          description: uploadResult.message,
         });
-
-        setLoading(false);
-        setIsDeliveryNoteSubmitted(false);
-        return; // STOP — do not continue
+        return;
       }
 
       notification.success({
@@ -2672,36 +3125,24 @@ export default function DeliveryNote({ user }) {
         description: `Delivery Note ${confirmedDeliveryNumber} saved and PDF uploaded.`,
       });
 
-      // ✅ Update Purchase Request status to Approved (if reference exists)
+      // ✅ 5️⃣ UPDATE PURCHASE REQUEST STATUS
       if (values.reference) {
         try {
-          const updateStatusRes = await fetch(GAS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-              action: "updatePurchaseRequestStatus",
-              purchaseRequestNumber: values.reference,
-              userName: user?.email || "",
-              dateTime: deliveryDate,
-              status: "Approved",
-            }),
+          await safeFetch({
+            action: "updatePurchaseRequestStatus",
+            purchaseRequestNumber: values.reference,
+            userName: user?.email || "",
+            dateTime: deliveryDate,
+            status: "Approved",
           });
-
-          const updateResult = await updateStatusRes.json();
-
-          if (updateResult.success) {
-            // console.log("Purchase Request marked as Approved.");
-          } else {
-            // console.warn("Failed to update status:", updateResult.message);
-          }
         } catch (err) {
-          // console.error("Error updating status:", err);
+          // console.warn("Status update failed:", err.message);
         }
       }
 
-      // 4️⃣ Reset form (same as before)
-      // 4️⃣ Reset form fields + table
+      // ✅ 6️⃣ RESET FORM + STATE
       setDataSource([]);
+
       setInputRow({
         partNumber: "",
         itemDescription: "",
@@ -2715,18 +3156,8 @@ export default function DeliveryNote({ user }) {
         note: "",
       });
 
-      // Reset AntD form fields
       form.resetFields();
       setIsPrefilledFromPurchase(false);
-      // setIsDeliveryNoteSubmitted(false);
-
-      // Reset delivery date
-      // const nowUTC = new Date();
-      // const dubaiOffset = 4 * 60; // UTC+4
-      // const dubaiTime = new Date(nowUTC.getTime() + dubaiOffset * 60000);
-      // const dubaiDayjs = dayjs(dubaiTime);
-      // const todayFormatted = dubaiDayjs.format("DD-MM-YYYY");
-      // setDeliveryDate(todayFormatted);
 
       const now = dayjs();
       const fullDateAndTime = now.format("DD-MM-YYYY HH:mm:ss");
@@ -2734,9 +3165,7 @@ export default function DeliveryNote({ user }) {
 
       setDeliveryDate(fullDateAndTime);
 
-      // Admin vs Non-Admin reset
       form.setFieldsValue({
-        // date: username === "Admin" ? dubaiDayjs : todayFormatted,
         date: displayDate,
         customername: undefined,
         address: undefined,
@@ -2744,25 +3173,84 @@ export default function DeliveryNote({ user }) {
         reference: undefined,
       });
 
-      // Fetch new delivery number etc.
-      // await fetchInitialData();
-      // setTimeout(() => {
-      //   fetchInitialData(); // Refresh customers, delivery number, items, etc.
-      // }, 500);
       await fetchInitialData();
     } catch (err) {
-      // console.error("Submit error:", err);
       notification.error({
         message: "Submission Error",
         description: err.message,
         duration: 5,
-
       });
     } finally {
       setLoading(false);
       setIsDeliveryNoteSubmitted(false);
     }
   };
+
+  const openReturnModal = (record) => {
+    setSelectedReturnRow(record);
+    setReturnQty("");
+    setReturnReason("");
+    setReturnModalVisible(true);
+  };
+
+  // const handleReturnSubmit = async () => {
+  //   if (!returnQty || Number(returnQty) <= 0) {
+  //     notification.error({
+  //       message: "Invalid Quantity",
+  //       description: "Return quantity must be greater than 0",
+  //     });
+  //     return;
+  //   }
+
+  //   if (Number(returnQty) > Number(selectedReturnRow["Quantity"])) {
+  //     notification.error({
+  //       message: "Invalid Quantity",
+  //       description: "Return quantity cannot exceed delivered quantity",
+  //     });
+  //     return;
+  //   }
+
+  //   const formData = new URLSearchParams();
+  //   formData.append("action", "returnDeliveryItem");
+  //   formData.append("deliveryNo", selectedReturnRow["Delivery Number"]);
+  //   formData.append("partNumber", selectedReturnRow["Part Number"]);
+  //   formData.append("name", selectedReturnRow["Name"]);
+  //   formData.append("returnQty", returnQty);
+  //   formData.append("reason", returnReason);
+  //   formData.append("user", user?.email || "");
+
+  //   try {
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: formData,
+  //     });
+
+  //     const result = await res.json();
+
+  //     if (result.success) {
+  //       notification.success({
+  //         message: "Success",
+  //         description: "Item returned successfully",
+  //       });
+
+  //       setReturnModalVisible(false);
+  //       fetchDeliveryNotesData(); // refresh
+  //     } else {
+  //       notification.error({
+  //         message: "Error",
+  //         description: result.message,
+  //       });
+  //     }
+  //   } catch (err) {
+  //     notification.error({
+  //       message: "Network Error",
+  //       description: "Failed to process return",
+  //     });
+  //   }
+  // };
+
+ 
 
   if (access === "No Access") {
     return (
@@ -2847,7 +3335,7 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-      {
+    {
       title: "Name",
       dataIndex: "Name",
       width: 200,
@@ -2857,7 +3345,7 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-  
+
     {
       title: "Item Description",
       dataIndex: "Item Description",
@@ -2868,7 +3356,7 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-      {
+    {
       title: "Part Number",
       dataIndex: "Part Number",
       width: 130,
@@ -2908,7 +3396,7 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-      {
+    {
       title: "Category",
       dataIndex: "Category",
       width: 150,
@@ -2918,8 +3406,8 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-      
-         {
+
+    {
       title: "Location",
       dataIndex: "Location",
       width: 130,
@@ -2939,7 +3427,7 @@ export default function DeliveryNote({ user }) {
         </Tooltip>
       ),
     },
-       {
+    {
       title: "Note",
       dataIndex: "Note",
       width: 300,
@@ -2975,53 +3463,55 @@ export default function DeliveryNote({ user }) {
     },
     {
       title: "Action",
-      width: 110,
+      width: 180,
       fixed: "right",
       align: "center",
       render: (_, record) => (
-        <Button
-          className="addButton"
-          onClick={() => {
-            // Fill form
-            viewForm.setFieldsValue(record);
+        <div>
+          <Button
+            className="addButton"
+            onClick={() => {
+              // Fill form
+              viewForm.setFieldsValue(record);
 
-            // Keep the full partsUsed array from groupedData
-            setSelectedRow(record);
+              // Keep the full partsUsed array from groupedData
+              setSelectedRow(record);
 
-            setIsModalVisible(true);
+              setIsModalVisible(true);
 
-            const preserved = {
-              deliveryNumber: form.getFieldValue("deliveryNumber"),
-              date: form.getFieldValue("date"),
-              location: form.getFieldValue("location"),
-            };
+              const preserved = {
+                deliveryNumber: form.getFieldValue("deliveryNumber"),
+                date: form.getFieldValue("date"),
+                location: form.getFieldValue("location"),
+              };
 
-            form.resetFields();
+              form.resetFields();
 
-            // ✅ Restore required fields
-            form.setFieldsValue(preserved);
+              // ✅ Restore required fields
+              form.setFieldsValue(preserved);
 
-            // ✅ Clear delivery note table and item inputs
-            setDataSource([]);
-            setInputRow({
-              partNumber: "",
-              itemDescription: "",
-              quantity: "",
-              unit: "",
-              stockInHand: "",
-              location: preserved.location || "AE",
-              name: "",
-              category: "",
-              weight: "",
-              note: "",
-            });
+              // ✅ Clear delivery note table and item inputs
+              setDataSource([]);
+              setInputRow({
+                partNumber: "",
+                itemDescription: "",
+                quantity: "",
+                unit: "",
+                stockInHand: "",
+                location: preserved.location || "AE",
+                name: "",
+                category: "",
+                weight: "",
+                note: "",
+              });
 
-            setIsPrefilledFromPurchase(false);
-          }}
-          disabled={isDeliveryNoteSubmitted}
-        >
-          View
-        </Button>
+              setIsPrefilledFromPurchase(false);
+            }}
+            disabled={isDeliveryNoteSubmitted}
+          >
+            View
+          </Button>
+        </div>
       ),
     },
   ];
@@ -3030,7 +3520,7 @@ export default function DeliveryNote({ user }) {
     const matchesSearch =
       searchText === "" ||
       Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(searchText.toLowerCase())
+        String(val).toLowerCase().includes(searchText.toLowerCase()),
       );
 
     const itemDate = parseToDayjs(item.Date);
@@ -3042,30 +3532,119 @@ export default function DeliveryNote({ user }) {
     return matchesSearch && matchesStart && matchesEnd;
   });
 
+  // const groupedData = Object.values(
+  //   filteredData.reduce((acc, item) => {
+  //     const deliveryNo = item["Delivery Number"];
+  //     if (!acc[deliveryNo]) {
+  //       acc[deliveryNo] = {
+  //         ...item,
+  //         partsUsed: [],
+  //       };
+  //     }
+  //     acc[deliveryNo].partsUsed.push({
+  //       "Serial Number": item["Serial Number"],
+  //       Name: item["Name"],
+  //       "Part Number": item["Part Number"],
+  //       "Item Description": item["Item Description"],
+  //       Quantity: item["Quantity"],
+  //       Unit: item["Unit"],
+  //       "Stock In Hand": item["Stock In Hand"],
+  //       Category: item["Category"],
+  //       Weight: item["Weight"],
+  //       Note: item["Note"],
+  //       Location: item["Location"],
+  //     });
+  //     return acc;
+  //   }, {}),
+  // );
+
+  //   const groupedData = Object.values(
+  //   filteredData.reduce((acc, item) => {
+
+  //     // ✅ CHANGE 1 — safer grouping key
+  //     const key =
+  //       item["Delivery Number"] +
+  //       "_" +
+  //       item["Part Number"] +
+  //       "_" +
+  //       item["Location"];
+
+  //     if (!acc[key]) {
+  //       acc[key] = {
+  //         ...item,
+  //         partsUsed: [],
+  //         totalReturned: item.returnedQty || 0,
+  //       };
+  //     }
+
+  //     // ✅ CHANGE 2 — use key instead of deliveryNo
+  //     acc[key].partsUsed.push({
+  //       "Serial Number": item["Serial Number"],
+  //       Name: item["Name"],
+  //       "Part Number": item["Part Number"],
+  //       "Item Description": item["Item Description"],
+  //       Quantity: item["Quantity"],
+  //       Unit: item["Unit"],
+  //       "Stock In Hand": item["Stock In Hand"],
+  //       Category: item["Category"],
+  //       Weight: item["Weight"],
+  //       Note: item["Note"],
+  //       Location: item["Location"],
+  //       returnedQty: 0,
+  //     });
+
+  //     return acc;
+
+  //   }, {})
+  // ).map((delivery) => {
+
+  //   // ✅ CHANGE 3 — prevent NaN issues
+  //   let remainingReturned = Number(delivery.totalReturned) || 0;
+
+  //   delivery.partsUsed.forEach((row) => {
+
+  //     const delivered = Number(row.Quantity) || 0;
+
+  //     const returned = Math.min(delivered, remainingReturned);
+
+  //     row.returnedQty = returned;
+
+  //     remainingReturned -= returned;
+
+  //   });
+
+  //   return delivery;
+
+  // });
+
   const groupedData = Object.values(
     filteredData.reduce((acc, item) => {
-      const deliveryNo = item["Delivery Number"];
-      if (!acc[deliveryNo]) {
-        acc[deliveryNo] = {
+      const key = item["Delivery Number"]; // ✅ GROUP BY DELIVERY ONLY
+
+      if (!acc[key]) {
+        acc[key] = {
           ...item,
           partsUsed: [],
         };
       }
-      acc[deliveryNo].partsUsed.push({
+
+      acc[key].partsUsed.push({
         "Serial Number": item["Serial Number"],
-        "Name": item["Name"],    
+        Name: item["Name"],
         "Part Number": item["Part Number"],
         "Item Description": item["Item Description"],
         Quantity: item["Quantity"],
         Unit: item["Unit"],
         "Stock In Hand": item["Stock In Hand"],
-         "Category": item["Category"],  
-                "Weight": item["Weight"],         
-      "Note": item["Note"],             
-      "Location": item["Location"],     
+        Category: item["Category"],
+        Weight: item["Weight"],
+        Note: item["Note"],
+        Location: item["Location"],
+        returnedQty: Number(item.returnedQty) || 0,
       });
+
       return acc;
-    }, {})
+    }, {}),
   );
 
   // Sort groupedData by "Delivery Number" descending
@@ -3075,39 +3654,36 @@ export default function DeliveryNote({ user }) {
   //   return numB - numA; // descending
   // });
 
-const extractSortKey = (dn) => {
-  if (!dn) return 0;
+  const extractSortKey = (dn) => {
+    if (!dn) return 0;
 
-  const str = String(dn);
+    const str = String(dn);
 
-  // DO/HME/2026/80026/40
-  const dohMatch = str.match(/DO\/HME\/(\d{4})\/(\d+)\/(\d+)/);
-  if (dohMatch) {
-    const [, year, series, running] = dohMatch;
+    // DO/HME/2026/80026/40
+    const dohMatch = str.match(/DO\/HME\/(\d{4})\/(\d+)\/(\d+)/);
+    if (dohMatch) {
+      const [, year, series, running] = dohMatch;
 
-    // Build a sortable number: YYYY + series + running
-    return Number(
-      `${year}${series.padStart(5, "0")}${running.padStart(3, "0")}`
+      // Build a sortable number: YYYY + series + running
+      return Number(
+        `${year}${series.padStart(5, "0")}${running.padStart(3, "0")}`,
+      );
+    }
+
+    const hdMatch = str.match(/HD(\d+)/);
+    if (hdMatch) {
+      return Number(`0${hdMatch[1].padStart(8, "0")}`);
+    }
+
+    return 0;
+  };
+
+  const sortedData = [...groupedData].sort((a, b) => {
+    return (
+      extractSortKey(b["Delivery Number"]) -
+      extractSortKey(a["Delivery Number"])
     );
-  }
-
-  const hdMatch = str.match(/HD(\d+)/);
-  if (hdMatch) {
-    return Number(`0${hdMatch[1].padStart(8, "0")}`);
-  }
-
-  return 0;
-};
-
-
-const sortedData = [...groupedData].sort((a, b) => {
-  return (
-    extractSortKey(b["Delivery Number"]) -
-    extractSortKey(a["Delivery Number"])
-  );
-});
-
-
+  });
 
   const handleExport = () => {
     if (!groupedData || groupedData.length === 0) {
@@ -3139,14 +3715,16 @@ const sortedData = [...groupedData].sort((a, b) => {
       { v: "Serial Number", t: "s", s: headerStyle },
       { v: "Name", s: headerStyle },
       { v: "Item Description", t: "s", s: headerStyle },
-        { v: "Part Number", t: "s", s: headerStyle },
+      { v: "Part Number", t: "s", s: headerStyle },
       { v: "Quantity", t: "s", s: headerStyle },
       { v: "Unit", t: "s", s: headerStyle },
       { v: "Stock In Hand", t: "s", s: headerStyle },
       { v: "Category", s: headerStyle },
       { v: "Location", t: "s", s: headerStyle },
-    { v: "Weight", s: headerStyle },
-  { v: "Note", s: headerStyle },
+      { v: "Returned Qty", t: "s", s: headerStyle },
+      { v: "Remaining Qty", t: "s", s: headerStyle },
+      { v: "Weight", s: headerStyle },
+      { v: "Note", s: headerStyle },
       { v: "Modified User", t: "s", s: headerStyle },
       { v: "Modified Date & Time", t: "s", s: headerStyle },
     ];
@@ -3154,6 +3732,10 @@ const sortedData = [...groupedData].sort((a, b) => {
     const data = [];
     groupedData.forEach((item) => {
       (item.partsUsed || []).forEach((part) => {
+        const delivered = Number(part["Quantity"]) || 0;
+        const returned = Number(part.returnedQty) || 0;
+        const remaining = delivered - returned;
+
         data.push([
           { v: item["Delivery Number"], s: { border: getAllBorders() } },
           { v: item["Date"], s: { border: getAllBorders() } },
@@ -3164,14 +3746,16 @@ const sortedData = [...groupedData].sort((a, b) => {
           { v: part["Serial Number"], s: { border: getAllBorders() } },
           { v: part["Name"], s: { border: getAllBorders() } },
           { v: part["Item Description"], s: { border: getAllBorders() } },
-             { v: part["Part Number"], s: { border: getAllBorders() } },
+          { v: part["Part Number"], s: { border: getAllBorders() } },
           { v: part["Quantity"], s: { border: getAllBorders() } },
           { v: part["Unit"], s: { border: getAllBorders() } },
           { v: part["Stock In Hand"], s: { border: getAllBorders() } },
-         { v: part["Category"], s: { border: getAllBorders() } },
-         { v: part["Location"], s: { border: getAllBorders() } },
-        { v: part["Weight"], s: { border: getAllBorders() } },
-        { v: part["Note"], s: { border: getAllBorders() }},
+          { v: part["Category"], s: { border: getAllBorders() } },
+          { v: part["Location"], s: { border: getAllBorders() } },
+          { v: returned, s: { border: getAllBorders() } },
+          { v: remaining < 0 ? 0 : remaining, s: { border: getAllBorders() } },
+          { v: part["Weight"], s: { border: getAllBorders() } },
+          { v: part["Note"], s: { border: getAllBorders() } },
           { v: item["Modified User"], s: { border: getAllBorders() } },
           { v: item["Modified Date & Time"], s: { border: getAllBorders() } },
         ]);
@@ -3249,10 +3833,10 @@ const sortedData = [...groupedData].sort((a, b) => {
     const sortedAsc = [...purchaseSortedData].sort((a, b) => {
       // Sort by Purchase Request Number if it has prefix PR000X
       const numA = parseInt(
-        a["Purchase Request Number"]?.replace(/\D/g, "") || 0
+        a["Purchase Request Number"]?.replace(/\D/g, "") || 0,
       );
       const numB = parseInt(
-        b["Purchase Request Number"]?.replace(/\D/g, "") || 0
+        b["Purchase Request Number"]?.replace(/\D/g, "") || 0,
       );
       return numA - numB;
     });
@@ -3320,32 +3904,68 @@ const sortedData = [...groupedData].sort((a, b) => {
     right: { style: "thin", color: { rgb: "000000" } },
   });
 
+  // const fetchDeliveryNotesData = async () => {
+  //   try {
+  //     setLoadingFetchedData(true);
+
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({ action: "getDeliveryNotes" }),
+  //     });
+
+  //     const result = await res.json();
+  //     if (result.success) {
+  //       const cleaned = result.data.map((row) => {
+  //         const newRow = {};
+  //         Object.keys(row).forEach((key) => {
+  //           newRow[key.trim()] = row[key];
+  //         });
+  //         return newRow;
+  //       });
+  //       setFetchedData(cleaned);
+  //     }
+  //   } catch (err) {
+  //     // console.error("Error fetching delivery notes:", err);
+  //     notification.error({
+  //       message: "Error",
+  //       description: "Failed to fetch delivery notes",
+  //       placement: "bottomRight",
+  //     });
+  //   } finally {
+  //     setLoadingFetchedData(false);
+  //   }
+  // };
+
   const fetchDeliveryNotesData = async () => {
     try {
       setLoadingFetchedData(true);
 
-      const res = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ action: "getDeliveryNotes" }),
+      const result = await safeFetch({
+        action: "getDeliveryNotes",
       });
 
-      const result = await res.json();
-      if (result.success) {
-        const cleaned = result.data.map((row) => {
-          const newRow = {};
-          Object.keys(row).forEach((key) => {
-            newRow[key.trim()] = row[key];
-          });
-          return newRow;
-        });
-        setFetchedData(cleaned);
+      // console.log("FULL API RESULT:", result);
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to fetch delivery notes");
       }
+
+      const cleaned = result.data.map((row) => {
+        const newRow = {};
+        Object.keys(row).forEach((key) => {
+          newRow[key.trim()] = row[key];
+        });
+
+        // console.log("ROW AFTER CLEAN:", newRow);
+        return newRow;
+      });
+
+      setFetchedData(cleaned);
     } catch (err) {
-      // console.error("Error fetching delivery notes:", err);
       notification.error({
         message: "Error",
-        description: "Failed to fetch delivery notes",
+        description: err.message || "Failed to fetch delivery notes",
         placement: "bottomRight",
       });
     } finally {
@@ -4323,7 +4943,7 @@ const sortedData = [...groupedData].sort((a, b) => {
   const generateDeliveryNotePDF = (
     formValues,
     items = [],
-    saveLocally = true
+    saveLocally = true,
   ) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -4436,7 +5056,7 @@ const sortedData = [...groupedData].sort((a, b) => {
         `Page ${pageNum} of ${totalPages}`,
         pageWidth / 2,
         pageHeight - 5,
-        { align: "center" }
+        { align: "center" },
       );
     };
 
@@ -4446,9 +5066,13 @@ const sortedData = [...groupedData].sort((a, b) => {
       body: items.map((item, idx) => [
         idx + 1,
         // `${item.itemDescription || ""}\n${item.partNumber || ""}`,
-                item.location || "",
+        item.location || "",
 
-        [item.name || "", item.itemDescription || "", item.partNumber || ""].join("\n"),
+        [
+          item.name || "",
+          item.itemDescription || "",
+          item.partNumber || "",
+        ].join("\n"),
         item.quantity || "",
       ]),
       margin: { top: HEADER_HEIGHT, bottom: BOTTOM_MARGIN },
@@ -4477,11 +5101,11 @@ const sortedData = [...groupedData].sort((a, b) => {
       alternateRowStyles: { fillColor: [255, 255, 255] },
       columnStyles: {
         0: { halign: "center", cellWidth: 15 },
-           1: { halign: "center", cellWidth: 15 },
+        1: { halign: "center", cellWidth: 15 },
         2: { halign: "left" },
         // 1: { halign: "left", cellWidth: 145 },
 
-            3: { halign: "center", cellWidth: 22 },
+        3: { halign: "center", cellWidth: 22 },
         4: { halign: "center", cellWidth: 20 },
       },
       pageBreak: "auto",
@@ -4772,179 +5396,272 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
   //   });
   // };
 
-//   const handleUsePurchaseRequest = async () => {
-//   if (!purchaseSelectedRow) return;
+  //   const handleUsePurchaseRequest = async () => {
+  //   if (!purchaseSelectedRow) return;
 
-//   setIsPurchaseModalVisible(false);
-//   notification.info({
-//     message: "Fetching Live Stock",
-//     description: "Please wait while we update stock information...",
-//     duration: 2,
-//   });
+  //   setIsPurchaseModalVisible(false);
+  //   notification.info({
+  //     message: "Fetching Live Stock",
+  //     description: "Please wait while we update stock information...",
+  //     duration: 2,
+  //   });
 
-//   // Fill the delivery form (header fields)
-//   form.setFieldsValue({
-//     customername: purchaseSelectedRow["Customer Name"] || "",
-//     address: purchaseSelectedRow["Address"] || "",
-//     reference: purchaseSelectedRow["Purchase Request Number"] || "",
-//   });
+  //   // Fill the delivery form (header fields)
+  //   form.setFieldsValue({
+  //     customername: purchaseSelectedRow["Customer Name"] || "",
+  //     address: purchaseSelectedRow["Address"] || "",
+  //     reference: purchaseSelectedRow["Purchase Request Number"] || "",
+  //   });
 
-//   // ❌ REMOVE THIS — header location is NOT reliable
-//   // setInputRow((prev) => ({
-//   //   ...prev,
-//   //   location: purchaseSelectedRow?.Location || "MEA",
-//   // }));
+  //   // ❌ REMOVE THIS — header location is NOT reliable
+  //   // setInputRow((prev) => ({
+  //   //   ...prev,
+  //   //   location: purchaseSelectedRow?.Location || "MEA",
+  //   // }));
 
-//   const parts = purchaseSelectedRow.partsUsed || [];
+  //   const parts = purchaseSelectedRow.partsUsed || [];
 
-//   // --- Fetch live stock ---
-//   let liveStock = {};
-//   try {
-//     const res = await fetch(GAS_URL, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-//       body: new URLSearchParams({ action: "getAllStockData" }),
-//     });
-//     const json = await res.json();
-//     if (json.success && json.data) {
-//       liveStock = json.data;
-//     }
-//   } catch (err) {}
+  //   // --- Fetch live stock ---
+  //   let liveStock = {};
+  //   try {
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({ action: "getAllStockData" }),
+  //     });
+  //     const json = await res.json();
+  //     if (json.success && json.data) {
+  //       liveStock = json.data;
+  //     }
+  //   } catch (err) {}
 
-//   // --- Map items correctly ---
-//   const items = parts.map((part, idx) => {
-//     const partNo = part["Part Number"];
-//     const itemLocation = part["Location"] || "MEA"; // ✅ PER ITEM
+  //   // --- Map items correctly ---
+  //   const items = parts.map((part, idx) => {
+  //     const partNo = part["Part Number"];
+  //     const itemLocation = part["Location"] || "MEA"; // ✅ PER ITEM
 
-//     const stockInfo = liveStock[partNo]?.[itemLocation] || {
-//       stockInHand: 0,
-//       unit: "",
-//     };
+  //     const stockInfo = liveStock[partNo]?.[itemLocation] || {
+  //       stockInHand: 0,
+  //       unit: "",
+  //     };
 
-//     return {
-//       key: Date.now() + idx,
-//       serialNumber: idx + 1,
-//       partNumber: partNo,
-//       name: part["Name"] || "",
-//       itemDescription: part["Item Description"] || "",
-//       quantity: part["Quantity"] || "",
-//       unit: stockInfo.unit || "",
-//       stockUnit: stockInfo.unit || "",
-//       stockInHand: stockInfo.stockInHand?.toString() || "0",
-//       category: part["Category"] || "",
-//       weight: part["Weight"] || "",
-//       note: part["Note"] || "",
+  //     return {
+  //       key: Date.now() + idx,
+  //       serialNumber: idx + 1,
+  //       partNumber: partNo,
+  //       name: part["Name"] || "",
+  //       itemDescription: part["Item Description"] || "",
+  //       quantity: part["Quantity"] || "",
+  //       unit: stockInfo.unit || "",
+  //       stockUnit: stockInfo.unit || "",
+  //       stockInHand: stockInfo.stockInHand?.toString() || "0",
+  //       category: part["Category"] || "",
+  //       weight: part["Weight"] || "",
+  //       note: part["Note"] || "",
 
-//       // ✅ THIS IS THE FIX
-//       location: itemLocation,
-//     };
-//   });
+  //       // ✅ THIS IS THE FIX
+  //       location: itemLocation,
+  //     };
+  //   });
 
-//   setDataSource(items);
-//   setStockMap(liveStock);
-//   setIsPrefilledFromPurchase(true);
+  //   setDataSource(items);
+  //   setStockMap(liveStock);
+  //   setIsPrefilledFromPurchase(true);
 
-//   notification.success({
-//     message: "Purchase Request Loaded",
-//     description: "Live stock updated successfully.",
-//   });
-// };
+  //   notification.success({
+  //     message: "Purchase Request Loaded",
+  //     description: "Live stock updated successfully.",
+  //   });
+  // };
 
+  // const handleUsePurchaseRequest = async () => {
+  //   if (!purchaseSelectedRow) return;
 
-    const handleUsePurchaseRequest = async () => {
+  //   setIsPurchaseModalVisible(false);
+  //   notification.info({
+  //     message: "Fetching Live Stock",
+  //     description: "Please wait while we update stock information...",
+  //     duration: 2,
+  //   });
+
+  //   // Fill the delivery form (header fields)
+  //   form.setFieldsValue({
+  //     customername: purchaseSelectedRow["Customer Name"] || "",
+  //     address: purchaseSelectedRow["Address"] || "",
+  //     reference: purchaseSelectedRow["Purchase Request Number"] || "",
+  //   });
+
+  //   // ❌ REMOVE THIS — header location is NOT reliable
+  //   // setInputRow((prev) => ({
+  //   //   ...prev,
+  //   //   location: purchaseSelectedRow?.Location || "MEA",
+  //   // }));
+
+  //   const parts = purchaseSelectedRow.partsUsed || [];
+
+  //   // --- Fetch live stock ---
+  //   let liveStock = {};
+  //   try {
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({ action: "getAllStockData" }),
+  //     });
+  //     const json = await res.json();
+  //     if (json.success && json.data) {
+  //       liveStock = json.data;
+  //     }
+  //   } catch (err) {}
+
+  //   // --- Map items correctly ---
+  //   const items = await Promise.all(
+  //     parts.map(async (part, idx) => {
+  //       const partNo = part["Part Number"];
+  //       const itemLocation = part["Location"] || "MEA";
+
+  //       // 1️⃣ Try cached stock FIRST
+  //       let stockInfo = liveStock[partNo]?.[itemLocation];
+  //       let unit = stockInfo?.unit || "";
+  //       let stockInHand =
+  //         stockInfo?.stockInHand !== undefined
+  //           ? String(stockInfo.stockInHand)
+  //           : null;
+
+  //       // 2️⃣ If cached stock is missing or zero → VERIFY with live API
+  //       if (stockInHand === null || stockInHand === "0") {
+  //         try {
+  //           const res = await fetch(GAS_URL, {
+  //             method: "POST",
+  //             headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //             body: new URLSearchParams({
+  //               action: "getStockForPartNumber",
+  //               partNumber: partNo,
+  //               location: itemLocation,
+  //             }),
+  //           });
+
+  //           const result = await res.json();
+  //           if (result.success) {
+  //             stockInHand = String(result.stockInHand ?? 0);
+  //             unit = result.unit ?? unit;
+  //           }
+  //         } catch {
+  //           stockInHand = stockInHand ?? "0";
+  //         }
+  //       }
+
+  //       return {
+  //         key: Date.now() + idx,
+  //         serialNumber: idx + 1,
+  //         partNumber: partNo,
+  //         name: part["Name"] || "",
+  //         itemDescription: part["Item Description"] || "",
+  //         quantity: part["Quantity"] || "",
+  //         unit,
+  //         stockUnit: unit,
+  //         stockInHand,
+  //         category: part["Category"] || "",
+  //         weight: part["Weight"] || "",
+  //         note: part["Note"] || "",
+  //         location: itemLocation,
+  //       };
+  //     }),
+  //   );
+
+  //   setDataSource(items);
+  //   setStockMap(liveStock);
+  //   setIsPrefilledFromPurchase(true);
+
+  //   notification.success({
+  //     message: "Purchase Request Loaded",
+  //     description: "Live stock updated successfully.",
+  //   });
+  // };
+
+  const handleUsePurchaseRequest = async () => {
     if (!purchaseSelectedRow) return;
 
     setIsPurchaseModalVisible(false);
+
     notification.info({
       message: "Fetching Live Stock",
       description: "Please wait while we update stock information...",
       duration: 2,
     });
 
-    // Fill the delivery form (header fields)
     form.setFieldsValue({
       customername: purchaseSelectedRow["Customer Name"] || "",
       address: purchaseSelectedRow["Address"] || "",
       reference: purchaseSelectedRow["Purchase Request Number"] || "",
     });
 
-    // ❌ REMOVE THIS — header location is NOT reliable
-    // setInputRow((prev) => ({
-    //   ...prev,
-    //   location: purchaseSelectedRow?.Location || "MEA",
-    // }));
-
     const parts = purchaseSelectedRow.partsUsed || [];
 
-    // --- Fetch live stock ---
     let liveStock = {};
+
+    // ✅ SAFE FETCH STOCK
     try {
-      const res = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ action: "getAllStockData" }),
+      const json = await safeFetch({
+        action: "getAllStockData",
       });
-      const json = await res.json();
+
       if (json.success && json.data) {
         liveStock = json.data;
       }
-    } catch (err) {}
+    } catch (err) {
+      notification.error({
+        message: "Stock Error",
+        description: err.message,
+      });
+    }
 
-    // --- Map items correctly ---
-  const items = await Promise.all(
-    parts.map(async (part, idx) => {
-      const partNo = part["Part Number"];
-      const itemLocation = part["Location"] || "MEA";
+    const items = await Promise.all(
+      parts.map(async (part, idx) => {
+        const partNo = part["Part Number"];
+        const itemLocation = part["Location"] || "MEA";
 
-      // 1️⃣ Try cached stock FIRST
-      let stockInfo = liveStock[partNo]?.[itemLocation];
-      let unit = stockInfo?.unit || "";
-      let stockInHand =
-        stockInfo?.stockInHand !== undefined
-          ? String(stockInfo.stockInHand)
-          : null;
+        let stockInfo = liveStock[partNo]?.[itemLocation];
+        let unit = stockInfo?.unit || "";
+        let stockInHand =
+          stockInfo?.stockInHand !== undefined
+            ? String(stockInfo.stockInHand)
+            : null;
 
-      // 2️⃣ If cached stock is missing or zero → VERIFY with live API
-      if (stockInHand === null || stockInHand === "0") {
-        try {
-          const res = await fetch(GAS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
+        // ✅ SAFE VERIFY WITH LIVE API
+        if (stockInHand === null || stockInHand === "0") {
+          try {
+            const result = await safeFetch({
               action: "getStockForPartNumber",
               partNumber: partNo,
               location: itemLocation,
-            }),
-          });
+            });
 
-          const result = await res.json();
-          if (result.success) {
-            stockInHand = String(result.stockInHand ?? 0);
-            unit = result.unit ?? unit;
+            if (result.success) {
+              stockInHand = String(result.stockInHand ?? 0);
+              unit = result.unit ?? unit;
+            }
+          } catch {
+            stockInHand = stockInHand ?? "0";
           }
-        } catch {
-          stockInHand = stockInHand ?? "0";
         }
-      }
 
-      return {
-        key: Date.now() + idx,
-        serialNumber: idx + 1,
-        partNumber: partNo,
-        name: part["Name"] || "",
-        itemDescription: part["Item Description"] || "",
-        quantity: part["Quantity"] || "",
-        unit,
-        stockUnit: unit,
-        stockInHand,
-        category: part["Category"] || "",
-        weight: part["Weight"] || "",
-        note: part["Note"] || "",
-        location: itemLocation,
-      };
-    })
-  );
-
+        return {
+          key: Date.now() + idx,
+          serialNumber: idx + 1,
+          partNumber: partNo,
+          name: part["Name"] || "",
+          itemDescription: part["Item Description"] || "",
+          quantity: part["Quantity"] || "",
+          unit,
+          stockUnit: unit,
+          stockInHand,
+          category: part["Category"] || "",
+          weight: part["Weight"] || "",
+          note: part["Note"] || "",
+          location: itemLocation,
+        };
+      }),
+    );
 
     setDataSource(items);
     setStockMap(liveStock);
@@ -4956,6 +5673,53 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
     });
   };
 
+  // const handleRejectPurchaseRequest = async (purchaseRequestNumber) => {
+  //   if (!purchaseRequestNumber) {
+  //     notification.error({
+  //       message: "Error",
+  //       description: "Purchase Request Number not found.",
+  //     });
+  //     return;
+  //   }
+
+  //   try {
+  //     const res = await fetch(GAS_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({
+  //         action: "updatePurchaseRequestStatus",
+  //         purchaseRequestNumber,
+  //         userName: user?.email || "",
+  //         dateTime: deliveryDate,
+  //         status: "Denied",
+  //         rejectionReason: rejectionNote || "-",
+  //       }),
+  //     });
+
+  //     const result = await res.json();
+
+  //     if (result.success) {
+  //       notification.success({
+  //         message: "Rejected",
+  //         description: `Purchase Request ${purchaseRequestNumber} marked as Denied.`,
+  //       });
+  //       await fetchPurchaseRequestData(); // refresh table
+  //       setIsPurchaseModalVisible(false);
+  //     } else {
+  //       notification.error({
+  //         message: "Error",
+  //         description: result.message || "Failed to update request.",
+  //       });
+  //     }
+  //   } catch (err) {
+  //     // console.error("Reject error:", err);
+  //     notification.error({
+  //       message: "Network Error",
+  //       description: "Failed to reject the request. Please try again.",
+  //     });
+  //   }
+  // };
+
   const handleRejectPurchaseRequest = async (purchaseRequestNumber) => {
     if (!purchaseRequestNumber) {
       notification.error({
@@ -4966,39 +5730,30 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
     }
 
     try {
-      const res = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          action: "updatePurchaseRequestStatus",
-          purchaseRequestNumber,
-          userName: user?.email || "",
-          dateTime: deliveryDate,
-          status: "Denied",
-          rejectionReason: rejectionNote || "-",
-        }),
+      const result = await safeFetch({
+        action: "updatePurchaseRequestStatus",
+        purchaseRequestNumber,
+        userName: user?.email || "",
+        dateTime: deliveryDate,
+        status: "Denied",
+        rejectionReason: rejectionNote || "-",
       });
 
-      const result = await res.json();
-
-      if (result.success) {
-        notification.success({
-          message: "Rejected",
-          description: `Purchase Request ${purchaseRequestNumber} marked as Denied.`,
-        });
-        await fetchPurchaseRequestData(); // refresh table
-        setIsPurchaseModalVisible(false);
-      } else {
-        notification.error({
-          message: "Error",
-          description: result.message || "Failed to update request.",
-        });
+      if (!result.success) {
+        throw new Error(result.message || "Failed to update request.");
       }
+
+      notification.success({
+        message: "Rejected",
+        description: `Purchase Request ${purchaseRequestNumber} marked as Denied.`,
+      });
+
+      await fetchPurchaseRequestData();
+      setIsPurchaseModalVisible(false);
     } catch (err) {
-      // console.error("Reject error:", err);
       notification.error({
         message: "Network Error",
-        description: "Failed to reject the request. Please try again.",
+        description: err.message,
       });
     }
   };
@@ -5062,7 +5817,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
         value === undefined ||
         value === null ||
         value === "" ||
-        (Array.isArray(value) && value.length === 0)
+        (Array.isArray(value) && value.length === 0),
     );
 
     if (isEmpty) {
@@ -5320,7 +6075,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               const customer = customerList.find(
                                 (c) =>
                                   c.customername?.trim().toLowerCase() ===
-                                  value.trim().toLowerCase()
+                                  value.trim().toLowerCase(),
                               );
                               if (customer) {
                                 form.setFieldsValue({
@@ -5624,7 +6379,12 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
 
                   <div className="border border-1"></div>
 
-                  <Form form={viewForm} layout="vertical" className="mt-3">
+                  <Form
+                    form={viewForm}
+                    layout="vertical"
+                    className="mt-3"
+                    disabled={returnLoading}
+                  >
                     <div className="container-fluid">
                       {/* Delivery Number & Date */}
                       <div className="row">
@@ -5706,7 +6466,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               (part, idx) => ({
                                 key: idx,
                                 ...part,
-                              })
+                              }),
                             )}
                             rowKey="key"
                             pagination={false}
@@ -5716,7 +6476,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                           />
                         </div>
                       </div>
-                      <div className="mt-5 mb-5 col-7 m-auto">
+                      <div className="mt-5 mb-5 col-12 d-flex m-auto">
                         <Button
                           className="closeModalButton"
                           size="large"
@@ -5732,12 +6492,23 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                           className="submitButton ms-3"
                           size="large"
                           loading={downloading}
-                          disabled={downloading}
+                          disabled={downloading || returnLoading}
                           onClick={() =>
                             handleDownloadPDF(selectedRow["Delivery Number"])
                           }
                         >
                           {downloading ? "Downloading PDF" : "Download PDF"}
+                        </Button>
+
+                        <Button
+                          danger
+                          size="large"
+                          className="submitButton ms-3"
+                          loading={returnLoading}
+                          disabled={returnLoading}
+                          onClick={handleReturnItems}
+                        >
+                          {returnLoading ? "Returning Items" : "Return Items"}
                         </Button>
                       </div>
                     </div>
@@ -5943,15 +6714,15 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                         purchaseSelectedRow?.Status === "Approved"
                           ? 3
                           : purchaseSelectedRow?.Status === "Denied"
-                          ? 3
-                          : 1
+                            ? 3
+                            : 1
                       }
                       status={
                         purchaseSelectedRow?.Status === "Denied"
                           ? "error"
                           : purchaseSelectedRow?.Status === "Approved"
-                          ? "finish"
-                          : "process"
+                            ? "finish"
+                            : "process"
                       }
                       items={[
                         {
@@ -6012,8 +6783,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               {purchaseSelectedRow?.Status === "Approved"
                                 ? "Processed"
                                 : purchaseSelectedRow?.Status === "Denied"
-                                ? "Processed"
-                                : "Request submitted for approval"}
+                                  ? "Processed"
+                                  : "Request submitted for approval"}
                             </div>
                           ),
 
@@ -6098,8 +6869,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                 {purchaseSelectedRow?.Status === "Approved"
                                   ? "Purchase request approved by "
                                   : purchaseSelectedRow?.Status === "Denied"
-                                  ? "Purchase request denied by "
-                                  : "Waiting for approval"}
+                                    ? "Purchase request denied by "
+                                    : "Waiting for approval"}
                               </div>
                               <div style={{ color: "#555" }}>
                                 <span style={{ color: "#0D3884" }}>
@@ -6322,7 +7093,9 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                             cancelText="No"
                             onConfirm={() =>
                               handleRejectPurchaseRequest(
-                                purchaseSelectedRow?.["Purchase Request Number"]
+                                purchaseSelectedRow?.[
+                                  "Purchase Request Number"
+                                ],
                               )
                             }
                           >
@@ -6331,8 +7104,8 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                 purchaseSelectedRow?.Status === "Denied"
                                   ? "Already denied — cannot reject again"
                                   : purchaseSelectedRow?.Status === "Approved"
-                                  ? "Already approved — cannot reject request"
-                                  : ""
+                                    ? "Already approved — cannot reject request"
+                                    : ""
                               }
                             >
                               <Button
@@ -6544,6 +7317,43 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                               scroll={{ x: "max-content" }}
                               bordered
                             />
+
+                            {/* <Modal
+                              title="Return Item"
+                              open={returnModalVisible}
+                              onCancel={() => setReturnModalVisible(false)}
+                              onOk={handleReturnSubmit}
+                              okText="Confirm Return"
+                            >
+                              <p>
+                                <b>Delivery No:</b>{" "}
+                                {selectedReturnRow?.["Delivery Number"]}
+                              </p>
+                              <p>
+                                <b>Part Number:</b>{" "}
+                                {selectedReturnRow?.["Part Number"]}
+                              </p>
+                              <p>
+                                <b>Delivered Qty:</b>{" "}
+                                {selectedReturnRow?.["Quantity"]}
+                              </p>
+
+                              <Input
+                                type="number"
+                                placeholder="Enter Return Quantity"
+                                value={returnQty}
+                                onChange={(e) => setReturnQty(e.target.value)}
+                                style={{ marginBottom: 10 }}
+                              />
+
+                              <Input.TextArea
+                                placeholder="Reason (optional)"
+                                value={returnReason}
+                                onChange={(e) =>
+                                  setReturnReason(e.target.value)
+                                }
+                              />
+                            </Modal> */}
                           </div>
                         </>
                       ),
@@ -6683,7 +7493,7 @@ cubic-bezier(0.645, 0.045, 0.355, 1);
                                 (item, index) => ({
                                   key: index,
                                   ...item,
-                                })
+                                }),
                               )}
                               loading={PurchaseLoadingFetchedData}
                               pagination={{ pageSize: 10 }}

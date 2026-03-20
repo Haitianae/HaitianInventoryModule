@@ -46,7 +46,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxcx1vxuSbxX7-RoqDb_kPxsFRrSSXNUUUeVM5lYQJ8W6OGqNcA0IDB3TtD6oMBR-1j/exec",
+        "https://script.google.com/macros/s/AKfycbwcjnafxG1sHNp2WmX6rfXbQONJTBRTrBI8Ozx3L7PCiO6xy3I-fU1V4Br9pPKe9TqV/exec",
         {
           method: "POST",
           body: new URLSearchParams({
@@ -54,10 +54,18 @@ export default function Login({ onLoginSuccess }) {
             userEmail: values.userEmail,
             password: values.password,
           }),
-        }
+        },
       );
 
-      const data = await response.json();
+      // const data = await response.json();
+      const text = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        throw new Error("Server error. Try again.");
+      }
       if (data.success) {
         notification.success({
           message: "Success",
@@ -68,7 +76,7 @@ export default function Login({ onLoginSuccess }) {
         // onLoginSuccess(values.username);
         onLoginSuccess({
           email: values.userEmail,
-            location: data.location, 
+          location: data.location,
           access: data.access,
         });
       } else {
